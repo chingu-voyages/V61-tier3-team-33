@@ -36,6 +36,4 @@ coding!
 
 - Yangchen Dema(Scrum Master): [GitHub](https://github.com/dema66) / [LinkedIn](https://www.linkedin.com/in/yangchendema/)
 - Ndzana Christophe #2: [GitHub](https://github.com/christoban) / [LinkedIn](https://www.linkedin.com/in/christophe-ndzana-6951a4316)
-
-   ...
-- Teammate name #n: [GitHub](https://github.com/ghaccountname) / [LinkedIn](https://linkedin.com/in/liaccountname)
+- Michael Okoro (Product Owner): [GitHub](https://github.com/Michael-Okoro) / [LinkedIn](https://www.linkedin.com/in/michaelcokoro/)
