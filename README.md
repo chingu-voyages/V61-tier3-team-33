@@ -37,3 +37,4 @@ coding!
 - Yangchen Dema(Scrum Master): [GitHub](https://github.com/dema66) / [LinkedIn](https://www.linkedin.com/in/yangchendema/)
 - Ndzana Christophe #2: [GitHub](https://github.com/christoban) / [LinkedIn](https://www.linkedin.com/in/christophe-ndzana-6951a4316)
 - Michael Okoro (Product Owner): [GitHub](https://github.com/Michael-Okoro) / [LinkedIn](https://www.linkedin.com/in/michaelcokoro/)
+- Ali Ahmed : [Github](https://github.com/7-Dany) / [LinkedIn](https://www.linkedin.com/in/ali-ahmed-036b54216/)
