@@ -1,0 +1,57 @@
+/* Reset */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Design tokens — light */
+:root {
+    /* Board */
+    --square-light: #f0d9b5;
+    --square-dark: #b58863;
+    --square-active: rgba(20, 85, 30, 0.5);
+    --square-move: rgba(20, 85, 30, 0.3);
+
+    /* UI */
+    --color-bg: #ffffff;
+    --color-bg-secondary: #f4f4f5;
+    --color-text: #18181b;
+    --color-text-muted: #71717a;
+    --color-border: #e4e4e7;
+    --color-accent: #2563eb;
+
+    /* Shape */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+}
+
+/* Design tokens — dark */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-bg: #18181b;
+        --color-bg-secondary: #27272a;
+        --color-text: #fafafa;
+        --color-text-muted: #a1a1aa;
+        --color-border: #3f3f46;
+    }
+}
+
+#root {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+}
+
+body {
+    margin: 0;
+    font-family:
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+}
