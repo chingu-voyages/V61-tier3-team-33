@@ -39,3 +39,4 @@ coding!
 - Michael Okoro (Product Owner): [GitHub](https://github.com/Michael-Okoro) / [LinkedIn](https://www.linkedin.com/in/michaelcokoro/)
 - Ali Ahmed : [Github](https://github.com/7-Dany) / [LinkedIn](https://www.linkedin.com/in/ali-ahmed-036b54216/)
 - Emad Faheem : [Github](https://github.com/emadgfy) / [LinkedIn](https://www.linkedin.com/in/emadfaheem/)
+- Kartik Sharma (Web developer) : [Github](https://github.com/Kartik-619) / [LinkedIn](https://www.linkedin.com/in/kartik-sharma-9069852b6/)
