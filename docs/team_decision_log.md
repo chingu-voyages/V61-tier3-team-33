@@ -41,3 +41,78 @@ you like the best.
 |   |	- FE | | | | | | |
 | 8	| ... | | | | | | |
 | n | ... | | | | | | |
+
+
+**Decisions made by Team**
+
+Team Meeting schedule:
+
+-Refinement & Planning: Monday, 2 PM EST
+
+-Async Daily Stand-up: Tue–Thu, Discord
+
+-Review & Retro: Fri, 2 PM EST
+
+Technical Stack: 
+
+-Frontend: React
+
+-Backend: Typescript, Express JS
+
+Hosting Platform:
+
+-Frontend: Render
+
+-Backend: Render
+
+Deployment: Render for frontend and backend
+
+Testing: Bun for frontend and backend
+
+Environments: Dev/test and Prod
+
+Task Tracking Tool: Jira
+
+Documentation : Confluence
+
+Wireframe/Design: Figma
+
+Ceremonies : Google meet
+
+Communication: Primary channel (Discord)
+
+DOD:
+
+-Unit tested
+
+-Code reviewed (peer-reviewed)
+
+-Merged to Dev branch
+
+-Integration testing completed
+
+-Meets acceptance criteria
+
+-UI/UX validated
+
+-Approved by PO
+
+-No new bugs founded
+
+DOR:
+
+-Well-defined user story
+
+-Task created ( if necessary)
+
+-Acceptance Criteria
+
+-Estimated (story points)
+
+-Has no unresolved dependencies
+
+-Design included
+
+
+
+
