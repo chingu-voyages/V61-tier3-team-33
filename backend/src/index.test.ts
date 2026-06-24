@@ -1,28 +1,29 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+// test.ts
+const ws = new WebSocket('ws://localhost:3500/ws');
 
-import { createBackendServer } from "./index";
+// 1. Connection opened event
+ws.onopen = () => {
+  console.log('🚀 Connected to Elysia WebSocket Server!');
+  
+  // Send a test message as soon as we connect
+  console.log('📤 Sending: "Hello Server!"');
+  ws.send('Hello Server!');
+};
 
-const { httpServer } = createBackendServer();
-let baseUrl: string;
+// 2. Message received event (This catches what your server sends back)
+ws.onmessage = (event) => {
+  console.log(`📥 Received from server: "${event.data}"`);
+  
+  // Close the connection nicely after receiving the echo response
+  ws.close();
+};
 
-// start the server before all tests
-beforeAll(async () => {
-  await new Promise<void>((resolve) => {
-    httpServer.listen(0, "127.0.0.1", resolve);
-  });
+// 3. Connection closed event
+ws.onclose = () => {
+  console.log('🔌 Connection closed safely.');
+};
 
-  const { port } = httpServer.address() as { port: number };
-  baseUrl = `http://127.0.0.1:${port}`;
-});
-
-// close the server after all tests
-afterAll(async () => {
-  await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-});
-
-test("GET /health returns ok", async () => {
-  const res = await fetch(`${baseUrl}/health`);
-
-  expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ status: "ok" });
-});
+// 4. Error event
+ws.onerror = (error) => {
+  console.error('❌ WebSocket Error:', error);
+};

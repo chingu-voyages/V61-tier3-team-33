@@ -1,41 +1,28 @@
-import cors from "cors";
-import express, { type Express } from "express";
-import { createServer, type Server as HttpServer } from "node:http";
-import config from "./config";
+import { Elysia } from 'elysia'
 
-type BackendServer = {
-  app: Express;
-  httpServer: HttpServer;
-};
+const users = new Map<string, any>()
 
-// create express app
-export function createApp(): Express {
-  const app = express();
+new Elysia()
 
-  app.use(cors({ origin: config.clientUrl }));
-  app.use(express.json());
+.ws('/ws', {
 
-  app.get("/health", (_req, res) => {
-    res.status(200).json({ status: "ok" });
-  });
 
-  return app;
-}
+  open(ws) {
+    console.log("connection has opened")
 
-// create backend server,
-// TODO: extend to include web socket
-export function createBackendServer(): BackendServer {
-  const app = createApp();
-  const httpServer = createServer(app);
+    const id = crypto.randomUUID();
 
-  return { app, httpServer };
-}
+    (ws.data as any).userId = id
 
-// only runs when this file is executed directly, not when imported
-if (import.meta.main) {
-  const { httpServer } = createBackendServer();
+    users.set(id, ws)
+    ws.send(JSON.stringify({
+      type: 'connected',
+      userId: id
+    }))
 
-  httpServer.listen(config.port, () => {
-    console.log(`♟️ Chess API running at http://localhost:${config.port}`);
-  });
-}
+    console.log(id)
+  }
+
+})
+
+.listen(3500)

@@ -1,0 +1,16 @@
+export enum EVENTS {
+
+    CREATE_ROOM = "CREATE_ROOM",
+  
+    JOIN_ROOM = "JOIN_ROOM",
+  
+    MOVE = "MOVE",
+  
+    CHESS_STATE = "CHESS_STATE",
+  
+    CHESS_FEN = "CHESS_FEN",
+  
+    CHESS_HISTORY = "CHESS_HISTORY",
+  
+    PLAYER_LEFT = "PLAYER_LEFT"
+  }
