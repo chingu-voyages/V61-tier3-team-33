@@ -1,15 +1,28 @@
-import { Elysia } from "elysia";
-import { cors } from "@elysiajs/cors";
-import config from "./config";
+import { Elysia } from 'elysia'
 
-const app = new Elysia()
-  .use(cors({ origin: config.clientUrl }))
-  .get("/health", () => ({ status: "ok" }));
+const users = new Map<string, any>()
 
-export default app;
+new Elysia()
 
-if (import.meta.main) {
-  app.listen(config.port, () => {
-    console.log(`♟️ Chess API running at http://localhost:${config.port}`);
-  });
-}
+.ws('/ws', {
+
+
+  open(ws) {
+    console.log("connection has opened")
+
+    const id = crypto.randomUUID();
+
+    (ws.data as any).userId = id
+
+    users.set(id, ws)
+    ws.send(JSON.stringify({
+      type: 'connected',
+      userId: id
+    }))
+
+    console.log(id)
+  }
+
+})
+
+.listen(3500)
