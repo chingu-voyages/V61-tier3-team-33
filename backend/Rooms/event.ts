@@ -6,6 +6,12 @@ export enum EVENTS {
 
   JOIN_ROOM = 'JOIN_ROOM',
 
+  ROOM_CREATED = 'ROOM_CREATED',
+
+  ROOM_JOINED = 'ROOM_JOINED',
+  
+  ERROR = 'ERROR',
+
   MOVE = 'MOVE',
 
   CHESS_STATE = 'CHESS_STATE',
