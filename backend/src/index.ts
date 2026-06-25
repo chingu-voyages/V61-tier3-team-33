@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
 import type { Room, User } from '../Rooms/room.type'
+import { EVENTS } from '../Rooms/event';
 
 const users = new Map<string, User>()
 
@@ -26,6 +27,33 @@ new Elysia()
     }))
 
     console.log(id)
+  }
+  ,
+ message(ws,rawdata:string){
+  const data=JSON.parse(rawdata);
+
+  switch(data.type){
+    case EVENTS.CONNECTED:
+      break
+    case EVENTS.CREATE_ROOM:
+      break
+    case EVENTS.JOIN_ROOM:
+      break
+    case EVENTS.MOVE:
+      break
+    case EVENTS.CHESS_FEN:
+      break
+    case EVENTS.CHESS_HISTORY:
+      break
+    case EVENTS.PLAYER_LEFT:
+      break
+    case EVENTS.CHESS_STATE:
+      break
+  }
+
+
+
+
   }
 
 })
