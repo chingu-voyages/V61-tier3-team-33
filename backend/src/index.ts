@@ -1,14 +1,15 @@
 import { Elysia } from 'elysia'
-import type { Room, User } from '../Rooms/room.type'
+import type {  User } from '../Rooms/room.type'
 import { EVENTS } from '../Rooms/event';
+import { Room } from '../Rooms/roomClass';
 
 const users = new Map<string, User>()
-
 const rooms=new Map<string,Room>();
 
 new Elysia()
 
 .ws('/ws', {
+
 
   open(ws) {
     console.log("connection has opened")
@@ -36,8 +37,20 @@ new Elysia()
     case EVENTS.CONNECTED:
       break
     case EVENTS.CREATE_ROOM:
+      const roomId:string=crypto.randomUUID();
+      const creatorId=(ws.data as any).userId;
+      const room=new Room(roomId,creatorId);
+      room.gameStatus='waiting';
+      rooms.set(roomId,room);
+      console.log(room)
+      ws.send(JSON.stringify({
+        type: EVENTS.ROOM_CREATED,
+        roomId
+      }))
       break
     case EVENTS.JOIN_ROOM:
+      
+
       break
     case EVENTS.MOVE:
       break
