@@ -1,24 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-
+import { EVENTS } from '../../backend/Rooms/event'
+import { JoinRoom } from "./components/JoinRoom";
 type ServerMessage =
   | {
-      type: "connected";
-      userId: string;
-    }
+    type: EVENTS.CONNECTED;
+    userId: string;
+  }
   | {
-      type: "ROOM_CREATED";
-      roomId: string;
-    }
+    type: EVENTS.ROOM_CREATED;
+    roomId: string;
+  }
   | {
-      type: "ROOM_JOINED";
-      roomId: string;
-      players: string[];
-      gameStatus: "active" | "over" | "waiting";
-    }
+    type: EVENTS.ROOM_JOINED;
+    roomId: string;
+    players: string[];
+    gameStatus: "active" | "waiting" | "over";
+  }
   | {
-      type: "ERROR";
-      message: string;
-    };
+    type: EVENTS.ERROR;
+    message: string;
+  };
 
 function App() {
   const socketRef = useRef<WebSocket | null>(null);
@@ -27,6 +28,7 @@ function App() {
   const [userId, setUserId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
+  const [url, setURL] = useState("");
 
   const addLog = (message: string) => {
     setLogs((prev) => [message, ...prev]);
@@ -46,19 +48,23 @@ function App() {
       const data: ServerMessage = JSON.parse(event.data);
 
       switch (data.type) {
-        case "connected":
+        case EVENTS.CONNECTED:
           setUserId(data.userId);
-          addLog(`User ID received: ${data.userId}`);
-          
           break;
 
-        case "ROOM_CREATED":
+        case EVENTS.ROOM_CREATED:
           setRoomId(data.roomId);
-          addLog(`Room created: ${data.roomId}`);
+          const address = window.location.href;
+          setURL(`${address}/join/${data.roomId}`)
           break;
 
-        default:
-          addLog(`Unknown message: ${event.data}`);
+        case EVENTS.ROOM_JOINED:
+          console.log(data.players);
+          break;
+
+        case EVENTS.ERROR:
+          console.log(data.message);
+          break;
       }
     };
 
@@ -76,14 +82,24 @@ function App() {
     };
   }, []);
 
+
   const createRoom = () => {
-    if (!socketRef.current) return;
+    console.log("Button clicked");
+
+    if (!socketRef.current) {
+      console.log("Socket null");
+      return;
+    }
+
+    console.log(socketRef.current.readyState);
 
     socketRef.current.send(
       JSON.stringify({
-        type: "CREATE_ROOM",
+        type: EVENTS.CREATE_ROOM,
       })
     );
+
+    console.log("Message sent");
   };
 
   return (
@@ -94,7 +110,7 @@ function App() {
         <h3>Connection Status</h3>
         <p>Status: <strong>{connected ? "✅ Connected" : "❌ Disconnected"}</strong></p>
         <p>User ID: {userId || "Waiting..."}</p>
-        <p>Room ID: {roomId || "No Room"}</p>
+        <p>Room URL: {url || "No Room"}</p>
       </div>
 
       <div style={{ marginTop: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
@@ -105,14 +121,14 @@ function App() {
         >
           Create Room
         </button>
-        
+
         <input
           type="text"
           placeholder="Enter Room ID to join"
           id="joinRoomInput"
           style={{ padding: "10px", background: "#222", color: "white", border: "1px solid #444" }}
         />
-      
+
       </div>
 
       <div style={{ marginTop: "2rem", border: "1px solid #444", padding: "1rem", borderRadius: "10px" }}>
@@ -127,6 +143,7 @@ function App() {
           ))
         )}
       </div>
+      <JoinRoom socketRef={socketRef}/>
     </div>
   );
 }
