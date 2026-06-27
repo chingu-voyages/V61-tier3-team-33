@@ -1,9 +1,13 @@
 import "./App.css";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 function App() {
   return (
     <div className="app">
-      <h1>Chess</h1>
+      <header className="app-header">
+        <h1>ChinguChess</h1>
+        <ThemeToggle />
+      </header>
     </div>
   );
 }

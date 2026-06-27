@@ -27,16 +27,17 @@
     --radius-lg: 12px;
 }
 
+
 /* Design tokens — dark */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --color-bg: #18181b;
-        --color-bg-secondary: #27272a;
-        --color-text: #fafafa;
-        --color-text-muted: #a1a1aa;
-        --color-border: #3f3f46;
-    }
+/* Henceforth, the dark theme is applied when the data-theme attribute on the html element is set to "dark" */
+html[data-theme="dark"] {
+    --color-bg: #18181b;
+    --color-bg-secondary: #27272a;
+    --color-text: #fafafa;
+    --color-text-muted: #a1a1aa;
+    --color-border: #3f3f46;
 }
+
 
 #root {
     min-height: 100svh;
