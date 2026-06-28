@@ -1,0 +1,13 @@
+export { WhitePawn } from "./WhitePawn";
+export { WhiteKnight } from "./WhiteKnight";
+export { WhiteBishop } from "./WhiteBishop";
+export { WhiteRook } from "./WhiteRook";
+export { WhiteQueen } from "./WhiteQueen";
+export { WhiteKing } from "./WhiteKing";
+
+export { BlackPawn } from "./BlackPawn";
+export { BlackKnight } from "./BlackKnight";
+export { BlackBishop } from "./BlackBishop";
+export { BlackRook } from "./BlackRook";
+export { BlackQueen } from "./BlackQueen";
+export { BlackKing } from "./BlackKing";
