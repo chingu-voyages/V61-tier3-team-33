@@ -1,58 +1,53 @@
-# Chess — Frontend
+# Frontend
 
-React + TypeScript frontend for the Chess application. Connects to the backend via REST and Socket.IO for real-time gameplay.
+Chess application frontend built with [Next.js](https://nextjs.org) 16, React 19, and [shadcn/ui](https://ui.shadcn.com).
 
-## Tech Stack
+## Prerequisites
 
-- [React 19](https://react.dev) — UI
-- [Vite 8](https://vite.dev) — dev server and bundler
-- [TypeScript](https://www.typescriptlang.org) — type safety
-- [Socket.IO Client](https://socket.io) — real-time connection to backend
-- [Bun](https://bun.sh) — package manager and test runner
+- [Bun](https://bun.sh) 1.x
 
-## Getting Started
+## Getting started
 
 ```bash
 bun install
 bun run dev
 ```
 
-App runs at `http://localhost:5173`. Backend must be running at `http://localhost:3001`.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Commands
+## Scripts
 
-| Command           | Description                        |
-| ----------------- | ---------------------------------- |
-| `bun run dev`     | Start dev server with HMR          |
-| `bun run build`   | Type-check and build for production|
-| `bun run preview` | Preview the production build       |
-| `bun run lint`    | Run ESLint                         |
-| `bun run typecheck` | Run TypeScript type-check only   |
-| `bun test`        | Run tests                          |
+| Command              | Description                    |
+| -------------------- | ------------------------------ |
+| `bun run dev`        | Start development server       |
+| `bun run build`      | Production build               |
+| `bun run start`      | Start production server        |
+| `bun run lint`       | Run ESLint                     |
+| `bun run format`     | Format with Prettier           |
+| `bun run typecheck`  | TypeScript type-check          |
 
-## Project Structure
+## Tech stack
+
+- **[Next.js](https://nextjs.org)** 16 — App Router, React Server Components
+- **[React](https://react.dev)** 19
+- **[TypeScript](https://www.typescriptlang.org)** 6
+- **[Tailwind CSS](https://tailwindcss.com)** 4
+- **[shadcn/ui](https://ui.shadcn.com)** — component primitives
+- **[@base-ui/react](https://base-ui.com)** — headless UI primitives
+- **[@tabler/icons-react](https://tabler.io/icons)** — icons
+- **[next-themes](https://github.com/pacocoursey/next-themes)** — dark/light mode
+
+## Project structure
 
 ```
-src/
-├── App.tsx        # Root component
-├── main.tsx       # Entry point
-└── index.css      # Global styles
-```
-
-## Testing
-
-Tests live alongside source files as `*.test.tsx`. Run with:
-
-```bash
-bun test
-```
-
-Uses `bun:test` (built-in) with `react-dom/server` for component rendering assertions. No extra test framework needed.
-
-## Environment Variables
-
-Create a `.env` file in this directory to override defaults:
-
-```env
-VITE_API_URL=http://localhost:3001
+app/               App Router pages and layouts
+  globals.css      Global styles
+  layout.tsx       Root layout
+  page.tsx         Home page
+components/        React components
+  pieces/          SVG chess piece components
+  ui/              shadcn/ui primitives
+  theme-provider   Theme provider
+lib/               Utility functions
+public/            Static assets
 ```
