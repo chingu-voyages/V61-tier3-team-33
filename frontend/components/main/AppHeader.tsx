@@ -2,16 +2,10 @@ import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import {
-  IconBell,
-  IconMessage,
-  IconUserHeart,
-} from "@tabler/icons-react"
+import { IconBell } from "@tabler/icons-react"
 
 const headerItems = [
   { title: "Notifications", url: "/notifications", icon: IconBell },
-  { title: "Chat", url: "/chat", icon: IconMessage },
-  { title: "Friends", url: "/friends", icon: IconUserHeart },
 ]
 
 export function AppHeader() {

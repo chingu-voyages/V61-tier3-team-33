@@ -17,6 +17,8 @@ import {
   IconPuzzle,
   IconBook,
   IconChartBar,
+  IconMessage,
+  IconUserHeart,
   IconSettings,
   IconUsers,
   IconSchool,
@@ -39,6 +41,13 @@ const navItems = [
       { title: "Train", url: "/train", icon: IconSchool },
       { title: "Lessons", url: "/lessons", icon: IconBook },
       { title: "Analysis", url: "/analysis", icon: IconChartBar },
+    ],
+  },
+  {
+    group: "Social",
+    items: [
+      { title: "Chat", url: "/chat", icon: IconMessage },
+      { title: "Friends", url: "/friends", icon: IconUserHeart },
     ],
   },
 ]
