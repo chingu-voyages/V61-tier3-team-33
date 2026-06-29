@@ -2,6 +2,7 @@ import { Inter, Outfit } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme/theme-provider"
+import { GameProvider } from "@/context/GameProvider"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -27,7 +28,9 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <GameProvider>{children}</GameProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>
