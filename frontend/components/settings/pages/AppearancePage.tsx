@@ -30,7 +30,7 @@ export function AppearancePage() {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium">Theme</p>
             <p className="text-sm text-muted-foreground">
@@ -40,7 +40,7 @@ export function AppearancePage() {
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="outline" className="min-w-32">
+                <Button variant="outline" className="w-full sm:min-w-32">
                   <current.icon className="size-4" />
                   {current.label}
                   <IconChevronDown className="ml-auto size-4 opacity-50" />
