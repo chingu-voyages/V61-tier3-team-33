@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { IconBell } from "@tabler/icons-react"
 
 const headerItems = [
@@ -24,6 +25,7 @@ export function AppHeader() {
             <item.icon />
           </Button>
         ))}
+        <ThemeToggle />
       </div>
     </header>
   )
