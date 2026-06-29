@@ -1,13 +1,23 @@
+import { Chess } from "../src/chess";
+
 export class Room{
     public id: string;//unique roomId
     public players: string[];
+    public whitePlayer:string;
+    public blackPlayer:string|null;
+
     public gameStatus:"active"|"over"|"waiting";
+    public chess:Chess;
 
     //everytime a room is created...roomId and creatorID is stored
     constructor(id:string,creatorId:string){
         this.id=id;
-        this.players=[creatorId];//creator is the first player
+        this.players=[creatorId];
+        //creator is the first player
+        this.whitePlayer=creatorId;
+        this.blackPlayer=null;
         this.gameStatus="waiting";
+        this.chess=new Chess();
     }
 
    public addPlayer(userId:string):boolean{
@@ -20,6 +30,7 @@ export class Room{
         }
 
         this.players.push(userId);
+        this.blackPlayer=userId
         if(this.players.length==2){
             this.gameStatus='active';
         }
@@ -58,7 +69,6 @@ export class Room{
         return false
     }
 
-   
    public closeGame():void{
         this.gameStatus='over'
     
