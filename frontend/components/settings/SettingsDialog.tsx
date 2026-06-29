@@ -76,7 +76,7 @@ function SettingsMobile({ children }: { children: ReactElement }) {
       <SheetContent
         showCloseButton={false}
         side="left"
-        className="flex h-dvh max-h-dvh w-full flex-col p-0"
+        className="flex h-dvh max-h-dvh !w-full flex-col p-0"
       >
         <SheetTitle className="sr-only">Settings</SheetTitle>
 
