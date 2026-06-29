@@ -76,16 +76,17 @@ function SettingsMobile({ children }: { children: ReactElement }) {
       <SheetContent
         showCloseButton={false}
         side="left"
-        className="flex h-dvh max-h-dvh !w-full flex-col p-0"
+        className="flex h-dvh max-h-dvh w-(--sidebar-width) flex-col p-0 data-[side=left]:w-(--sidebar-width) max-[480px]:w-full!"
+        style={{ "--sidebar-width": "16rem" } as React.CSSProperties}
       >
         <SheetTitle className="sr-only">Settings</SheetTitle>
 
         <Activity mode={state.mobileView === "list" ? "visible" : "hidden"}>
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <span className="font-heading text-base font-medium">Settings</span>
-            <SheetClose render={<Button variant="ghost" size="icon-sm" />}>
-              <IconX />
+          <div className="flex items-center gap-2 border-b px-2 py-2">
+            <SheetClose render={<Button variant="ghost" size="icon" />}>
+              <IconArrowLeft />
             </SheetClose>
+            <span className="font-heading text-base font-medium">Settings</span>
           </div>
           <div className="relative mx-4 mt-2 mb-3">
             <IconSearch className="absolute inset-s-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

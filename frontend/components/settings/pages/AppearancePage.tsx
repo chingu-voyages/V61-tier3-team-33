@@ -40,7 +40,7 @@ export function AppearancePage() {
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="outline" className="w-full sm:min-w-32">
+                <Button variant="outline" className="w-full sm:max-w-32">
                   <current.icon className="size-4" />
                   {current.label}
                   <IconChevronDown className="ml-auto size-4 opacity-50" />
