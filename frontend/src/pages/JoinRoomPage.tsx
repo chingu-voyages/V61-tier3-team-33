@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 export default function JoinRoomPage() {
 
-    const socket = useSocket();
+    const {socket,userId} = useSocket();
 
     const navigate = useNavigate();
 
