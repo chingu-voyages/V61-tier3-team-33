@@ -68,6 +68,7 @@ export class Room{
         }
         return false
     }
+    
 
    public closeGame():void{
         this.gameStatus='over'

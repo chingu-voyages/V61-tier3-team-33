@@ -3,10 +3,24 @@ import type { User } from '../Rooms/room.type'
 import { EVENTS } from '../Rooms/event';
 import { Room } from '../Rooms/roomClass';
 import type { MoveMessage } from './server.types';
-import { Position } from './chess';
+import { Position, WHITE, BLACK } from "./chess";
 const users = new Map<string, User>()
 const rooms = new Map<string, Room>();
-
+function buildChessState(room: Room) {
+  return JSON.stringify({
+      type: EVENTS.CHESS_STATE,
+      roomId: room.id,
+      fen: room.chess.toFen(),
+      turn: room.chess.sideToMove(),
+      inCheck: room.chess.isInCheck(),
+      isOver: room.chess.isOver(),
+      result: room.chess.gameResult(),
+      players: room.players,
+      whitePlayer: room.whitePlayer,
+      blackPlayer: room.blackPlayer,
+      gameStatus: room.gameStatus,
+  });
+}
 new Elysia()
 
   .ws('/ws', {
@@ -34,11 +48,12 @@ new Elysia()
     message(ws, rawdata: any) {
       console.log("this is message handler")
       try {
-
-        const data = rawdata as {
-          type: string;
-          roomId?: string
-        };
+        console.log(rawdata);
+        const data =
+          typeof rawdata === "string"
+            ? JSON.parse(rawdata)
+            : rawdata;
+        console.log("EVENT:", data.type);
 
         switch (data.type) {
 
@@ -50,14 +65,14 @@ new Elysia()
             const room = new Room(roomId, creatorId);
             room.gameStatus = 'waiting';
             rooms.set(roomId, room);
-            
+
             console.log(roomId)
 
             ws.send(JSON.stringify({
               type: EVENTS.ROOM_CREATED,
               roomId,
               inviteLink: `http://localhost:5173/join/${roomId}`
-          }));
+            }));
             break
           case EVENTS.JOIN_ROOM:
             const roomIdtoJoin = data.roomId;
@@ -80,7 +95,7 @@ new Elysia()
                 type: "ERROR",
                 message: "The game is already active"
               }))
-
+              break;
             }
             if (targetRoom.isFull()) {
               ws.send(JSON.stringify({
@@ -133,6 +148,7 @@ new Elysia()
 
             break
           case EVENTS.MOVE: {
+            console.log("----- MOVE START -----");
             const message = data as MoveMessage
             const targetRoom = rooms.get(message.roomId);
             if (!targetRoom) {
@@ -142,10 +158,33 @@ new Elysia()
               }))
               break;
             }
+            if (targetRoom.gameStatus !== "active") {
+              ws.send(JSON.stringify({
+                type: EVENTS.ERROR,
+                message: "Game is not active"
+              }));
+              break;
+            }
+            const sender = (ws.data as any).userId;
+
+            if (!targetRoom.players.includes(sender)) {
+              ws.send(JSON.stringify({
+                type: EVENTS.ERROR,
+                message: "You are not a player in this room"
+              }));
+              break;
+            }
+            console.log("Room found");
+            console.log("Sender:", (ws.data as any).userId);
+            console.log("White :", targetRoom.whitePlayer);
+            console.log("Black :", targetRoom.blackPlayer);
+            console.log("Turn  :", targetRoom.chess.sideToMove());
             //parsing the move from the message
             const from = Position.parse(message.from)
             const to = Position.parse(message.to)
-
+            console.log("Parsed", from, to);
+            targetRoom.chess.sideToMove()
+            console.log(targetRoom.chess.sideToMove());
             if (from === null || to === null) {
               ws.send(JSON.stringify({
                 type: EVENTS.ERROR,
@@ -153,8 +192,10 @@ new Elysia()
               }));
               break;
             }
+            const legal = targetRoom.chess.isLegalMove(message.from, message.to);
+            console.log("Legal =", legal);
             //validating the move
-            if (!targetRoom.chess.isLegalMove(message.from, message.to)) {
+            if (!legal) {
               ws.send(JSON.stringify({
                 type: EVENTS.ERROR,
                 message: "Illegal move"
@@ -162,8 +203,24 @@ new Elysia()
               break;
             }
             try {
-              //making the move
+
+              const currentPlayer =
+                targetRoom.chess.sideToMove() === WHITE
+                  ? targetRoom.whitePlayer
+                  : targetRoom.blackPlayer;
+
+              if (sender !== currentPlayer) {
+                ws.send(JSON.stringify({
+                  type: EVENTS.ERROR,
+                  message: "Not your turn"
+                }));
+                break;
+              }
+              //making the moveconsole.log("Calling moveTo");
               targetRoom.chess.moveTo(from, to);
+              if (targetRoom.chess.isOver()) {
+                targetRoom.gameStatus = "over";
+              }
             } catch {
               ws.send(JSON.stringify({
                 type: EVENTS.ERROR,
@@ -171,35 +228,35 @@ new Elysia()
               }));
               break;
             }
+            const gameResult = targetRoom.chess.gameResult();
+            console.log("Creating payload");
             //sending the result from the chess engine to the UI
-            const payload = JSON.stringify({
-              type: EVENTS.CHESS_STATE,
-              fen: targetRoom.chess.toFen(),
-              turn: targetRoom.chess.sideToMove(),
-              inCheck: targetRoom.chess.isInCheck(),
-              isOver: targetRoom.chess.isOver(),
-              result: targetRoom.chess.gameResult()
-          });
+        const payload=buildChessState(targetRoom)
             //boardcasting the result to players in the room
             for (const id of targetRoom.players) {
+              console.log("Sending to", id);
               users.get(id)?.ws.send(payload);
             }
           }
 
 
             break
-          case EVENTS.CHESS_FEN:
-            break
-         
-            break
-          case EVENTS.PLAYER_LEFT:
-            break
-          case EVENTS.CHESS_STATE:
-            break
+            case EVENTS.CHESS_STATE: {
+              const room = rooms.get(data.roomId);
+          
+              if (!room) {
+                  ws.send(JSON.stringify({
+                      type: EVENTS.ERROR,
+                      message: "Room not found"
+                  }));
+                  break;
+              }
+          
+              ws.send(buildChessState(room));
+              break;
+          }
+
         }
-
-
-
       } catch (error) {
         console.error(error)
       }
@@ -214,16 +271,26 @@ new Elysia()
   
       for (const room of rooms.values()) {
   
+          if (!room.players.includes(id)) continue;
+  
           room.removePlayer(id);
   
-          if (room.players.length === 0) {
-              rooms.delete(room.id);
+          // notify everyone still in the room
+          const payload = JSON.stringify({
+              type: EVENTS.PLAYER_LEFT,
+              playerId: id,
+              gameStatus: room.gameStatus
+          });
+  
+          for (const playerId of room.players) {
+              users.get(playerId)?.ws.send(payload);
           }
   
+          if (room.players.length === 0 || room.gameStatus === "over") {
+              rooms.delete(room.id);
+          }
       }
-  
   }
-
   })
 
   .listen(3500, () => {

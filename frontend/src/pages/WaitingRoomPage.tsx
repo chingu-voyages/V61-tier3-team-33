@@ -7,7 +7,7 @@ export default function WaitingRoomPage() {
 
     const { roomId } = useParams();
 
-    const socket = useSocket();
+    const {socket,userId} = useSocket();
 
     const navigate = useNavigate();
 

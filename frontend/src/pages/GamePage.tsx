@@ -1,6 +1,6 @@
 // src/pages/GamePage.tsx
 import { EVENTS } from "../../../backend/Rooms/event";
-import { useState,useEffect } from "react";
+import { useState, useEffect } from "react";
 import { ChessBoard } from "react-chessboard-ui";
 import "react-chessboard-ui/dist/index.css";
 import { useSocket } from "../context/SocketContext";
@@ -13,12 +13,12 @@ type MoveData = {
   figure: {
     color: "white" | "black";
     type:
-      | "pawn"
-      | "bishop"
-      | "knight"
-      | "rook"
-      | "queen"
-      | "king";
+    | "pawn"
+    | "bishop"
+    | "knight"
+    | "rook"
+    | "queen"
+    | "king";
   };
 };
 
@@ -29,38 +29,51 @@ export default function GamePage() {
 
   const [turn, setTurn] = useState("white");
 
-  const [myColor] = useState<"white" | "black">("white");
+  const [myColor, setMyColor] =
+    useState<"white" | "black">("white");
+  const { socket, userId } = useSocket();
 
-  const socket = useSocket();
+  const { roomId } = useParams();
 
-const { roomId } = useParams();
-
-useEffect(() => {
+  useEffect(() => {
 
     if (!socket) return;
 
     const handler = (e: MessageEvent) => {
 
-        const data = JSON.parse(e.data);
+      const data = JSON.parse(e.data);
+      console.log("Received websocket:", data);
 
-        switch(data.type){
+      switch (data.type) {
 
-            case EVENTS.ROOM_JOINED:
-              console.log(data);
-                setFen(data.fen);
+        case EVENTS.ROOM_JOINED:
+          console.log(data);
+        
 
-                setTurn(data.turn);
 
-                break;
+          if (userId === data.whitePlayer) {
+            setMyColor("white")
+          } else {
+            setMyColor("black")
+          }
 
-            case EVENTS.CHESS_STATE:
+          break;
 
-                setFen(data.fen);
+        case EVENTS.CHESS_STATE:
+          if (data.turn === 0) {
+            setTurn("white")
+          }
+          else {
+            setTurn("black")
+          } console.log("Updating board");
+          console.log(data.fen);
+      
+          setFen(data.fen);
 
-                setTurn(data.turn);
+          
 
-                break;
-        }
+          break;
+      }
 
     };
 
@@ -68,26 +81,36 @@ useEffect(() => {
 
     return () => socket.removeEventListener("message", handler);
 
-}, [socket]);
-const handleMove = (move: MoveData) => {
-  const from = coordToSquare(move.from);
+  }, [socket, userId]);
 
-  const to = coordToSquare(move.to);
+  const handleMove = (move: MoveData) => {
+    if (!socket) return;
+    console.log("My color", myColor);
+    console.log("Turn", turn);
+    console.log("Piece", move.figure.color);
+    if (move.figure.color !== myColor) {
+      console.log("Wrong piece");
+      return;
+    }
+    if (turn !== myColor) {
+      console.log("Wrong turn");
+      return
+    }
+    //convert coordinates into board notations
+    console.log("Sending move");
+    const from = coordToSquare(move.from);
+    const to = coordToSquare(move.to);
 
-  console.log(from, to);
-  socket?.send(JSON.stringify({
 
+    console.log(from, to);
+    socket?.send(JSON.stringify({
       type: EVENTS.MOVE,
-
       roomId,
-
       from,
-
       to
+    }));
 
-  }));
-
-};
+  };
 
   return (
     <div
@@ -114,6 +137,7 @@ const handleMove = (move: MoveData) => {
       {/* Chess Board */}
       <div style={{ width: 650 }}>
         <ChessBoard
+         key={fen}
           FEN={fen}
           reversed={myColor === "black"}
           onChange={handleMove}
