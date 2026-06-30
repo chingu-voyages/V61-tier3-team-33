@@ -295,69 +295,38 @@ export const app = new Elysia()
             }
         },
 
-        close(ws: any) {
-            const wsData = ws.data as WebSocketData
-            const id: string = wsData.userId
+      
 
-            users.delete(id)
+    close(ws: any) {
+        const wsData = ws.data as WebSocketData
+        const id = wsData.userId
 
-            for (const room of rooms.values()) {
-                if (!room.players.includes(id)) continue
+        users.delete(id)
 
-                room.removePlayer(id)
+        for (const room of rooms.values()) {
+            if (!room.players.includes(id)) continue
 
-                // Notify everyone still in the room
-                const payload = JSON.stringify({
-                    type: EVENTS.PLAYER_LEFT,
-                    playerId: id,
-                    gameStatus: room.gameStatus
-                })
+            room.removePlayer(id)
 
-                for (const playerId of room.players) {
-                    users.get(playerId)?.ws.send(payload)
-                }
+            const payload = JSON.stringify({
+                type: EVENTS.PLAYER_LEFT,
+                playerId: id,
+                gameStatus: room.gameStatus
+            })
 
-                if (room.players.length === 0 || room.gameStatus === "over") {
-                    rooms.delete(room.id)
-                }
+            for (const playerId of room.players) {
+                users.get(playerId)?.ws.send(payload)
+            }
+
+            if (room.players.length === 0 || room.gameStatus === "over") {
+                rooms.delete(room.id)
             }
         }
-      } catch (error) {
-        console.error(error)
-      }
+    }
+})
 
+app.listen(3500, () => {
+console.log("server starts at 3500")
+})
 
-    },
-    close(ws) {
-
-      const id = (ws.data as any).userId;
-  
-      users.delete(id);
-  
-      for (const room of rooms.values()) {
-  
-          if (!room.players.includes(id)) continue;
-  
-          room.removePlayer(id);
-  
-          // notify everyone still in the room
-          const payload = JSON.stringify({
-              type: EVENTS.PLAYER_LEFT,
-              playerId: id,
-              gameStatus: room.gameStatus
-          });
-  
-          for (const playerId of room.players) {
-              users.get(playerId)?.ws.send(payload);
-          }
-  
-          if (room.players.length === 0 || room.gameStatus === "over") {
-              rooms.delete(room.id);
-          }
-      }
-  }
-  })
-
-  .listen(3500, () => {
-    console.log("server starts at 3500")
-  })
+export { users, rooms }
