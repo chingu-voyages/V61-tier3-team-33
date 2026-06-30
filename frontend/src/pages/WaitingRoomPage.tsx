@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useSocket } from "../context/SocketContext";
+import { useSocket } from "../context/useSocket";
 import { EVENTS } from "../../../backend/Rooms/event";
 
 export default function WaitingRoomPage() {
 
     const { roomId } = useParams();
 
-    const {socket,userId} = useSocket();
+    const {socket} = useSocket();
 
     const navigate = useNavigate();
 

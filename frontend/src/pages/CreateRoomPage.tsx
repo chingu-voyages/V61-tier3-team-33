@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSocket } from "../context/SocketContext";
+import { useSocket } from "../context/useSocket";
 import { EVENTS } from "../../../backend/Rooms/event";
 import { useNavigate } from "react-router-dom";
 

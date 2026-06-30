@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useSocket } from "../context/SocketContext";
+import { useSocket } from "../context/useSocket";
 import { EVENTS } from "../../../backend/Rooms/event";
 import { useNavigate, useParams } from "react-router-dom";
 
 export default function JoinRoomPage() {
 
-    const {socket,userId} = useSocket();
+    const {socket} = useSocket();
 
     const navigate = useNavigate();
 
