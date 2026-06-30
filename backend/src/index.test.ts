@@ -96,7 +96,7 @@ describe('Chess WebSocket Server', () => {
                 });
             });
             
-            ws.on('error', (error) => {
+            ws.on('error', (error: Error) => {
                 reject(error);
             });
         });
