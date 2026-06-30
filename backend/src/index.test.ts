@@ -56,7 +56,6 @@ interface PlayerLeftMessage extends WebSocketMessage {
 function waitForMessage<T extends WebSocketMessage = WebSocketMessage>(ws: WebSocket): Promise<T> {
     return new Promise((resolve) => {
         ws.once("message", (raw: WebSocket.RawData) => {
-            // Convert raw data to string safely
             const text = typeof raw === "string" 
                 ? raw 
                 : raw instanceof Buffer 
@@ -72,8 +71,8 @@ function sendMessage(ws: WebSocket, data: Record<string, unknown>): void {
     ws.send(JSON.stringify(data));
 }
 
-// Import the server - adjust path as needed
-import { app } from '../src/index'; // Assuming your server export is named 'app'
+// Import the server
+import { app } from '../src/index';
 
 describe('Chess WebSocket Server', () => {
     let client1: WebSocket;
@@ -83,13 +82,11 @@ describe('Chess WebSocket Server', () => {
     let roomId: string;
     let server: any;
 
-    // Helper to connect a client
     function connectClient(): Promise<{ ws: WebSocket; userId: string }> {
         return new Promise((resolve, reject) => {
             const ws = new WebSocket(SERVER_URL);
             
             ws.on('open', () => {
-                // Wait for CONNECTED message with proper typing
                 waitForMessage<ConnectedMessage>(ws).then((data) => {
                     if (data.type === EVENTS.CONNECTED) {
                         resolve({ ws, userId: data.userId });
@@ -106,10 +103,8 @@ describe('Chess WebSocket Server', () => {
     }
 
     beforeAll(async () => {
-        // Start the server if it's not already running
         if (!server) {
             try {
-                // Method 1: If your server exports a listen method
                 server = app.listen(3500);
                 console.log('Server started on port 3500');
             } catch (error) {
@@ -117,21 +112,17 @@ describe('Chess WebSocket Server', () => {
             }
         }
 
-        // Give server time to start
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Connect first client
         const client1Data = await connectClient();
         client1 = client1Data.ws;
         userId1 = client1Data.userId;
     });
 
     afterAll(() => {
-        // Clean up
         if (client1) client1.close();
         if (client2) client2.close();
         
-        // Close server if we started it
         if (server) {
             try {
                 server.close();
@@ -144,10 +135,8 @@ describe('Chess WebSocket Server', () => {
 
     describe('Room Creation', () => {
         it('should create a room', async () => {
-            // Send CREATE_ROOM
             sendMessage(client1, { type: EVENTS.CREATE_ROOM });
             
-            // Wait for ROOM_CREATED response
             const response = await waitForMessage<RoomCreatedMessage>(client1);
             
             expect(response.type).toBe(EVENTS.ROOM_CREATED);
@@ -160,19 +149,15 @@ describe('Chess WebSocket Server', () => {
 
     describe('Joining Rooms', () => {
         it('should allow a second player to join', async () => {
-            // Connect second client
             const client2Data = await connectClient();
             client2 = client2Data.ws;
             userId2 = client2Data.userId;
 
-            // Send JOIN_ROOM from client2
             sendMessage(client2, { 
                 type: EVENTS.JOIN_ROOM, 
                 roomId 
             });
 
-            // Both clients should receive ROOM_JOINED
-            // We'll check client2's response
             const response = await waitForMessage<RoomJoinedMessage>(client2);
             
             expect(response.type).toBe(EVENTS.ROOM_JOINED);
@@ -186,7 +171,6 @@ describe('Chess WebSocket Server', () => {
         });
 
         it('should not allow joining a full room', async () => {
-            // Try to join with a third client
             const { ws: client3 } = await connectClient();
             
             sendMessage(client3, { 
@@ -197,6 +181,7 @@ describe('Chess WebSocket Server', () => {
             const response = await waitForMessage<ErrorMessage>(client3);
             
             expect(response.type).toBe('ERROR');
+            // ✅ FIX 2: Update to match actual error message
             expect(response.message).toContain('full');
             
             client3.close();
@@ -221,7 +206,6 @@ describe('Chess WebSocket Server', () => {
 
     describe('Move Validation', () => {
         it('should process a legal move', async () => {
-            // Send a move from client1 (White)
             sendMessage(client1, {
                 type: EVENTS.MOVE,
                 roomId,
@@ -229,12 +213,12 @@ describe('Chess WebSocket Server', () => {
                 to: 'e4'
             });
 
-            // Both clients should receive CHESS_STATE
             const response = await waitForMessage<ChessStateMessage>(client1);
             
             expect(response.type).toBe(EVENTS.CHESS_STATE);
             expect(response.roomId).toBe(roomId);
-            expect(response.fen).toContain('e4');
+            // ✅ FIX 3: Check for pawn at e4 position in FEN (4P3 means pawn at e4)
+            expect(response.fen).toMatch(/4P3/);
             expect(response.turn).toBe(1);
             expect(response.isOver).toBe(false);
         });
@@ -248,7 +232,6 @@ describe('Chess WebSocket Server', () => {
                 to: 'e5'
             });
 
-            // Should get CHESS_STATE for legal move
             const response = await waitForMessage<ChessStateMessage>(client2);
             expect(response.type).toBe(EVENTS.CHESS_STATE);
             
@@ -266,16 +249,35 @@ describe('Chess WebSocket Server', () => {
         });
 
         it('should reject moves when it\'s not your turn', async () => {
+            // After client1 moved e2-e4 and client2 moved e7-e5,
+            // it's client1's turn again (White)
+            // But we're going to test that client1 can't move twice in a row
+            
+            // First, let's make a legal move for client1 (White)
             sendMessage(client1, {
                 type: EVENTS.MOVE,
                 roomId,
-                from: 'd2',
-                to: 'd4'
+                from: 'g1',
+                to: 'f3'
             });
 
-            const response = await waitForMessage<ErrorMessage>(client1);
-            expect(response.type).toBe('ERROR');
-            expect(response.message).toContain('turn');
+            // Wait for the move to be processed
+            const response1 = await waitForMessage<ChessStateMessage>(client1);
+            expect(response1.type).toBe(EVENTS.CHESS_STATE);
+            
+            // Now it's Black's turn (client2)
+            // Try to make another move with client1 (White) - should fail
+            sendMessage(client1, {
+                type: EVENTS.MOVE,
+                roomId,
+                from: 'f3',
+                to: 'g5'
+            });
+
+            // ✅ FIX 4: Should get ERROR because it's not client1's turn
+            const errorResponse = await waitForMessage<ErrorMessage>(client1);
+            expect(errorResponse.type).toBe('ERROR');
+            expect(errorResponse.message).toContain('turn');
         });
     });
 
@@ -301,10 +303,8 @@ describe('Chess WebSocket Server', () => {
 
     describe('Disconnect Handling', () => {
         it('should handle player disconnection', async () => {
-            // Disconnect client2
             client2.close();
             
-            // Wait for client1 to receive PLAYER_LEFT
             const response = await waitForMessage<PlayerLeftMessage>(client1);
             
             expect(response.type).toBe(EVENTS.PLAYER_LEFT);
@@ -313,13 +313,10 @@ describe('Chess WebSocket Server', () => {
         });
 
         it('should clean up room when all players leave', async () => {
-            // Disconnect client1
             client1.close();
             
-            // Give server time to clean up
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Try to join the room again (should fail)
             const { ws: client3 } = await connectClient();
             
             sendMessage(client3, {
@@ -336,7 +333,6 @@ describe('Chess WebSocket Server', () => {
     });
 });
 
-// Export types for use in other files
 export type {
     WebSocketMessage,
     ConnectedMessage,
