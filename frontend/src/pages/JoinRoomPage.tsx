@@ -33,7 +33,7 @@ export default function JoinRoomPage() {
     
         return () => socket.removeEventListener("message", handler);
     
-    }, [socket]);
+    }, [socket,navigate]);
 
     return (
 

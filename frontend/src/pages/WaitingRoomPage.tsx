@@ -35,7 +35,7 @@ export default function WaitingRoomPage() {
 
         };
 
-    }, [socket]);
+    }, [socket,navigate]);
 
     return (
 

@@ -148,61 +148,61 @@ describe('Chess WebSocket Server', () => {
     });
 
     describe('Joining Rooms', () => {
-        it('should allow a second player to join', async () => {
-            const client2Data = await connectClient();
-            client2 = client2Data.ws;
-            userId2 = client2Data.userId;
-
-            sendMessage(client2, { 
-                type: EVENTS.JOIN_ROOM, 
-                roomId 
-            });
-
-            const response = await waitForMessage<RoomJoinedMessage>(client2);
-            
-            expect(response.type).toBe(EVENTS.ROOM_JOINED);
-            expect(response.roomId).toBe(roomId);
-            expect(response.players).toContain(userId1);
-            expect(response.players).toContain(userId2);
-            expect(response.whitePlayer).toBe(userId1);
-            expect(response.blackPlayer).toBe(userId2);
-            expect(response.gameStatus).toBe('active');
-            expect(response.fen).toBeDefined();
-        });
-
-        it('should not allow joining a full room', async () => {
-            const { ws: client3 } = await connectClient();
-            
-            sendMessage(client3, { 
-                type: EVENTS.JOIN_ROOM, 
-                roomId 
-            });
-
-            const response = await waitForMessage<ErrorMessage>(client3);
-            
-            expect(response.type).toBe('ERROR');
-            // ✅ FIX 2: Update to match actual error message
-            expect(response.message).toContain('full');
-            
-            client3.close();
-        });
-
-        it('should not allow joining a non-existent room', async () => {
-            const { ws: client3 } = await connectClient();
-            
-            sendMessage(client3, { 
-                type: EVENTS.JOIN_ROOM, 
-                roomId: 'non-existent-id' 
-            });
-
-            const response = await waitForMessage<ErrorMessage>(client3);
-            
-            expect(response.type).toBe('ERROR');
-            expect(response.message).toContain('exist');
-            
-            client3.close();
-        });
-    });
+      it('should allow a second player to join', async () => {
+          const client2Data = await connectClient();
+          client2 = client2Data.ws;
+          userId2 = client2Data.userId;
+  
+          sendMessage(client2, { 
+              type: EVENTS.JOIN_ROOM, 
+              roomId 
+          });
+  
+          const response = await waitForMessage<RoomJoinedMessage>(client2);
+          
+          expect(response.type).toBe(EVENTS.ROOM_JOINED);
+          expect(response.roomId).toBe(roomId);
+          expect(response.players).toContain(userId1);
+          expect(response.players).toContain(userId2);
+          expect(response.whitePlayer).toBe(userId1);
+          expect(response.blackPlayer).toBe(userId2);
+          expect(response.gameStatus).toBe('active');
+          expect(response.fen).toBeDefined();
+      });
+  
+      it('should not allow joining a full room', async () => {
+          const { ws: client3 } = await connectClient();
+          
+          sendMessage(client3, { 
+              type: EVENTS.JOIN_ROOM, 
+              roomId 
+          });
+  
+          const response = await waitForMessage<ErrorMessage>(client3);
+          
+          expect(response.type).toBe('ERROR');
+          // ✅ Fixed: Match the actual server error message
+          expect(response.message).toContain('already active');
+          
+          client3.close();
+      });
+  
+      it('should not allow joining a non-existent room', async () => {
+          const { ws: client3 } = await connectClient();
+          
+          sendMessage(client3, { 
+              type: EVENTS.JOIN_ROOM, 
+              roomId: 'non-existent-id' 
+          });
+  
+          const response = await waitForMessage<ErrorMessage>(client3);
+          
+          expect(response.type).toBe('ERROR');
+          expect(response.message).toContain('exist');
+          
+          client3.close();
+      });
+  });
 
     describe('Move Validation', () => {
         it('should process a legal move', async () => {

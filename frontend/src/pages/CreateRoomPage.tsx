@@ -37,7 +37,7 @@ export default function CreateRoomPage() {
 
         };
 
-    }, [socket]);
+    }, [socket,navigate]);
     console.log(roomId)
     const create = () => {
 
