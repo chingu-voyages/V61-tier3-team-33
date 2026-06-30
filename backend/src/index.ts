@@ -322,42 +322,14 @@ export const app = new Elysia()
                 }
             }
         }
-      } catch (error) {
-        console.error(error)
-      }
+    });
+
+// Start the server only if this file is run directly (not imported in tests)
+
+    app.listen(3500, () => {
+        console.log("server starts at 3500")
+    });
 
 
-    },
-    close(ws) {
-
-      const id = (ws.data as any).userId;
-  
-      users.delete(id);
-  
-      for (const room of rooms.values()) {
-  
-          if (!room.players.includes(id)) continue;
-  
-          room.removePlayer(id);
-  
-          // notify everyone still in the room
-          const payload = JSON.stringify({
-              type: EVENTS.PLAYER_LEFT,
-              playerId: id,
-              gameStatus: room.gameStatus
-          });
-  
-          for (const playerId of room.players) {
-              users.get(playerId)?.ws.send(payload);
-          }
-  
-          if (room.players.length === 0 || room.gameStatus === "over") {
-              rooms.delete(room.id);
-          }
-      }
-  }
-  })
-
-  .listen(3500, () => {
-    console.log("server starts at 3500")
-  })
+// Export the users and rooms maps for testing if needed
+export { users, rooms };
