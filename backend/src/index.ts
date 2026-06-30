@@ -173,105 +173,106 @@ export const app = new Elysia()
                     }
 
                     case EVENTS.MOVE: {
-                        console.log("----- MOVE START -----")
-                        const message = data as MoveMessage
-                        const targetRoom = rooms.get(message.roomId)
-
-                        if (!targetRoom) {
-                            ws.send(JSON.stringify({
-                                type: EVENTS.ERROR,
-                                message: "room cant be found"
-                            }))
-                            break
-                        }
-
-                        if (targetRoom.gameStatus !== "active") {
-                            ws.send(JSON.stringify({
-                                type: EVENTS.ERROR,
-                                message: "Game is not active"
-                            }))
-                            break
-                        }
-
-                        const wsData = ws.data as WebSocketData
-                        const sender: string = wsData.userId
-
-                        if (!targetRoom.players.includes(sender)) {
-                            ws.send(JSON.stringify({
-                                type: EVENTS.ERROR,
-                                message: "You are not a player in this room"
-                            }))
-                            break
-                        }
-
-                        console.log("Room found")
-                        console.log("Sender:", sender)
-                        console.log("White :", targetRoom.whitePlayer)
-                        console.log("Black :", targetRoom.blackPlayer)
-                        console.log("Turn  :", targetRoom.chess.sideToMove())
-
-                        // Parse the move
-                        const from = Position.parse(message.from)
-                        const to = Position.parse(message.to)
-                        console.log("Parsed", from, to)
-
-                        if (from === null || to === null) {
-                            ws.send(JSON.stringify({
-                                type: EVENTS.ERROR,
-                                message: "Invalid squares"
-                            }))
-                            break
-                        }
-
-                        const legal = targetRoom.chess.isLegalMove(message.from, message.to)
-                        console.log("Legal =", legal)
-
-                        if (!legal) {
-                            ws.send(JSON.stringify({
-                                type: EVENTS.ERROR,
-                                message: "Illegal move"
-                            }))
-                            break
-                        }
-
-                        try {
-                            const currentPlayer = targetRoom.chess.sideToMove() === WHITE
-                                ? targetRoom.whitePlayer
-                                : targetRoom.blackPlayer
-
-                            if (sender !== currentPlayer) {
-                                ws.send(JSON.stringify({
-                                    type: EVENTS.ERROR,
-                                    message: "Not your turn"
-                                }))
-                                break
-                            }
-
-                            // Make the move
-                            console.log("Calling moveTo")
-                            targetRoom.chess.moveTo(from, to)
-
-                            if (targetRoom.chess.isOver()) {
-                                targetRoom.gameStatus = "over"
-                            }
-                        } catch {
-                            ws.send(JSON.stringify({
-                                type: EVENTS.ERROR,
-                                message: "Illegal move"
-                            }))
-                            break
-                        }
-
-                        console.log("Creating payload")
-                        const payload = buildChessState(targetRoom)
-
-                        // Broadcast the result to players in the room
-                        for (const id of targetRoom.players) {
-                            console.log("Sending to", id)
-                            users.get(id)?.ws.send(payload)
-                        }
-                        break
-                    }
+                      console.log("----- MOVE START -----")
+                      const message = data as MoveMessage
+                      const targetRoom = rooms.get(message.roomId)
+                  
+                      if (!targetRoom) {
+                          ws.send(JSON.stringify({
+                              type: EVENTS.ERROR,
+                              message: "room cant be found"
+                          }))
+                          break
+                      }
+                  
+                      if (targetRoom.gameStatus !== "active") {
+                          ws.send(JSON.stringify({
+                              type: EVENTS.ERROR,
+                              message: "Game is not active"
+                          }))
+                          break
+                      }
+                  
+                      const wsData = ws.data as WebSocketData
+                      const sender: string = wsData.userId
+                  
+                      if (!targetRoom.players.includes(sender)) {
+                          ws.send(JSON.stringify({
+                              type: EVENTS.ERROR,
+                              message: "You are not a player in this room"
+                          }))
+                          break
+                      }
+                  
+                      console.log("Room found")
+                      console.log("Sender:", sender)
+                      console.log("White :", targetRoom.whitePlayer)
+                      console.log("Black :", targetRoom.blackPlayer)
+                      console.log("Turn  :", targetRoom.chess.sideToMove())
+                  
+                      // ✅ FIX 1: Check turn FIRST before parsing or validating the move
+                      const currentPlayer = targetRoom.chess.sideToMove() === WHITE
+                          ? targetRoom.whitePlayer
+                          : targetRoom.blackPlayer
+                  
+                      if (sender !== currentPlayer) {
+                          ws.send(JSON.stringify({
+                              type: EVENTS.ERROR,
+                              message: "Not your turn"
+                          }))
+                          break
+                      }
+                  
+                      // Parse the move
+                      const from = Position.parse(message.from)
+                      const to = Position.parse(message.to)
+                      console.log("Parsed", from, to)
+                  
+                      if (from === null || to === null) {
+                          ws.send(JSON.stringify({
+                              type: EVENTS.ERROR,
+                              message: "Invalid squares"
+                          }))
+                          break
+                      }
+                  
+                      const legal = targetRoom.chess.isLegalMove(message.from, message.to)
+                      console.log("Legal =", legal)
+                  
+                      if (!legal) {
+                          ws.send(JSON.stringify({
+                              type: EVENTS.ERROR,
+                              message: "Illegal move"
+                          }))
+                          break
+                      }
+                  
+                      try {
+                          // Make the move
+                          console.log("Calling moveTo")
+                          targetRoom.chess.moveTo(from, to)
+                  
+                          if (targetRoom.chess.isOver()) {
+                              targetRoom.gameStatus = "over"
+                          }
+                      } catch {
+                          ws.send(JSON.stringify({
+                              type: EVENTS.ERROR,
+                              message: "Illegal move"
+                          }))
+                          break
+                      }
+                  
+                      console.log("Creating payload")
+                      const payload = buildChessState(targetRoom)
+                  
+                      // Broadcast the result to players in the room
+                      for (const id of targetRoom.players) {
+                          console.log("Sending to", id)
+                          users.get(id)?.ws.send(payload)
+                      }
+                      break
+                  }
 
                     case EVENTS.CHESS_STATE: {
                         const stateRequest = data as ChessStateRequest

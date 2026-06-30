@@ -6,7 +6,7 @@ import JoinRoomPage from "./pages/JoinRoomPage";
 import WaitingRoomPage from "./pages/WaitingRoomPage";
 import GamePage from "./pages/GamePage";
 
-import { SocketProvider } from "./context/SocketContext";
+import { SocketProvider } from "./context/SocketProvider";
 
 export default function App() {
   return (
