@@ -4,7 +4,6 @@ import { EVENTS } from '../Rooms/event';
 import { Room } from '../Rooms/roomClass';
 import type { MoveMessage } from './server.types';
 import { Position, WHITE, BLACK } from "./chess";
-import type WebSocket from 'ws';
 
 // Define proper types
 interface WebSocketData {
