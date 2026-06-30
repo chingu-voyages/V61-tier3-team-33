@@ -7,7 +7,7 @@ const SERVER_URL = 'ws://localhost:3500/ws';
 // Type definitions
 interface WebSocketMessage {
     type: string;
-    [key: string]: unknown; // Use unknown instead of any for better type safety
+    [key: string]: unknown;
 }
 
 interface ConnectedMessage extends WebSocketMessage {
@@ -52,7 +52,7 @@ interface PlayerLeftMessage extends WebSocketMessage {
     gameStatus: string;
 }
 
-// Helper function with proper typing - returns a more specific type
+// Helper function with proper typing
 function waitForMessage<T extends WebSocketMessage = WebSocketMessage>(ws: WebSocket): Promise<T> {
     return new Promise((resolve) => {
         ws.once("message", (raw: WebSocket.RawData) => {
@@ -72,12 +72,16 @@ function sendMessage(ws: WebSocket, data: Record<string, unknown>): void {
     ws.send(JSON.stringify(data));
 }
 
+// Import the server - adjust path as needed
+import { app } from '../src/index'; // Assuming your server export is named 'app'
+
 describe('Chess WebSocket Server', () => {
     let client1: WebSocket;
     let client2: WebSocket;
     let userId1: string;
     let userId2: string;
     let roomId: string;
+    let server: any;
 
     // Helper to connect a client
     function connectClient(): Promise<{ ws: WebSocket; userId: string }> {
@@ -102,6 +106,20 @@ describe('Chess WebSocket Server', () => {
     }
 
     beforeAll(async () => {
+        // Start the server if it's not already running
+        if (!server) {
+            try {
+                // Method 1: If your server exports a listen method
+                server = app.listen(3500);
+                console.log('Server started on port 3500');
+            } catch (error) {
+                console.log('Server already running or failed to start:', error);
+            }
+        }
+
+        // Give server time to start
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // Connect first client
         const client1Data = await connectClient();
         client1 = client1Data.ws;
@@ -109,8 +127,19 @@ describe('Chess WebSocket Server', () => {
     });
 
     afterAll(() => {
+        // Clean up
         if (client1) client1.close();
         if (client2) client2.close();
+        
+        // Close server if we started it
+        if (server) {
+            try {
+                server.close();
+                console.log('Server closed');
+            } catch (error) {
+                console.log('Error closing server:', error);
+            }
+        }
     });
 
     describe('Room Creation', () => {
@@ -205,8 +234,8 @@ describe('Chess WebSocket Server', () => {
             
             expect(response.type).toBe(EVENTS.CHESS_STATE);
             expect(response.roomId).toBe(roomId);
-            expect(response.fen).toContain('e4'); // Should contain the move
-            expect(response.turn).toBe(1); // Black's turn
+            expect(response.fen).toContain('e4');
+            expect(response.turn).toBe(1);
             expect(response.isOver).toBe(false);
         });
 
@@ -223,7 +252,7 @@ describe('Chess WebSocket Server', () => {
             const response = await waitForMessage<ChessStateMessage>(client2);
             expect(response.type).toBe(EVENTS.CHESS_STATE);
             
-            // Now try an illegal move (white pawn can't capture e5 if black pawn is there)
+            // Now try an illegal move
             sendMessage(client1, {
                 type: EVENTS.MOVE,
                 roomId,
@@ -237,7 +266,6 @@ describe('Chess WebSocket Server', () => {
         });
 
         it('should reject moves when it\'s not your turn', async () => {
-            // client1 tries to move again when it's black's turn
             sendMessage(client1, {
                 type: EVENTS.MOVE,
                 roomId,

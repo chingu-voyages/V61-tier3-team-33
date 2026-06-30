@@ -40,7 +40,8 @@ function buildChessState(room: Room): string {
     })
 }
 
-new Elysia()
+// Create the app but don't start it yet
+export const app = new Elysia()
     .ws('/ws', {
         open(ws: any) {
             console.log("connection has opened")
@@ -320,7 +321,14 @@ new Elysia()
                 }
             }
         }
-    })
-    .listen(3500, () => {
+    });
+
+// Start the server only if this file is run directly (not imported in tests)
+
+    app.listen(3500, () => {
         console.log("server starts at 3500")
-    })
+    });
+
+
+// Export the users and rooms maps for testing if needed
+export { users, rooms };
