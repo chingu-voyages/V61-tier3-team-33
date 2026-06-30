@@ -1,126 +1,320 @@
-import { describe, test, expect } from "bun:test";
-import WebSocket from "ws";
-import { EVENTS } from "../Rooms/event";
+import { describe, expect, it, beforeAll, afterAll } from 'bun:test';
+import WebSocket from 'ws';
+import { EVENTS } from '../Rooms/event';
 
-const URL = "ws://localhost:3500/ws";
+const SERVER_URL = 'ws://localhost:3500/ws';
 
-function waitForMessage(ws: WebSocket): Promise<any> {
+// Type definitions
+interface WebSocketMessage {
+    type: string;
+    [key: string]: unknown; // Use unknown instead of any for better type safety
+}
+
+interface ConnectedMessage extends WebSocketMessage {
+    userId: string;
+}
+
+interface RoomCreatedMessage extends WebSocketMessage {
+    roomId: string;
+    inviteLink: string;
+}
+
+interface RoomJoinedMessage extends WebSocketMessage {
+    roomId: string;
+    players: string[];
+    whitePlayer: string;
+    blackPlayer: string;
+    gameStatus: string;
+    fen: string;
+    turn: number;
+}
+
+interface ChessStateMessage extends WebSocketMessage {
+    roomId: string;
+    fen: string;
+    turn: number;
+    inCheck: boolean;
+    isOver: boolean;
+    result: {
+        status: string;
+        winner: string | null;
+        hasWinner: boolean;
+        drawReason: string;
+    };
+}
+
+interface ErrorMessage extends WebSocketMessage {
+    message: string;
+}
+
+interface PlayerLeftMessage extends WebSocketMessage {
+    playerId: string;
+    gameStatus: string;
+}
+
+// Helper function with proper typing - returns a more specific type
+function waitForMessage<T extends WebSocketMessage = WebSocketMessage>(ws: WebSocket): Promise<T> {
     return new Promise((resolve) => {
-        ws.once("message", (raw) => {
-            resolve(JSON.parse(raw.toString()));
+        ws.once("message", (raw: WebSocket.RawData) => {
+            // Convert raw data to string safely
+            const text = typeof raw === "string" 
+                ? raw 
+                : raw instanceof Buffer 
+                    ? raw.toString('utf-8')
+                    : raw.toString();
+            resolve(JSON.parse(text) as T);
         });
     });
 }
 
-function send(ws: WebSocket, payload: object) {
-    ws.send(JSON.stringify(payload));
+// Helper to send messages with proper typing
+function sendMessage(ws: WebSocket, data: Record<string, unknown>): void {
+    ws.send(JSON.stringify(data));
 }
 
-describe("Chess WebSocket Integration", () => {
-    test("complete multiplayer game flow", async () => {
+describe('Chess WebSocket Server', () => {
+    let client1: WebSocket;
+    let client2: WebSocket;
+    let userId1: string;
+    let userId2: string;
+    let roomId: string;
 
-        const player1 = new WebSocket(URL);
-        const player2 = new WebSocket(URL);
+    // Helper to connect a client
+    function connectClient(): Promise<{ ws: WebSocket; userId: string }> {
+        return new Promise((resolve, reject) => {
+            const ws = new WebSocket(SERVER_URL);
+            
+            ws.on('open', () => {
+                // Wait for CONNECTED message with proper typing
+                waitForMessage<ConnectedMessage>(ws).then((data) => {
+                    if (data.type === EVENTS.CONNECTED) {
+                        resolve({ ws, userId: data.userId });
+                    } else {
+                        reject(new Error(`Expected CONNECTED, got ${data.type}`));
+                    }
+                });
+            });
+            
+            ws.on('error', (error) => {
+                reject(error);
+            });
+        });
+    }
 
-        await Promise.all([
-            new Promise(res => player1.once("open", res)),
-            new Promise(res => player2.once("open", res)),
-        ]);
+    beforeAll(async () => {
+        // Connect first client
+        const client1Data = await connectClient();
+        client1 = client1Data.ws;
+        userId1 = client1Data.userId;
+    });
 
-        /* ---------------- CONNECTED ---------------- */
+    afterAll(() => {
+        if (client1) client1.close();
+        if (client2) client2.close();
+    });
 
-        const connected1 = await waitForMessage(player1);
-        const connected2 = await waitForMessage(player2);
+    describe('Room Creation', () => {
+        it('should create a room', async () => {
+            // Send CREATE_ROOM
+            sendMessage(client1, { type: EVENTS.CREATE_ROOM });
+            
+            // Wait for ROOM_CREATED response
+            const response = await waitForMessage<RoomCreatedMessage>(client1);
+            
+            expect(response.type).toBe(EVENTS.ROOM_CREATED);
+            expect(response.roomId).toBeDefined();
+            expect(response.inviteLink).toContain('/join/');
+            
+            roomId = response.roomId;
+        });
+    });
 
-        expect(connected1.type).toBe(EVENTS.CONNECTED);
-        expect(connected2.type).toBe(EVENTS.CONNECTED);
+    describe('Joining Rooms', () => {
+        it('should allow a second player to join', async () => {
+            // Connect second client
+            const client2Data = await connectClient();
+            client2 = client2Data.ws;
+            userId2 = client2Data.userId;
 
-        /* ---------------- CREATE ROOM ---------------- */
+            // Send JOIN_ROOM from client2
+            sendMessage(client2, { 
+                type: EVENTS.JOIN_ROOM, 
+                roomId 
+            });
 
-        send(player1, {
-            type: EVENTS.CREATE_ROOM
+            // Both clients should receive ROOM_JOINED
+            // We'll check client2's response
+            const response = await waitForMessage<RoomJoinedMessage>(client2);
+            
+            expect(response.type).toBe(EVENTS.ROOM_JOINED);
+            expect(response.roomId).toBe(roomId);
+            expect(response.players).toContain(userId1);
+            expect(response.players).toContain(userId2);
+            expect(response.whitePlayer).toBe(userId1);
+            expect(response.blackPlayer).toBe(userId2);
+            expect(response.gameStatus).toBe('active');
+            expect(response.fen).toBeDefined();
         });
 
-        const roomCreated = await waitForMessage(player1);
+        it('should not allow joining a full room', async () => {
+            // Try to join with a third client
+            const { ws: client3 } = await connectClient();
+            
+            sendMessage(client3, { 
+                type: EVENTS.JOIN_ROOM, 
+                roomId 
+            });
 
-        expect(roomCreated.type).toBe(EVENTS.ROOM_CREATED);
-
-        const roomId = roomCreated.roomId;
-
-        expect(roomId).toBeString();
-
-        /* ---------------- JOIN ROOM ---------------- */
-
-        send(player2, {
-            type: EVENTS.JOIN_ROOM,
-            roomId
+            const response = await waitForMessage<ErrorMessage>(client3);
+            
+            expect(response.type).toBe('ERROR');
+            expect(response.message).toContain('full');
+            
+            client3.close();
         });
 
-        const joined1 = await waitForMessage(player1);
-        const joined2 = await waitForMessage(player2);
+        it('should not allow joining a non-existent room', async () => {
+            const { ws: client3 } = await connectClient();
+            
+            sendMessage(client3, { 
+                type: EVENTS.JOIN_ROOM, 
+                roomId: 'non-existent-id' 
+            });
 
-        expect(joined1.type).toBe(EVENTS.ROOM_JOINED);
-        expect(joined2.type).toBe(EVENTS.ROOM_JOINED);
+            const response = await waitForMessage<ErrorMessage>(client3);
+            
+            expect(response.type).toBe('ERROR');
+            expect(response.message).toContain('exist');
+            
+            client3.close();
+        });
+    });
 
-        expect(joined1.players.length).toBe(2);
-        expect(joined2.players.length).toBe(2);
+    describe('Move Validation', () => {
+        it('should process a legal move', async () => {
+            // Send a move from client1 (White)
+            sendMessage(client1, {
+                type: EVENTS.MOVE,
+                roomId,
+                from: 'e2',
+                to: 'e4'
+            });
 
-        /* ---------------- WHITE MOVE ---------------- */
-
-        send(player1, {
-            type: EVENTS.MOVE,
-            roomId,
-            from: "e2",
-            to: "e4"
+            // Both clients should receive CHESS_STATE
+            const response = await waitForMessage<ChessStateMessage>(client1);
+            
+            expect(response.type).toBe(EVENTS.CHESS_STATE);
+            expect(response.roomId).toBe(roomId);
+            expect(response.fen).toContain('e4'); // Should contain the move
+            expect(response.turn).toBe(1); // Black's turn
+            expect(response.isOver).toBe(false);
         });
 
-        const state1 = await waitForMessage(player1);
-        const state2 = await waitForMessage(player2);
+        it('should reject illegal moves', async () => {
+            // First make a legal move for black
+            sendMessage(client2, {
+                type: EVENTS.MOVE,
+                roomId,
+                from: 'e7',
+                to: 'e5'
+            });
 
-        expect(state1.type).toBe(EVENTS.CHESS_STATE);
-        expect(state2.type).toBe(EVENTS.CHESS_STATE);
+            // Should get CHESS_STATE for legal move
+            const response = await waitForMessage<ChessStateMessage>(client2);
+            expect(response.type).toBe(EVENTS.CHESS_STATE);
+            
+            // Now try an illegal move (white pawn can't capture e5 if black pawn is there)
+            sendMessage(client1, {
+                type: EVENTS.MOVE,
+                roomId,
+                from: 'e4',
+                to: 'e5'
+            });
 
-        expect(state1.turn).toBe(1);
-
-        /* ---------------- BLACK MOVE ---------------- */
-
-        send(player2, {
-            type: EVENTS.MOVE,
-            roomId,
-            from: "e7",
-            to: "e5"
+            const errorResponse = await waitForMessage<ErrorMessage>(client1);
+            expect(errorResponse.type).toBe('ERROR');
+            expect(errorResponse.message).toContain('Illegal');
         });
 
-        const state3 = await waitForMessage(player1);
-        const state4 = await waitForMessage(player2);
+        it('should reject moves when it\'s not your turn', async () => {
+            // client1 tries to move again when it's black's turn
+            sendMessage(client1, {
+                type: EVENTS.MOVE,
+                roomId,
+                from: 'd2',
+                to: 'd4'
+            });
 
-        expect(state3.type).toBe(EVENTS.CHESS_STATE);
-        expect(state4.type).toBe(EVENTS.CHESS_STATE);
+            const response = await waitForMessage<ErrorMessage>(client1);
+            expect(response.type).toBe('ERROR');
+            expect(response.message).toContain('turn');
+        });
+    });
 
-        expect(state3.turn).toBe(0);
+    describe('Game State', () => {
+        it('should return current state when requested', async () => {
+            sendMessage(client1, {
+                type: EVENTS.CHESS_STATE,
+                roomId
+            });
 
-        /* ---------------- REQUEST CURRENT STATE ---------------- */
+            const response = await waitForMessage<ChessStateMessage>(client1);
+            
+            expect(response.type).toBe(EVENTS.CHESS_STATE);
+            expect(response.roomId).toBe(roomId);
+            expect(response.fen).toBeDefined();
+            expect(response.turn).toBeDefined();
+            expect(response.inCheck).toBeDefined();
+            expect(response.isOver).toBeDefined();
+            expect(response.result).toBeDefined();
+            expect(response.result.status).toBeDefined();
+        });
+    });
 
-        send(player1, {
-            type: EVENTS.CHESS_STATE,
-            roomId
+    describe('Disconnect Handling', () => {
+        it('should handle player disconnection', async () => {
+            // Disconnect client2
+            client2.close();
+            
+            // Wait for client1 to receive PLAYER_LEFT
+            const response = await waitForMessage<PlayerLeftMessage>(client1);
+            
+            expect(response.type).toBe(EVENTS.PLAYER_LEFT);
+            expect(response.playerId).toBe(userId2);
+            expect(response.gameStatus).toBe('waiting');
         });
 
-        const current = await waitForMessage(player1);
-
-        expect(current.type).toBe(EVENTS.CHESS_STATE);
-        expect(current.roomId).toBe(roomId);
-
-        /* ---------------- DISCONNECT ---------------- */
-
-        player2.close();
-
-        const left = await waitForMessage(player1);
-
-        expect(left.type).toBe(EVENTS.PLAYER_LEFT);
-
-        expect(left.playerId).toBe(connected2.userId);
-
-        player1.close();
+        it('should clean up room when all players leave', async () => {
+            // Disconnect client1
+            client1.close();
+            
+            // Give server time to clean up
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Try to join the room again (should fail)
+            const { ws: client3 } = await connectClient();
+            
+            sendMessage(client3, {
+                type: EVENTS.JOIN_ROOM,
+                roomId
+            });
+            
+            const response = await waitForMessage<ErrorMessage>(client3);
+            expect(response.type).toBe('ERROR');
+            expect(response.message).toContain('exist');
+            
+            client3.close();
+        });
     });
 });
+
+// Export types for use in other files
+export type {
+    WebSocketMessage,
+    ConnectedMessage,
+    RoomCreatedMessage,
+    RoomJoinedMessage,
+    ChessStateMessage,
+    ErrorMessage,
+    PlayerLeftMessage
+};

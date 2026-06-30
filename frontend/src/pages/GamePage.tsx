@@ -3,7 +3,7 @@ import { EVENTS } from "../../../backend/Rooms/event";
 import { useState, useEffect } from "react";
 import { ChessBoard } from "react-chessboard-ui";
 import "react-chessboard-ui/dist/index.css";
-import { useSocket } from "../context/SocketContext";
+import { useSocket } from "../context/useSocket";
 import { useParams } from "react-router-dom";
 import { coordToSquare } from "../utils/coordinateConvertor";
 type MoveData = {
