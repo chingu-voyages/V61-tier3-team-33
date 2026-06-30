@@ -40,7 +40,8 @@ function buildChessState(room: Room): string {
     })
 }
 
-new Elysia()
+// Create the app but don't start it yet
+export const app = new Elysia()
     .ws('/ws', {
         open(ws: any) {
             console.log("connection has opened")
