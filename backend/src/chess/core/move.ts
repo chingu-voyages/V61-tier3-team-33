@@ -44,6 +44,7 @@ export interface Move {
   promoteTo: PieceType | null;
   /** `null` when this is not a capture. */
   captured: Piece | null;
+  san?: string;
 }
 
 export const Move = {
