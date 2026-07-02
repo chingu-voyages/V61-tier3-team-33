@@ -4,7 +4,7 @@ import type { JoinInput, MoveInput } from "../domain/types";
 // Decoded once by Protocol.decode; never sent back out, never passed through Hub.
 
 // Routed to Connections
-export const SESSION_HELLO = "session:hello" as const;
+export const SESSION_HANDSHAKE = "session:handshake" as const;
 export const SESSION_PONG = "session:pong" as const;
 
 // Routed to GameService
@@ -20,7 +20,7 @@ export const GAME_RESIGN = "game:resign" as const;
 export const STATE_SYNC = "state:sync" as const;
 
 export type Command =
-  | { type: typeof SESSION_HELLO; token?: string }
+  | { type: typeof SESSION_HANDSHAKE; token?: string }
   | { type: typeof SESSION_PONG }
   | ({ type: typeof ROOM_JOIN } & JoinInput)
   | { type: typeof ROOM_LEAVE }

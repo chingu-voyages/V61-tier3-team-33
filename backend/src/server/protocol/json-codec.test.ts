@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { JsonCodec } from "./json-codec";
 import {
-  SESSION_HELLO,
+  SESSION_HANDSHAKE,
   SESSION_PONG,
   ROOM_JOIN,
   ROOM_LEAVE,
@@ -68,22 +68,22 @@ describe("JsonCodec.decode", () => {
     }
   });
 
-  describe("session:hello", () => {
+  describe("session:handshake", () => {
     it("decodes without a token", () => {
-      const result = codec.decode(JSON.stringify({ type: SESSION_HELLO }));
-      expect(result).toEqual({ type: SESSION_HELLO, token: undefined });
+      const result = codec.decode(JSON.stringify({ type: SESSION_HANDSHAKE }));
+      expect(result).toEqual({ type: SESSION_HANDSHAKE, token: undefined });
     });
 
     it("decodes with a string token", () => {
       const result = codec.decode(
-        JSON.stringify({ type: SESSION_HELLO, token: "abc123" }),
+        JSON.stringify({ type: SESSION_HANDSHAKE, token: "abc123" }),
       );
-      expect(result).toEqual({ type: SESSION_HELLO, token: "abc123" });
+      expect(result).toEqual({ type: SESSION_HANDSHAKE, token: "abc123" });
     });
 
     it("rejects a non-string token", () => {
       const result = codec.decode(
-        JSON.stringify({ type: SESSION_HELLO, token: 123 }),
+        JSON.stringify({ type: SESSION_HANDSHAKE, token: 123 }),
       );
       expect(result).toBeNull();
     });

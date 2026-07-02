@@ -2,7 +2,7 @@ import type { Protocol } from "./protocol";
 import type { Command } from "./commands";
 import type { Notification } from "./events";
 import {
-  SESSION_HELLO,
+  SESSION_HANDSHAKE,
   SESSION_PONG,
   ROOM_JOIN,
   ROOM_LEAVE,
@@ -42,9 +42,9 @@ type Decoder = (raw: Raw) => Command | null;
  * exhaustiveness enforced by the type system, not a runtime `never` check.
  */
 const decoders: Record<Command["type"], Decoder> = {
-  [SESSION_HELLO]: (raw) => {
+  [SESSION_HANDSHAKE]: (raw) => {
     if (raw.token !== undefined && typeof raw.token !== "string") return null;
-    return { type: SESSION_HELLO, token: optionalString(raw.token) };
+    return { type: SESSION_HANDSHAKE, token: optionalString(raw.token) };
   },
 
   [SESSION_PONG]: () => ({ type: SESSION_PONG }),
