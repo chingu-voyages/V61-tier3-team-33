@@ -7,7 +7,12 @@ import type { GameSnapshot } from "../domain/types";
 
 describe("Hub", () => {
   // Minimal valid events for each type used below.
-  const opened: Event = { type: CONNECTION_OPENED, playerId: "p1", ws: {} };
+  const opened: Event = {
+    type: CONNECTION_OPENED,
+    playerId: "p1",
+    ws: {},
+    roomId: null,
+  };
   const joined: Event = {
     type: ROOM_JOINED,
     roomId: "room-1",
@@ -23,7 +28,7 @@ describe("Hub", () => {
     hub.on(ROOM_JOINED, joinedHandler, FAST);
     hub.on(CONNECTION_OPENED, openedHandler, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(joinedHandler).toHaveBeenCalledTimes(1);
     expect(joinedHandler).toHaveBeenCalledWith("room-1", joined);
@@ -42,19 +47,19 @@ describe("Hub", () => {
       FAST,
     );
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(seenRoomId).toBe("room-1");
   });
 
-  it("passes roomId as null when emitted with null", () => {
+  it("passes roomId as null for events whose own roomId is null", () => {
     const hub = new Hub();
     const handler = mock(() => {});
 
-    hub.on(ROOM_JOINED, handler, FAST);
-    hub.emit(null, joined);
+    hub.on(CONNECTION_OPENED, handler, FAST);
+    hub.emit(opened);
 
-    expect(handler).toHaveBeenCalledWith(null, joined);
+    expect(handler).toHaveBeenCalledWith(null, opened);
   });
 
   it("delivers every event to wildcard handlers, regardless of type", () => {
@@ -63,8 +68,8 @@ describe("Hub", () => {
 
     hub.onAny(wildcard, FAST);
 
-    hub.emit("room-1", joined);
-    hub.emit(null, opened);
+    hub.emit(joined);
+    hub.emit(opened);
 
     expect(wildcard).toHaveBeenCalledTimes(2);
     expect(wildcard).toHaveBeenNthCalledWith(1, "room-1", joined);
@@ -79,7 +84,7 @@ describe("Hub", () => {
     hub.on(ROOM_JOINED, typed, FAST);
     hub.onAny(wildcard, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(typed).toHaveBeenCalledTimes(1);
     expect(wildcard).toHaveBeenCalledTimes(1);
@@ -90,7 +95,7 @@ describe("Hub", () => {
     const wildcard = mock(() => {});
 
     hub.onAny(wildcard, FAST);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(wildcard).toHaveBeenCalledTimes(1);
   });
@@ -103,7 +108,7 @@ describe("Hub", () => {
     hub.on(ROOM_JOINED, first, FAST);
     hub.on(ROOM_JOINED, second, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
@@ -117,7 +122,7 @@ describe("Hub", () => {
     hub.onAny(first, FAST);
     hub.onAny(second, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
@@ -130,14 +135,14 @@ describe("Hub", () => {
     hub.on(ROOM_JOINED, handler, FAST);
     hub.on(ROOM_JOINED, handler, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing when emitting an event type with no subscribers", () => {
     const hub = new Hub();
-    expect(() => hub.emit("room-1", joined)).not.toThrow();
+    expect(() => hub.emit(joined)).not.toThrow();
   });
 
   it("on() returns an unsubscribe function that stops future delivery", () => {
@@ -145,11 +150,11 @@ describe("Hub", () => {
     const handler = mock(() => {});
 
     const unsubscribe = hub.on(ROOM_JOINED, handler, FAST);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
     expect(handler).toHaveBeenCalledTimes(1);
 
     unsubscribe();
-    hub.emit("room-1", joined);
+    hub.emit(joined);
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
@@ -158,11 +163,11 @@ describe("Hub", () => {
     const handler = mock(() => {});
 
     const unsubscribe = hub.onAny(handler, FAST);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
     expect(handler).toHaveBeenCalledTimes(1);
 
     unsubscribe();
-    hub.emit("room-1", joined);
+    hub.emit(joined);
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
@@ -175,7 +180,7 @@ describe("Hub", () => {
     hub.on(ROOM_JOINED, second, FAST);
 
     unsubscribeFirst();
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
@@ -190,7 +195,7 @@ describe("Hub", () => {
     hub.onAny(second, FAST);
 
     unsubFirst();
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
@@ -204,7 +209,7 @@ describe("Hub", () => {
     unsubscribe();
     expect(() => unsubscribe()).not.toThrow();
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
     expect(handler).not.toHaveBeenCalled();
   });
 
@@ -217,8 +222,8 @@ describe("Hub", () => {
     hub.on(CONNECTION_OPENED, openedHandler, FAST);
 
     unsubJoined();
-    hub.emit("room-1", joined);
-    hub.emit(null, opened);
+    hub.emit(joined);
+    hub.emit(opened);
 
     expect(joinedHandler).not.toHaveBeenCalled();
     expect(openedHandler).toHaveBeenCalledTimes(1);
@@ -232,7 +237,7 @@ describe("Hub", () => {
     unsub();
 
     hub.on(ROOM_JOINED, handler, FAST);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(handler).toHaveBeenCalledTimes(1);
   });
@@ -248,7 +253,7 @@ describe("Hub", () => {
       },
       FAST,
     );
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(events).toEqual(["fast"]);
   });
@@ -264,7 +269,7 @@ describe("Hub", () => {
       },
       DEFERRED,
     );
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(events).toEqual([]);
 
@@ -290,7 +295,7 @@ describe("Hub", () => {
       },
       DEFERRED,
     );
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(order).toEqual(["fast"]);
 
@@ -305,7 +310,7 @@ describe("Hub", () => {
     hub.onAny(() => {
       events.push("fast-wild");
     }, FAST);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(events).toEqual(["fast-wild"]);
   });
@@ -317,7 +322,7 @@ describe("Hub", () => {
     hub.onAny(() => {
       events.push("deferred-wild");
     }, DEFERRED);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(events).toEqual([]);
 
@@ -340,7 +345,7 @@ describe("Hub", () => {
       order.push("wild");
     }, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(order).toEqual(["typed", "wild"]);
   });
@@ -350,7 +355,7 @@ describe("Hub", () => {
     const handler = mock(() => {});
 
     hub.on(ROOM_JOINED, handler);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(handler).not.toHaveBeenCalled();
 
@@ -363,7 +368,7 @@ describe("Hub", () => {
     const handler = mock(() => {});
 
     hub.onAny(handler);
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(handler).not.toHaveBeenCalled();
 
@@ -396,7 +401,7 @@ describe("Hub", () => {
       order.push("wild-deferred");
     }, DEFERRED);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(order).toEqual(["typed-fast", "wild-fast"]);
 
@@ -422,7 +427,7 @@ describe("Hub", () => {
     hub.on(ROOM_JOINED, bad, FAST);
     hub.on(ROOM_JOINED, good, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(onError).toHaveBeenCalledWith(boom);
     expect(good).toHaveBeenCalledTimes(1);
@@ -441,7 +446,7 @@ describe("Hub", () => {
     hub.onAny(bad, FAST);
     hub.onAny(good, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(onError).toHaveBeenCalledWith(boom);
     expect(good).toHaveBeenCalledTimes(1);
@@ -460,7 +465,7 @@ describe("Hub", () => {
       FAST,
     );
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     await Promise.resolve();
     await Promise.resolve();
@@ -480,7 +485,7 @@ describe("Hub", () => {
       },
       DEFERRED,
     );
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     await new Promise((r) => setTimeout(r, 0));
 
@@ -503,7 +508,7 @@ describe("Hub", () => {
         },
         FAST,
       );
-      hub.emit("room-1", joined);
+      hub.emit(joined);
 
       expect(spy).toHaveBeenCalledWith("[Hub]", boom);
     } finally {
@@ -527,7 +532,7 @@ describe("Hub", () => {
         },
         FAST,
       );
-      hub.emit("room-1", joined);
+      hub.emit(joined);
 
       await Promise.resolve();
       await Promise.resolve();
@@ -546,7 +551,7 @@ describe("Hub", () => {
     hub.on(CONNECTION_OPENED, openedHandler, FAST);
     hub.on(ROOM_JOINED, joinedHandler, FAST);
 
-    hub.emit("room-1", joined);
+    hub.emit(joined);
 
     expect(joinedHandler).toHaveBeenCalledTimes(1);
     expect(openedHandler).not.toHaveBeenCalled();
@@ -554,6 +559,6 @@ describe("Hub", () => {
 
   it("console.error default does not throw when no handler registered", () => {
     const hub = new Hub();
-    expect(() => hub.emit("room-1", joined)).not.toThrow();
+    expect(() => hub.emit(joined)).not.toThrow();
   });
 });

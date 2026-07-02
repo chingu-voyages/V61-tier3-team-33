@@ -44,10 +44,29 @@ export const GRACE_EXPIRED = "grace:expired" as const;
 // Signal — server machinery only. Reaches Hub subscribers;
 // never sent to a client. Occupant.notify's type signature rejects these.
 export type Signal =
-  | { type: typeof CONNECTION_OPENED; playerId: string; ws: WebSocket }
-  | { type: typeof CONNECTION_CLOSED; playerId: string; ws: WebSocket }
-  | { type: typeof CONNECTION_RESUMED; playerId: string; ws: WebSocket }
-  | { type: typeof CLOCK_TICK; roomId: string; clock: ClockState };
+  | {
+      type: typeof CONNECTION_OPENED;
+      playerId: string;
+      ws: WebSocket;
+      roomId: null;
+    }
+  | {
+      type: typeof CONNECTION_CLOSED;
+      playerId: string;
+      ws: WebSocket;
+      roomId: null;
+    }
+  | {
+      type: typeof CONNECTION_RESUMED;
+      playerId: string;
+      ws: WebSocket;
+      roomId: null;
+    }
+  | {
+      type: typeof CLOCK_TICK;
+      clock: ClockState;
+      roomId: string;
+    };
 
 // Notification — a player needs to know. Reaches Hub subscribers AND
 // goes out to clients via Occupant.notify → Protocol.encode → ws.send.

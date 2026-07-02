@@ -202,7 +202,6 @@ describe("Game", () => {
 
       expect(publisher.emit).toHaveBeenCalledTimes(1);
       expect(publisher.emit).toHaveBeenCalledWith(
-        "game-1",
         expect.objectContaining({
           type: MOVE_MADE,
           roomId: "game-1",
@@ -236,7 +235,6 @@ describe("Game", () => {
       expect(game.endReason).toBe(RULES);
 
       expect(publisher.emit).toHaveBeenLastCalledWith(
-        "game-1",
         expect.objectContaining({
           type: MOVE_MADE,
           by: BLACK,

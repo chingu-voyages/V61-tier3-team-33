@@ -128,7 +128,7 @@ export class Game {
         const applied = this.chess.move(input.from, input.to, input.promoteTo);
         const outcome = this.settleIfOver();
 
-        this.publisher.emit(this.id, {
+        this.publisher.emit({
           type: MOVE_MADE,
           roomId: this.id,
           by: color,

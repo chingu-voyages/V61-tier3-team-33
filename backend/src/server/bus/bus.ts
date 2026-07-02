@@ -43,9 +43,11 @@ type HandlerRegistry = Map<string, HandlerBucket>;
 
 const newBucket = (): HandlerBucket => [new Set(), new Set()];
 
-// Anything that can broadcast events.
+// Anything that can broadcast events. `roomId` is read straight off the
+// event (every Event variant carries one, `null` when it isn't scoped to
+// a room), so callers never pass it separately.
 export interface Publisher {
-  emit(roomId: string | null, event: Event): void;
+  emit(event: Event): void;
 }
 
 // Anything that can be subscribed to.
@@ -68,7 +70,9 @@ export class Hub implements Publisher, Subscriber {
   // Dispatch an event: fast-lane handlers run immediately (same tick, in
   // order); deferred-lane handlers are each scheduled on their own macrotask
   // so a large fan-out can't block the thread or delay fast-lane delivery.
-  emit(roomId: string | null, event: Event): void {
+  // roomId comes from the event's own `roomId` field.
+  emit(event: Event): void {
+    const roomId = event.roomId;
     const [fastWild, deferredWild] = this.wild;
     const bucket = this.typed.get(event.type);
 
