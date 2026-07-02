@@ -184,6 +184,52 @@ describe("Sessions", () => {
     });
   });
 
+  describe("resumeOrOpen", () => {
+    it("opens a new session when no token is given", () => {
+      const store = makeStore();
+      const ws = makeSocket();
+
+      const session = store.resumeOrOpen(ws);
+
+      expect(store.bySocket(ws)).toBe(session);
+      expect(session.playerId).toBeTruthy();
+    });
+
+    it("opens a new session when the token is unknown", () => {
+      const store = makeStore();
+      const ws = makeSocket();
+
+      const session = store.resumeOrOpen(ws, "no-such-token");
+
+      expect(store.bySocket(ws)).toBe(session);
+      expect(store.byToken("no-such-token")).toBeNull();
+    });
+
+    it("resumes the existing session when the token is valid", () => {
+      const store = makeStore();
+      const oldWs = makeSocket();
+      const original = store.open(oldWs, "player-1");
+      store.drop(oldWs);
+
+      const newWs = makeSocket();
+      const session = store.resumeOrOpen(newWs, original.token);
+
+      expect(session).toBe(original); // same Session object, not a new one
+      expect(session.playerId).toBe("player-1");
+      expect(store.bySocket(newWs)).toBe(original);
+      expect(store.bySocket(oldWs)).toBeNull();
+    });
+
+    it("gives each newly created session a distinct playerId", () => {
+      const store = makeStore();
+
+      const a = store.resumeOrOpen(makeSocket());
+      const b = store.resumeOrOpen(makeSocket());
+
+      expect(a.playerId).not.toBe(b.playerId);
+    });
+  });
+
   describe("prune", () => {
     let nowSpy: ReturnType<typeof spyOn>;
 

@@ -9,6 +9,11 @@ const DISCONNECTED_TTL_MS = 2 * 60 * 1000;
 // How often the pruner checks for expired sessions.
 const DEFAULT_PRUNE_INTERVAL_MS = 30 * 1000;
 
+// Minimal Phase 1: assign a random player ID, no real auth.
+function generatePlayerId(): string {
+  return "p_" + crypto.randomUUID().slice(0, 8);
+}
+
 /**
  * In-memory implementation of SessionStore, backed by two Maps that both
  * point at the same Session objects: one keyed by the live WebSocket
@@ -66,6 +71,16 @@ export class Sessions implements SessionStore {
     this.bySocketMap.set(ws, session);
 
     return session;
+  }
+
+  /**
+   * Resumes the session for `token` if it's valid, reattaching it to `ws`;
+   * otherwise opens a brand new session for `ws` with a freshly generated
+   * playerId.
+   */
+  resumeOrOpen(ws: WebSocket, token?: string): Session {
+    const resumed = token ? this.resume(token, ws) : undefined;
+    return resumed ?? this.open(ws, generatePlayerId());
   }
 
   /**

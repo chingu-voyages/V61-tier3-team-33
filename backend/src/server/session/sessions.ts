@@ -15,6 +15,8 @@ export interface SessionWriter {
   open(ws: WebSocket, playerId: string): Session;
   /** Reattaches a prior session to a new socket, or null if the token is invalid/expired. */
   resume(token: string, ws: WebSocket): Session | null;
+  /** Resumes the session for `token` if it's valid, reattaching it to `ws`; otherwise opens a brand new session for `ws` with a freshly generated playerId. */
+  resumeOrOpen(ws: WebSocket, token?: string): Session;
   /** Removes the session bound to this socket, e.g. on disconnect. */
   drop(ws: WebSocket): void;
   /** Merges the given fields into the session bound to this socket. */
