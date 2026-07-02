@@ -152,6 +152,7 @@ export type OccupantKind = typeof HUMAN | typeof AI;
 
 // Minimal structural WebSocket shape — matches Elysia's ElysiaWS without importing it.
 export interface WebSocket {
+  readonly id: string;
   readonly readyState: number;
   send(data: string): void;
   close(): void;

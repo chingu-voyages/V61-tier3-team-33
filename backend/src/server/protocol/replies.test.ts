@@ -9,6 +9,7 @@ describe("Reply", () => {
    * fakes are never === even if constructed identically. */
   function makeSocket(): WebSocket {
     return {
+      id: crypto.randomUUID(),
       readyState: WS_OPEN,
       send: mock(() => {}),
       close: () => {},

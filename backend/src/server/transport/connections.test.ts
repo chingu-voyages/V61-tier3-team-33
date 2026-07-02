@@ -14,6 +14,7 @@ describe("Connections", () => {
    * fakes are never === even if constructed identically. */
   function makeSocket(): WebSocket {
     return {
+      id: crypto.randomUUID(),
       readyState: WS_OPEN,
       send: mock(() => {}),
       close: () => {},
@@ -139,6 +140,7 @@ describe("Connections", () => {
       const protocol = makeProtocol();
       const connections = new Connections(sessions, publisher, protocol);
       const ws: WebSocket = {
+        id: crypto.randomUUID(),
         readyState: WS_OPEN,
         send: mock(() => {
           order.push("send");

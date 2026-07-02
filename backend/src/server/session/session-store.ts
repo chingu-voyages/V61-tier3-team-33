@@ -20,7 +20,7 @@ function generatePlayerId(): string {
  * (identity, not value — see `open`), one keyed by resume token.
  */
 export class Sessions implements SessionStore {
-  private bySocketMap: Map<WebSocket, Session> = new Map();
+  private bySocketMap: Map<string, Session> = new Map();
   private byTokenMap: Map<string, Session> = new Map();
   private pruner: ReturnType<typeof setTimeout> | null = null;
 
@@ -28,7 +28,7 @@ export class Sessions implements SessionStore {
 
   /** Looks up the session currently bound to this socket. */
   bySocket(ws: WebSocket): Session | null {
-    return this.bySocketMap.get(ws) ?? null;
+    return this.bySocketMap.get(ws.id) ?? null;
   }
 
   /** Looks up a session by its resume token, regardless of connection state. */
@@ -49,7 +49,7 @@ export class Sessions implements SessionStore {
       disconnectedAt: null,
     };
 
-    this.bySocketMap.set(ws, session);
+    this.bySocketMap.set(ws.id, session);
     this.byTokenMap.set(session.token, session);
 
     return session;
@@ -65,10 +65,10 @@ export class Sessions implements SessionStore {
     const session = this.byTokenMap.get(token);
     if (!session) return null;
 
-    this.bySocketMap.delete(session.ws);
+    this.bySocketMap.delete(session.ws.id);
     session.ws = ws;
     session.disconnectedAt = null;
-    this.bySocketMap.set(ws, session);
+    this.bySocketMap.set(ws.id, session);
 
     return session;
   }
@@ -93,10 +93,10 @@ export class Sessions implements SessionStore {
    * that window passes without a reconnect.
    */
   drop(ws: WebSocket): void {
-    const session = this.bySocketMap.get(ws);
+    const session = this.bySocketMap.get(ws.id);
     if (!session) return;
 
-    this.bySocketMap.delete(ws);
+    this.bySocketMap.delete(ws.id);
     session.disconnectedAt = Date.now();
   }
 
@@ -106,7 +106,7 @@ export class Sessions implements SessionStore {
    * it here is visible through both indexes with no re-sync needed.
    */
   bind(ws: WebSocket, patch: Partial<Session>): void {
-    const session = this.bySocketMap.get(ws);
+    const session = this.bySocketMap.get(ws.id);
     if (!session) return;
 
     Object.assign(session, patch);

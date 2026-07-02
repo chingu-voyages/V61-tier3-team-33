@@ -13,6 +13,7 @@ describe("Sessions", () => {
    * us exercise identity-keyed lookups (bySocketMap). */
   function makeSocket(): WebSocket {
     return {
+      id: crypto.randomUUID(),
       readyState: WS_OPEN,
       send: () => {},
       close: () => {},
