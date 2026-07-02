@@ -42,7 +42,7 @@ import type { Occupant } from "../occupant/occupant";
 import type { Publisher } from "../bus/bus";
 import { Mutex } from "../util/mutex";
 
-import type { Notification } from "../protocol/events";
+import { ROOM_LEFT, type Notification } from "../protocol/events";
 
 /** A single chess match: two color slots, one engine, one lifecycle. */
 export class Game {
@@ -98,6 +98,17 @@ export class Game {
   /** The player id in a color slot, or null if that slot is empty. */
   playerIdByColor(color: PieceColor): string | null {
     return this.slots.get(color)?.playerId ?? null;
+  }
+
+  /** Removes the occupant from a color slot and broadcasts room:left. */
+  leave(color: PieceColor): void {
+    this.broadcast({
+      type: ROOM_LEFT,
+      roomId: this.id,
+      color,
+      reason: "left",
+    } as Notification);
+    this.slots.delete(color);
   }
 
   /**

@@ -25,6 +25,7 @@ import {
   MOVE_MADE,
   MOVE_REJECTED,
   GAME_ENDED,
+  ROOM_LEFT,
   UNDO_REQUESTED,
   UNDO_APPLIED,
   UNDO_DECLINED,
@@ -53,8 +54,8 @@ describe("GameService", () => {
 
   /** Every message sent on `ws`, parsed from JSON in send order. */
   function sent(ws: WebSocket): any[] {
-    return (ws.send as ReturnType<typeof mock>).mock.calls.map(
-      (call: any[]) => JSON.parse(call[0]),
+    return (ws.send as ReturnType<typeof mock>).mock.calls.map((call: any[]) =>
+      JSON.parse(call[0]),
     );
   }
 
@@ -361,6 +362,90 @@ describe("GameService", () => {
         }),
       );
       expect(sent(black).length).toBe(blackCallsBefore); // black got nothing
+    });
+  });
+
+  describe("leave", () => {
+    it("replies NOT_AUTHENTICATED when not connected", async () => {
+      const { service } = makeService();
+      const ws = makeSocket("ghost");
+
+      await service.leave(ws);
+
+      expect(lastSent(ws)).toEqual(
+        expect.objectContaining({
+          type: SESSION_ERROR,
+          code: NOT_AUTHENTICATED,
+        }),
+      );
+    });
+
+    it("replies NOT_IN_GAME when connected but not seated", async () => {
+      const { service, sessions } = makeService();
+      const ws = makeSocket("p1");
+      connect(sessions, ws);
+
+      await service.leave(ws);
+
+      expect(lastSent(ws)).toEqual(
+        expect.objectContaining({ type: SESSION_ERROR, code: NOT_IN_GAME }),
+      );
+    });
+
+    it("broadcasts ROOM_LEFT to both players", async () => {
+      const { service, sessions } = makeService();
+      const { white, black } = await seatTwoPlayers(service, sessions);
+
+      await service.leave(white);
+
+      expect(lastSent(white)).toEqual(
+        expect.objectContaining({ type: ROOM_LEFT, color: WHITE }),
+      );
+      expect(lastSent(black)).toEqual(
+        expect.objectContaining({ type: ROOM_LEFT, color: WHITE }),
+      );
+    });
+
+    it("clears the session's roomId and color", async () => {
+      const { service, sessions } = makeService();
+      const { white } = await seatTwoPlayers(service, sessions);
+
+      const sessionBefore = sessions.bySocket(white)!;
+      expect(sessionBefore.roomId).not.toBeNull();
+      expect(sessionBefore.color).not.toBeNull();
+
+      await service.leave(white);
+
+      const sessionAfter = sessions.bySocket(white)!;
+      expect(sessionAfter.roomId).toBeNull();
+      expect(sessionAfter.color).toBeNull();
+    });
+
+    it("clears any pending undo request", async () => {
+      const { service, sessions } = makeService();
+      const { white, black } = await seatTwoPlayers(service, sessions);
+      await service.move(white, { from: E2, to: E4 });
+      await service.requestUndo(white);
+
+      await service.leave(white);
+
+      // After leave, black should be able to acceptUndo without effect
+      // (pending was cleared). Black should get no UNDO_APPLIED.
+      const blackCallsBefore = sent(black).length;
+      await service.acceptUndo(black);
+      expect(sent(black).length).toBe(blackCallsBefore);
+    });
+
+    it("allows the other player to still leave afterwards", async () => {
+      const { service, sessions } = makeService();
+      const { white, black } = await seatTwoPlayers(service, sessions);
+
+      await service.leave(white);
+      await service.leave(black);
+
+      expect(lastSent(black)).toEqual(
+        expect.objectContaining({ type: ROOM_LEFT, color: BLACK }),
+      );
     });
   });
 });

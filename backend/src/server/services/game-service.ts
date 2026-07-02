@@ -50,6 +50,8 @@ export interface GameFacade {
   declineUndo(ws: WebSocket): Promise<void>;
   /** Ends the game as a resignation by the caller. */
   resign(ws: WebSocket): Promise<void>;
+  /** Leaves the game. */
+  leave(ws: WebSocket): Promise<void>;
   /** Resends the caller's current game state. */
   sync(ws: WebSocket): Promise<void>;
 }
@@ -295,6 +297,18 @@ export class GameService implements GameFacade {
       result: result.value,
       winner: result.value.winner,
     });
+  }
+
+  /** @inheritdoc */
+  async leave(ws: WebSocket): Promise<void> {
+    const seated = this.seated(ws);
+    if (!seated) return;
+    const { game, color } = seated;
+
+    game.leave(color);
+    this.pendingUndos.delete(game.id);
+
+    this.sessions.bind(ws, { roomId: null, color: null, mode: null });
   }
 
   /** @inheritdoc */

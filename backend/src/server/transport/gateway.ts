@@ -11,6 +11,7 @@ import {
   UNDO_DECLINE,
   GAME_RESIGN,
   STATE_SYNC,
+  ROOM_LEAVE,
 } from "../protocol/commands";
 import { JsonCodec } from "../protocol/json-codec";
 import { Sessions } from "../session/session-store";
@@ -82,6 +83,10 @@ export class Gateway {
         this.gameService.join(ws, cmd);
         break;
 
+      case ROOM_LEAVE:
+        this.gameService.leave(ws);
+        break;
+
       case MOVE_MAKE:
         this.gameService.move(ws, cmd);
         break;
@@ -105,13 +110,6 @@ export class Gateway {
       case STATE_SYNC:
         this.gameService.sync(ws);
         break;
-
-      default:
-        console.log(`[Gateway] not yet implemented: ${cmd.type}`);
-        Reply.send(
-          ws,
-          Reply.error(NOT_IMPLEMENTED, `${cmd.type} not yet implemented`),
-        );
     }
   };
 
