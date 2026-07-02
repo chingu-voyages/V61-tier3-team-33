@@ -42,7 +42,6 @@ import type { Occupant } from "../occupant/occupant";
 import type { Publisher } from "../bus/bus";
 import { Mutex } from "../util/mutex";
 
-import { MOVE_MADE, GAME_ENDED } from "../protocol/events";
 import type { Notification } from "../protocol/events";
 
 /** A single chess match: two color slots, one engine, one lifecycle. */
@@ -102,19 +101,33 @@ export class Game {
   }
 
   /**
-   * Replaces whatever occupant is in `color`'s slot with `occupant`
+   * Replaces whatever occupant is in `color`'s slot with `occupant`,
+   * returning whoever was seated there before (null if the slot was empty).
+   * Callers can use the returned occupant to preserve reconnect-relevant
+   * state (see `Human.replaceSocket`) instead of building a fresh one.
    */
-  reseat(color: PieceColor, occupant: Occupant): void {
+  reseat(color: PieceColor, occupant: Occupant): Occupant | null {
+    const previous = this.slots.get(color) ?? null;
     this.slots.set(color, occupant);
+    return previous;
   }
 
-  /**
-   * Delivers `event` directly to every seated occupant
-   */
+  /** Delivers `event` to every seated occupant, and once to the Hub. */
   broadcast(event: Notification): void {
+    this.publisher.emit(event);
     for (const occupant of this.slots.values()) {
       occupant.notify(event);
     }
+  }
+
+  /**
+   * Delivers `event` to `color`'s occupant only, but still emits it to the
+   * Hub — so single-target replies (e.g. a rejected move) stay visible to
+   * spectators/logging, not just room-wide broadcasts.
+   */
+  notify(color: PieceColor, event: Notification): void {
+    this.publisher.emit(event);
+    this.slots.get(color)?.notify(event);
   }
 
   /** Seats an occupant into a color slot; the game goes ACTIVE once both are filled. */
@@ -131,7 +144,7 @@ export class Game {
     return ok();
   }
 
-  /** Applies a move for `color`, publishing MOVE_MADE on success. */
+  /** Applies a move for `color`. Caller broadcasts MOVE_MADE on success. */
   async move(
     color: PieceColor,
     input: MoveInput,
@@ -144,18 +157,7 @@ export class Game {
 
       try {
         const applied = this.chess.move(input.from, input.to, input.promoteTo);
-        const outcome = this.settleIfOver();
-
-        this.publisher.emit({
-          type: MOVE_MADE,
-          roomId: this.id,
-          by: color,
-          move: applied,
-          isCheck: this.chess.isInCheck(),
-          isGameOver: outcome !== null,
-          result: outcome,
-          clock: null,
-        } as Notification);
+        this.settleIfOver();
 
         return ok(applied);
       } catch (e) {
@@ -166,8 +168,8 @@ export class Game {
   }
 
   /**
-   * Ends the game immediately as a resignation by `color`, publishing
-   * GAME_ENDED on success.
+   * Ends the game immediately as a resignation by `color`. Caller
+   * broadcasts GAME_ENDED on success.
    */
   async resign(by: PieceColor): Promise<Result<GameOutcome, MoveError>> {
     return this.lock.run(async () => {
@@ -185,13 +187,6 @@ export class Game {
         drawReason: NO_DRAW_REASON,
         reason: RESIGNATION,
       };
-
-      this.publisher.emit({
-        type: GAME_ENDED,
-        roomId: this.id,
-        result: outcome,
-        winner,
-      } as Notification);
 
       return ok(outcome);
     });

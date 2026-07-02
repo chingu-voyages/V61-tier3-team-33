@@ -80,7 +80,11 @@ export class GameService implements GameFacade {
     if (session.roomId && session.color !== null) {
       const existing = this.games.get(session.roomId);
       if (existing && !existing.isFinished) {
-        const occupant = new Human(session.playerId, ws, this.protocol);
+        const previous = existing.getOccupant(session.color);
+        const occupant =
+          previous instanceof Human
+            ? previous.replaceSocket(ws)
+            : new Human(session.playerId, ws, this.protocol);
         existing.reseat(session.color, occupant);
 
         // TODO: notify the opponent that this player reconnected. There's
@@ -92,7 +96,7 @@ export class GameService implements GameFacade {
         // one — right now it always emits CONNECTION_OPENED regardless of
         // which branch resumeOrOpen took.
 
-        occupant.notify({
+        existing.notify(session.color, {
           type: ROOM_JOINED,
           roomId: existing.id,
           color: session.color,
@@ -143,7 +147,7 @@ export class GameService implements GameFacade {
 
     const state = game.snapshot();
 
-    occupant.notify({
+    game.notify(color, {
       type: ROOM_JOINED,
       roomId: game.id,
       color,
@@ -169,8 +173,7 @@ export class GameService implements GameFacade {
     const result = await game.move(color, input);
 
     if (!result.ok) {
-      const occupant = game.getOccupant(color);
-      occupant?.notify({
+      game.notify(color, {
         type: MOVE_REJECTED,
         roomId: game.id,
         by: color,
@@ -217,8 +220,7 @@ export class GameService implements GameFacade {
     this.pendingUndos.set(game.id, color);
 
     const opponentColor = color === WHITE ? BLACK : WHITE;
-    const opponent = game.getOccupant(opponentColor);
-    opponent?.notify({
+    game.notify(opponentColor, {
       type: UNDO_REQUESTED,
       roomId: game.id,
       by: color,
@@ -301,8 +303,7 @@ export class GameService implements GameFacade {
     if (!seated) return;
     const { game, color } = seated;
 
-    const occupant = game.getOccupant(color);
-    occupant?.notify({
+    game.notify(color, {
       type: ROOM_JOINED,
       roomId: game.id,
       color,

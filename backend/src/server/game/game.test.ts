@@ -23,7 +23,7 @@ import {
   ROOM_FULL,
   INVALID_MODE,
 } from "../domain/result";
-import { MOVE_MADE, GAME_ENDED } from "../protocol/events";
+import { MOVE_MADE } from "../protocol/events";
 import {
   D5,
   D7,
@@ -162,25 +162,26 @@ describe("Game", () => {
   });
 
   describe("reseat", () => {
-    it("replaces the occupant in an already-filled slot without erroring", () => {
+    it("replaces the occupant and returns whoever was seated before", () => {
       const game = makeGame();
       const original = makeOccupant("p1");
       game.join(WHITE, original);
 
       const reconnected = makeOccupant("p1");
-      game.reseat(WHITE, reconnected);
+      const previous = game.reseat(WHITE, reconnected);
 
       expect(game.getOccupant(WHITE)).toBe(reconnected);
-      expect(game.getOccupant(WHITE)).not.toBe(original);
+      expect(previous).toBe(original);
     });
 
-    it("can seat an occupant into a previously empty slot too", () => {
+    it("returns null when seating into a previously empty slot", () => {
       const game = makeGame();
       const occupant = makeOccupant("p1");
 
-      game.reseat(WHITE, occupant);
+      const previous = game.reseat(WHITE, occupant);
 
       expect(game.getOccupant(WHITE)).toBe(occupant);
+      expect(previous).toBeNull();
     });
 
     it("does not change the game's lifecycle status", () => {
@@ -206,6 +207,18 @@ describe("Game", () => {
       expect(black.notify).toHaveBeenCalledWith(event);
     });
 
+    it("also emits the event once to the Hub", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher);
+      seatBothPlayers(game);
+      const event = { type: MOVE_MADE, roomId: "game-1" } as any;
+
+      game.broadcast(event);
+
+      expect(publisher.emit).toHaveBeenCalledTimes(1);
+      expect(publisher.emit).toHaveBeenCalledWith(event);
+    });
+
     it("notifies no one when the game is empty", () => {
       const game = makeGame();
       const event = { type: MOVE_MADE, roomId: "game-1" } as any;
@@ -224,6 +237,37 @@ describe("Game", () => {
 
       expect(white.notify).not.toHaveBeenCalled();
       expect(reconnected.notify).toHaveBeenCalledWith(event);
+    });
+  });
+
+  describe("notify", () => {
+    it("delivers only to the given color's occupant", () => {
+      const game = makeGame();
+      const { white, black } = seatBothPlayers(game);
+      const event = { type: MOVE_MADE, roomId: "game-1" } as any;
+
+      game.notify(WHITE, event);
+
+      expect(white.notify).toHaveBeenCalledWith(event);
+      expect(black.notify).not.toHaveBeenCalled();
+    });
+
+    it("still emits the event to the Hub", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher);
+      seatBothPlayers(game);
+      const event = { type: MOVE_MADE, roomId: "game-1" } as any;
+
+      game.notify(WHITE, event);
+
+      expect(publisher.emit).toHaveBeenCalledWith(event);
+    });
+
+    it("does not throw when the color's slot is empty", () => {
+      const game = makeGame();
+      const event = { type: MOVE_MADE, roomId: "game-1" } as any;
+
+      expect(() => game.notify(WHITE, event)).not.toThrow();
     });
   });
 
@@ -265,7 +309,7 @@ describe("Game", () => {
       expect(result).toEqual({ ok: false, error: ILLEGAL_MOVE });
     });
 
-    it("applies a legal move and publishes MOVE_MADE", async () => {
+    it("applies a legal move without emitting on its own", async () => {
       const publisher = makePublisher();
       const game = makeGame(publisher);
       seatBothPlayers(game);
@@ -277,16 +321,9 @@ describe("Game", () => {
       expect(result.value.from).toBe(E2);
       expect(result.value.to).toBe(E4);
 
-      expect(publisher.emit).toHaveBeenCalledTimes(1);
-      expect(publisher.emit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: MOVE_MADE,
-          roomId: "game-1",
-          by: WHITE,
-          isGameOver: false,
-          result: null,
-        }),
-      );
+      // Delivery/Hub visibility is the caller's job via broadcast()/notify(),
+      // not move() itself — see GameService.move().
+      expect(publisher.emit).not.toHaveBeenCalled();
     });
 
     it("hands the turn to the other color after a move", async () => {
@@ -300,8 +337,7 @@ describe("Game", () => {
     });
 
     it("finishes the game on checkmate and reports the winner", async () => {
-      const publisher = makePublisher();
-      const game = makeGame(publisher);
+      const game = makeGame();
       seatBothPlayers(game);
 
       const result = await playFoolsMate(game);
@@ -310,20 +346,6 @@ describe("Game", () => {
       expect(game.isFinished).toBe(true);
       expect(game.status).toBe(FINISHED);
       expect(game.endReason).toBe(RULES);
-
-      expect(publisher.emit).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          type: MOVE_MADE,
-          by: BLACK,
-          isGameOver: true,
-          result: expect.objectContaining({
-            status: CHECKMATE,
-            hasWinner: true,
-            winner: BLACK,
-            reason: RULES,
-          }),
-        }),
-      );
     });
 
     it("rejects further moves once the game is finished", async () => {
@@ -362,27 +384,6 @@ describe("Game", () => {
       expect(game.status).toBe(FINISHED);
       expect(game.endReason).toBe(RESIGNATION);
       expect(game.isFinished).toBe(true);
-    });
-
-    it("publishes GAME_ENDED with the resignation outcome", async () => {
-      const publisher = makePublisher();
-      const game = makeGame(publisher);
-      seatBothPlayers(game);
-
-      await game.resign(BLACK);
-
-      expect(publisher.emit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: GAME_ENDED,
-          roomId: "game-1",
-          winner: WHITE,
-          result: expect.objectContaining({
-            winner: WHITE,
-            hasWinner: true,
-            reason: RESIGNATION,
-          }),
-        }),
-      );
     });
 
     it("rejects resigning a game that's already finished", async () => {
