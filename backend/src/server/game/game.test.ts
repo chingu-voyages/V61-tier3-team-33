@@ -9,6 +9,7 @@ import {
   ACTIVE,
   FINISHED,
   RULES,
+  RESIGNATION,
   HUMAN,
   HUMAN_VS_HUMAN,
   CHECKMATE,
@@ -22,43 +23,53 @@ import {
   ROOM_FULL,
   INVALID_MODE,
 } from "../domain/result";
-import { MOVE_MADE } from "../protocol/events";
-import { D5, D7, E2, E3, E4, E5, E7, F2, F3, G2, G4, D8, H4 } from "../../chess";
-
-// --- test helpers -----------------------------------------------------
-
-function makeOccupant(playerId: string): Occupant {
-  return { kind: HUMAN, playerId, notify: mock(() => {}) };
-}
-
-function makePublisher() {
-  return { emit: mock(() => {}) } satisfies Publisher;
-}
-
-function makeGame(publisher: Publisher = makePublisher()) {
-  return new Game("game-1", HUMAN_VS_HUMAN, publisher);
-}
-
-/** Seats two occupants so the game goes ACTIVE, returning both. */
-function seatBothPlayers(game: Game) {
-  const white = makeOccupant("white-player");
-  const black = makeOccupant("black-player");
-  game.join(WHITE, white);
-  game.join(BLACK, black);
-  return { white, black };
-}
-
-/** Plays Fool's Mate (1. f3 e5 2. g4 Qh4#) so a real checkmate occurs. */
-async function playFoolsMate(game: Game) {
-  await game.move(WHITE, { from: F2, to: F3 });
-  await game.move(BLACK, { from: E7, to: E5 });
-  await game.move(WHITE, { from: G2, to: G4 });
-  return game.move(BLACK, { from: D8, to: H4 });
-}
-
-// --- tests --------------------------------------------------------------
+import { MOVE_MADE, GAME_ENDED } from "../protocol/events";
+import {
+  D5,
+  D7,
+  E2,
+  E3,
+  E4,
+  E5,
+  E7,
+  F2,
+  F3,
+  G2,
+  G4,
+  D8,
+  H4,
+} from "../../chess";
 
 describe("Game", () => {
+  function makeOccupant(playerId: string): Occupant {
+    return { kind: HUMAN, playerId, notify: mock(() => {}) };
+  }
+
+  function makePublisher() {
+    return { emit: mock(() => {}) } satisfies Publisher;
+  }
+
+  function makeGame(publisher: Publisher = makePublisher()) {
+    return new Game("game-1", HUMAN_VS_HUMAN, publisher);
+  }
+
+  /** Seats two occupants so the game goes ACTIVE, returning both. */
+  function seatBothPlayers(game: Game) {
+    const white = makeOccupant("white-player");
+    const black = makeOccupant("black-player");
+    game.join(WHITE, white);
+    game.join(BLACK, black);
+    return { white, black };
+  }
+
+  /** Plays Fool's Mate (1. f3 e5 2. g4 Qh4#) so a real checkmate occurs. */
+  async function playFoolsMate(game: Game) {
+    await game.move(WHITE, { from: F2, to: F3 });
+    await game.move(BLACK, { from: E7, to: E5 });
+    await game.move(WHITE, { from: G2, to: G4 });
+    return game.move(BLACK, { from: D8, to: H4 });
+  }
+
   describe("initial state", () => {
     it("starts WAITING, not full, not finished, with no end reason", () => {
       const game = makeGame();
@@ -147,6 +158,72 @@ describe("Game", () => {
       const result = game.join(WHITE, makeOccupant("late-comer"));
 
       expect(result).toEqual({ ok: false, error: INVALID_MODE });
+    });
+  });
+
+  describe("reseat", () => {
+    it("replaces the occupant in an already-filled slot without erroring", () => {
+      const game = makeGame();
+      const original = makeOccupant("p1");
+      game.join(WHITE, original);
+
+      const reconnected = makeOccupant("p1");
+      game.reseat(WHITE, reconnected);
+
+      expect(game.getOccupant(WHITE)).toBe(reconnected);
+      expect(game.getOccupant(WHITE)).not.toBe(original);
+    });
+
+    it("can seat an occupant into a previously empty slot too", () => {
+      const game = makeGame();
+      const occupant = makeOccupant("p1");
+
+      game.reseat(WHITE, occupant);
+
+      expect(game.getOccupant(WHITE)).toBe(occupant);
+    });
+
+    it("does not change the game's lifecycle status", () => {
+      const game = makeGame();
+      const { white } = seatBothPlayers(game);
+      expect(game.status).toBe(ACTIVE);
+
+      game.reseat(WHITE, makeOccupant(white.playerId));
+
+      expect(game.status).toBe(ACTIVE);
+    });
+  });
+
+  describe("broadcast", () => {
+    it("notifies every seated occupant with the given event", () => {
+      const game = makeGame();
+      const { white, black } = seatBothPlayers(game);
+      const event = { type: MOVE_MADE, roomId: "game-1" } as any;
+
+      game.broadcast(event);
+
+      expect(white.notify).toHaveBeenCalledWith(event);
+      expect(black.notify).toHaveBeenCalledWith(event);
+    });
+
+    it("notifies no one when the game is empty", () => {
+      const game = makeGame();
+      const event = { type: MOVE_MADE, roomId: "game-1" } as any;
+
+      expect(() => game.broadcast(event)).not.toThrow();
+    });
+
+    it("only notifies whoever is currently seated after a reseat", () => {
+      const game = makeGame();
+      const { white } = seatBothPlayers(game);
+      const reconnected = makeOccupant(white.playerId);
+      game.reseat(WHITE, reconnected);
+      const event = { type: MOVE_MADE, roomId: "game-1" } as any;
+
+      game.broadcast(event);
+
+      expect(white.notify).not.toHaveBeenCalled();
+      expect(reconnected.notify).toHaveBeenCalledWith(event);
     });
   });
 
@@ -255,6 +332,65 @@ describe("Game", () => {
       await playFoolsMate(game);
 
       const result = await game.move(WHITE, { from: E2, to: E4 });
+
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
+    });
+  });
+
+  describe("resign", () => {
+    it("rejects resigning before the game is ACTIVE", async () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1")); // only one seat filled
+
+      const result = await game.resign(WHITE);
+
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
+    });
+
+    it("ends the game and declares the other color the winner", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      const result = await game.resign(WHITE);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok result");
+      expect(result.value.winner).toBe(BLACK);
+      expect(result.value.hasWinner).toBe(true);
+      expect(result.value.reason).toBe(RESIGNATION);
+
+      expect(game.status).toBe(FINISHED);
+      expect(game.endReason).toBe(RESIGNATION);
+      expect(game.isFinished).toBe(true);
+    });
+
+    it("publishes GAME_ENDED with the resignation outcome", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher);
+      seatBothPlayers(game);
+
+      await game.resign(BLACK);
+
+      expect(publisher.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: GAME_ENDED,
+          roomId: "game-1",
+          winner: WHITE,
+          result: expect.objectContaining({
+            winner: WHITE,
+            hasWinner: true,
+            reason: RESIGNATION,
+          }),
+        }),
+      );
+    });
+
+    it("rejects resigning a game that's already finished", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      await playFoolsMate(game);
+
+      const result = await game.resign(WHITE);
 
       expect(result).toEqual({ ok: false, error: GAME_OVER });
     });

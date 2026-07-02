@@ -9,7 +9,9 @@ import {
   ACTIVE,
   FINISHED,
   RULES,
+  RESIGNATION,
   IN_PROGRESS,
+  NO_DRAW_REASON,
   type EndReason,
   type GameOutcome,
   type GameSnapshot,
@@ -40,7 +42,7 @@ import type { Occupant } from "../occupant/occupant";
 import type { Publisher } from "../bus/bus";
 import { Mutex } from "../util/mutex";
 
-import { MOVE_MADE } from "../protocol/events";
+import { MOVE_MADE, GAME_ENDED } from "../protocol/events";
 import type { Notification } from "../protocol/events";
 
 /** A single chess match: two color slots, one engine, one lifecycle. */
@@ -99,6 +101,22 @@ export class Game {
     return this.slots.get(color)?.playerId ?? null;
   }
 
+  /**
+   * Replaces whatever occupant is in `color`'s slot with `occupant`
+   */
+  reseat(color: PieceColor, occupant: Occupant): void {
+    this.slots.set(color, occupant);
+  }
+
+  /**
+   * Delivers `event` directly to every seated occupant
+   */
+  broadcast(event: Notification): void {
+    for (const occupant of this.slots.values()) {
+      occupant.notify(event);
+    }
+  }
+
   /** Seats an occupant into a color slot; the game goes ACTIVE once both are filled. */
   join(color: PieceColor, occupant: Occupant): Result<void, JoinError> {
     if (this.status === FINISHED) return err(INVALID_MODE);
@@ -144,6 +162,38 @@ export class Game {
         if (e instanceof IllegalMoveError) return err(ILLEGAL_MOVE);
         throw e;
       }
+    });
+  }
+
+  /**
+   * Ends the game immediately as a resignation by `color`, publishing
+   * GAME_ENDED on success.
+   */
+  async resign(by: PieceColor): Promise<Result<GameOutcome, MoveError>> {
+    return this.lock.run(async () => {
+      if (this.status !== ACTIVE) return err(GAME_OVER);
+
+      const winner = by === WHITE ? BLACK : WHITE;
+      this.status = FINISHED;
+      this.endReason = RESIGNATION;
+      this.finishedAt = Date.now();
+
+      const outcome: GameOutcome = {
+        status: this.chess.gameResult().status,
+        winner,
+        hasWinner: true,
+        drawReason: NO_DRAW_REASON,
+        reason: RESIGNATION,
+      };
+
+      this.publisher.emit({
+        type: GAME_ENDED,
+        roomId: this.id,
+        result: outcome,
+        winner,
+      } as Notification);
+
+      return ok(outcome);
     });
   }
 
