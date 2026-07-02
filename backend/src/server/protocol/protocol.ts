@@ -12,14 +12,14 @@ import type { Notification } from "./events";
  */
 export interface Protocol {
   /**
-   * Validates and parses a raw client message.
+   * Validates a parsed client message.
    *
-   * @param raw - The raw string received over the socket.
+   * @param raw - The parsed JSON object from the socket (Elysia auto-parses).
    * @returns A fully valid `Command`, or `null` if `raw` is malformed,
    *   has an unknown `type`, or is missing/has wrong-shaped fields.
    *   Nothing downstream re-validates a returned `Command`.
    */
-  decode(raw: string): Command | null;
+  decode(raw: unknown): Command | null;
 
   /**
    * Serializes a player-facing event for sending over a socket.

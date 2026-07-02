@@ -20,32 +20,30 @@ const codec = new JsonCodec();
 
 describe("JsonCodec.decode", () => {
   describe("malformed input", () => {
-    it("rejects invalid JSON", () => {
-      expect(codec.decode("{not json")).toBeNull();
+    it("rejects null", () => {
+      expect(codec.decode(null)).toBeNull();
     });
 
-    it("rejects a JSON array at the top level", () => {
-      expect(codec.decode("[1,2,3]")).toBeNull();
+    it("rejects a primitive", () => {
+      expect(codec.decode(42)).toBeNull();
+      expect(codec.decode("just a string")).toBeNull();
+      expect(codec.decode(true)).toBeNull();
     });
 
-    it("rejects a JSON primitive at the top level", () => {
-      expect(codec.decode('"just a string"')).toBeNull();
-      expect(codec.decode("42")).toBeNull();
-      expect(codec.decode("null")).toBeNull();
+    it("rejects an array at the top level", () => {
+      expect(codec.decode([1, 2, 3])).toBeNull();
     });
 
     it("rejects an object with no type field", () => {
-      expect(codec.decode(JSON.stringify({ from: 1, to: 2 }))).toBeNull();
+      expect(codec.decode({ from: 1, to: 2 })).toBeNull();
     });
 
     it("rejects an object with a non-string type", () => {
-      expect(codec.decode(JSON.stringify({ type: 123 }))).toBeNull();
+      expect(codec.decode({ type: 123 })).toBeNull();
     });
 
     it("rejects an unknown type", () => {
-      expect(
-        codec.decode(JSON.stringify({ type: "not:a:real:command" })),
-      ).toBeNull();
+      expect(codec.decode({ type: "not:a:real:command" })).toBeNull();
     });
   });
 
@@ -62,7 +60,7 @@ describe("JsonCodec.decode", () => {
 
     for (const type of noFieldTypes) {
       it(`decodes ${type} with no extra fields required`, () => {
-        const result = codec.decode(JSON.stringify({ type }));
+        const result = codec.decode({ type });
         expect(result).toEqual({ type });
       });
     }
@@ -70,30 +68,23 @@ describe("JsonCodec.decode", () => {
 
   describe("session:handshake", () => {
     it("decodes without a token", () => {
-      const result = codec.decode(JSON.stringify({ type: SESSION_HANDSHAKE }));
+      const result = codec.decode({ type: SESSION_HANDSHAKE });
       expect(result).toEqual({ type: SESSION_HANDSHAKE, token: undefined });
     });
 
     it("decodes with a string token", () => {
-      const result = codec.decode(
-        JSON.stringify({ type: SESSION_HANDSHAKE, token: "abc123" }),
-      );
+      const result = codec.decode({ type: SESSION_HANDSHAKE, token: "abc123" });
       expect(result).toEqual({ type: SESSION_HANDSHAKE, token: "abc123" });
     });
 
     it("rejects a non-string token", () => {
-      const result = codec.decode(
-        JSON.stringify({ type: SESSION_HANDSHAKE, token: 123 }),
-      );
-      expect(result).toBeNull();
+      expect(codec.decode({ type: SESSION_HANDSHAKE, token: 123 })).toBeNull();
     });
   });
 
   describe("room:join", () => {
     it("decodes with only the required mode field", () => {
-      const result = codec.decode(
-        JSON.stringify({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN }),
-      );
+      const result = codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN });
       expect(result).toEqual({
         type: ROOM_JOIN,
         mode: HUMAN_VS_HUMAN,
@@ -104,15 +95,13 @@ describe("JsonCodec.decode", () => {
     });
 
     it("decodes with every optional field present", () => {
-      const result = codec.decode(
-        JSON.stringify({
-          type: ROOM_JOIN,
-          mode: HUMAN_VS_HUMAN,
-          roomId: "room-1",
-          color: WHITE,
-          difficulty: EASY,
-        }),
-      );
+      const result = codec.decode({
+        type: ROOM_JOIN,
+        mode: HUMAN_VS_HUMAN,
+        roomId: "room-1",
+        color: WHITE,
+        difficulty: EASY,
+      });
       expect(result).toEqual({
         type: ROOM_JOIN,
         mode: HUMAN_VS_HUMAN,
@@ -123,53 +112,39 @@ describe("JsonCodec.decode", () => {
     });
 
     it("rejects a missing mode", () => {
-      expect(codec.decode(JSON.stringify({ type: ROOM_JOIN }))).toBeNull();
+      expect(codec.decode({ type: ROOM_JOIN })).toBeNull();
     });
 
     it("rejects a non-number mode", () => {
-      expect(
-        codec.decode(JSON.stringify({ type: ROOM_JOIN, mode: "human" })),
-      ).toBeNull();
+      expect(codec.decode({ type: ROOM_JOIN, mode: "human" })).toBeNull();
     });
 
     it("rejects a non-string roomId", () => {
       expect(
-        codec.decode(
-          JSON.stringify({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, roomId: 5 }),
-        ),
+        codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, roomId: 5 }),
       ).toBeNull();
     });
 
     it("rejects a non-number color", () => {
       expect(
-        codec.decode(
-          JSON.stringify({
-            type: ROOM_JOIN,
-            mode: HUMAN_VS_HUMAN,
-            color: "white",
-          }),
-        ),
+        codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, color: "white" }),
       ).toBeNull();
     });
 
     it("rejects a non-number difficulty", () => {
       expect(
-        codec.decode(
-          JSON.stringify({
-            type: ROOM_JOIN,
-            mode: HUMAN_VS_HUMAN,
-            difficulty: "easy",
-          }),
-        ),
+        codec.decode({
+          type: ROOM_JOIN,
+          mode: HUMAN_VS_HUMAN,
+          difficulty: "easy",
+        }),
       ).toBeNull();
     });
   });
 
   describe("move:make", () => {
     it("decodes with from and to only", () => {
-      const result = codec.decode(
-        JSON.stringify({ type: MOVE_MAKE, from: 12, to: 28 }),
-      );
+      const result = codec.decode({ type: MOVE_MAKE, from: 12, to: 28 });
       expect(result).toEqual({
         type: MOVE_MAKE,
         from: 12,
@@ -179,9 +154,12 @@ describe("JsonCodec.decode", () => {
     });
 
     it("decodes with promoteTo present", () => {
-      const result = codec.decode(
-        JSON.stringify({ type: MOVE_MAKE, from: 12, to: 28, promoteTo: 4 }),
-      );
+      const result = codec.decode({
+        type: MOVE_MAKE,
+        from: 12,
+        to: 28,
+        promoteTo: 4,
+      });
       expect(result).toEqual({
         type: MOVE_MAKE,
         from: 12,
@@ -191,33 +169,25 @@ describe("JsonCodec.decode", () => {
     });
 
     it("rejects a missing from", () => {
-      expect(
-        codec.decode(JSON.stringify({ type: MOVE_MAKE, to: 28 })),
-      ).toBeNull();
+      expect(codec.decode({ type: MOVE_MAKE, to: 28 })).toBeNull();
     });
 
     it("rejects a missing to", () => {
-      expect(
-        codec.decode(JSON.stringify({ type: MOVE_MAKE, from: 12 })),
-      ).toBeNull();
+      expect(codec.decode({ type: MOVE_MAKE, from: 12 })).toBeNull();
     });
 
     it("rejects a non-number from", () => {
-      expect(
-        codec.decode(JSON.stringify({ type: MOVE_MAKE, from: "e2", to: 28 })),
-      ).toBeNull();
+      expect(codec.decode({ type: MOVE_MAKE, from: "e2", to: 28 })).toBeNull();
     });
 
     it("rejects a non-number promoteTo", () => {
       expect(
-        codec.decode(
-          JSON.stringify({
-            type: MOVE_MAKE,
-            from: 12,
-            to: 28,
-            promoteTo: "queen",
-          }),
-        ),
+        codec.decode({
+          type: MOVE_MAKE,
+          from: 12,
+          to: 28,
+          promoteTo: "queen",
+        }),
       ).toBeNull();
     });
   });

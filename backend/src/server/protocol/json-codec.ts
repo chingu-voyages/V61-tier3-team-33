@@ -86,24 +86,17 @@ const decoders: Record<Command["type"], Decoder> = {
   [STATE_SYNC]: () => ({ type: STATE_SYNC }),
 };
 
-/** JSON wire format. See {@link Protocol} for the contract this fulfills. */
+/** JSON wire format. */
 export class JsonCodec implements Protocol {
   /** @inheritdoc */
-  decode(raw: string): Command | null {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return null;
-    }
+  decode(raw: unknown): Command | null {
+    if (!isPlainObject(raw)) return null;
+    if (typeof raw.type !== "string") return null;
 
-    if (!isPlainObject(parsed)) return null;
-    if (typeof parsed.type !== "string") return null;
-
-    const decode = decoders[parsed.type as Command["type"]];
+    const decode = decoders[raw.type as Command["type"]];
     if (!decode) return null;
 
-    return decode(parsed);
+    return decode(raw);
   }
 
   /** @inheritdoc */
