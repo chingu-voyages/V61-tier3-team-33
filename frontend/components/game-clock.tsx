@@ -18,7 +18,7 @@ export function GameClock({ initialMs, isRunning, showMs = false, onExpire }: Pr
 
     useEffect(() => {
         if (expired) onExpire?.()
-    }, [expired])
+    }, [expired, onExpire])
 
 
     const display = formatTime(timeMs, showMs)

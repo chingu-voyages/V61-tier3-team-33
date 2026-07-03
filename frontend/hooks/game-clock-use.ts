@@ -1,28 +1,27 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 export function useGameClock(initialMs: number | null, isRunning: boolean) {
+    const [prevInitialMs, setPrevInitialMs] = useState<number | null>(initialMs)
     const [timeMs, setTimeMs] = useState<number | null>(initialMs)
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-    useEffect(() => {
+    if (prevInitialMs !== initialMs) {
+        setPrevInitialMs(initialMs)
         setTimeMs(initialMs)
-    }, [initialMs])
+    }
 
     useEffect(() => {
-        if (!isRunning || timeMs === null) return
+        if (!isRunning) return
 
-        intervalRef.current = setInterval(() => {
+        const interval = setInterval(() => {
             setTimeMs(prev => {
                 if (prev === null || prev <= 0) return 0
                 return prev - 100
             })
         }, 100)
 
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current)
-        }
+        return () => clearInterval(interval)
     }, [isRunning])
 
     return timeMs
