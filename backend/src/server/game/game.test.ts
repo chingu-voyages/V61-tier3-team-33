@@ -571,12 +571,12 @@ describe("Game", () => {
 
       const snapshot = game.snapshot();
 
-      expect(snapshot.result).toEqual(
+      expect(snapshot).toEqual(
         expect.objectContaining({
-          status: CHECKMATE,
+          resultStatus: CHECKMATE,
           hasWinner: true,
           winner: BLACK,
-          reason: RULES,
+          endReason: RULES,
         }),
       );
       expect(snapshot.history).toEqual(["f3", "e5", "g4", "Qh4#"]);

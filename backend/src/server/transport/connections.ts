@@ -3,7 +3,7 @@ import type { Publisher } from "../bus/bus";
 import type { Protocol } from "../protocol/protocol";
 import type { SessionStore } from "../session/session-store";
 import type { Notification } from "../protocol/events";
-import { CONNECTION_OPENED, CONNECTION_CLOSED } from "../protocol/events";
+import { Signals } from "../protocol/events";
 import { Reply } from "../protocol/replies";
 import { logger as rootLogger } from "../../logging/logger";
 
@@ -35,12 +35,7 @@ export class Connections {
       resumed: Boolean(token),
     });
 
-    this.publisher.emit({
-      type: CONNECTION_OPENED,
-      playerId: session.playerId,
-      ws,
-      roomId: null,
-    });
+    this.publisher.emit(Signals.connectionOpened(session.playerId, ws));
 
     Reply.send(ws, Reply.handshake(session.playerId, session.token));
   }
@@ -54,12 +49,7 @@ export class Connections {
 
     log.info("connection closed", { playerId: session.playerId });
 
-    this.publisher.emit({
-      type: CONNECTION_CLOSED,
-      playerId: session.playerId,
-      ws,
-      roomId: null,
-    });
+    this.publisher.emit(Signals.connectionClosed(session.playerId, ws));
   }
 
   /** Heartbeat reply — no-op for now. */

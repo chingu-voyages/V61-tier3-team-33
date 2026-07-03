@@ -1,7 +1,6 @@
 import { ROOM_FULL } from "../domain/result";
 import {
   BLACK,
-  IN_PROGRESS,
   WHITE,
   type JoinInput,
   type MoveInput,
@@ -19,18 +18,7 @@ import {
   NOT_IN_GAME,
   ROOM_NOT_FOUND,
 } from "../protocol/errors";
-import {
-  GAME_ENDED,
-  GAME_STARTED,
-  MOVE_MADE,
-  MOVE_REJECTED,
-  POSITION_ACCEPTED,
-  POSITION_REJECTED,
-  ROOM_JOINED,
-  UNDO_APPLIED,
-  UNDO_DECLINED,
-  UNDO_REQUESTED,
-} from "../protocol/events";
+import { Notifications } from "../protocol/events";
 import type { Protocol } from "../protocol/protocol";
 import { Reply } from "../protocol/replies";
 import type { SessionStore } from "../session/session-store";
@@ -84,12 +72,14 @@ export class GameService implements GameFacade {
         // one — right now it always emits CONNECTION_OPENED regardless of
         // which branch resumeOrOpen took.
 
-        existing.notify(session.color, {
-          type: ROOM_JOINED,
-          roomId: existing.id,
-          color: session.color,
-          state: existing.snapshot(),
-        });
+        existing.notify(
+          session.color,
+          Notifications.roomJoined(
+            existing.id,
+            session.color,
+            existing.snapshot(),
+          ),
+        );
 
         return;
       }
@@ -136,20 +126,10 @@ export class GameService implements GameFacade {
 
     const state = game.snapshot();
 
-    game.notify(color, {
-      type: ROOM_JOINED,
-      roomId: game.id,
-      color,
-      state: state,
-    });
+    game.notify(color, Notifications.roomJoined(game.id, color, state));
 
     if (game.isActive) {
-      game.broadcast({
-        type: GAME_STARTED,
-        roomId: game.id,
-        fen: state.fen,
-        clock: null,
-      });
+      game.broadcast(Notifications.gameStarted(game.id, state.fen));
     }
   }
 
@@ -162,30 +142,23 @@ export class GameService implements GameFacade {
     const result = await game.move(color, input);
 
     if (!result.ok) {
-      game.notify(color, {
-        type: MOVE_REJECTED,
-        roomId: game.id,
-        by: color,
-        reason: result.error,
-        from: input.from,
-        to: input.to,
-      });
+      game.notify(
+        color,
+        Notifications.moveRejected(
+          game.id,
+          color,
+          result.error,
+          input.from,
+          input.to,
+        ),
+      );
       return;
     }
 
     const snapshot = game.snapshot();
-    const isGameOver = snapshot.result.status !== IN_PROGRESS;
-
-    game.broadcast({
-      type: MOVE_MADE,
-      roomId: game.id,
-      by: color,
-      move: result.value,
-      isCheck: snapshot.isCheck,
-      isGameOver,
-      result: isGameOver ? snapshot.result : null,
-      clock: null,
-    });
+    game.broadcast(
+      Notifications.moveMade(game.id, color, result.value, snapshot),
+    );
   }
 
   /** @inheritdoc */
@@ -209,12 +182,14 @@ export class GameService implements GameFacade {
     this.pendingUndos.set(game.id, color);
 
     const opponentColor = color === WHITE ? BLACK : WHITE;
-    game.notify(opponentColor, {
-      type: UNDO_REQUESTED,
-      roomId: game.id,
-      by: color,
-      expiresAt: Date.now() + UNDO_REQUEST_TTL_MS,
-    });
+    game.notify(
+      opponentColor,
+      Notifications.undoRequested(
+        game.id,
+        color,
+        Date.now() + UNDO_REQUEST_TTL_MS,
+      ),
+    );
   }
 
   /** @inheritdoc */
@@ -234,12 +209,7 @@ export class GameService implements GameFacade {
     const result = await game.undo();
     if (!result.ok) return;
 
-    game.broadcast({
-      type: UNDO_APPLIED,
-      roomId: game.id,
-      state: game.snapshot(),
-      clock: null,
-    });
+    game.broadcast(Notifications.undoApplied(game.id, game.snapshot()));
   }
 
   /** @inheritdoc */
@@ -253,12 +223,7 @@ export class GameService implements GameFacade {
 
     this.pendingUndos.delete(game.id);
 
-    game.broadcast({
-      type: UNDO_DECLINED,
-      roomId: game.id,
-      by: color,
-      reason: "declined",
-    });
+    game.broadcast(Notifications.undoDeclined(game.id, color));
   }
 
   /** @inheritdoc */
@@ -278,12 +243,9 @@ export class GameService implements GameFacade {
 
     this.pendingUndos.delete(game.id);
 
-    game.broadcast({
-      type: GAME_ENDED,
-      roomId: game.id,
-      result: result.value,
-      winner: result.value.winner,
-    });
+    game.broadcast(
+      Notifications.gameEnded(game.id, result.value, result.value.winner),
+    );
   }
 
   /** @inheritdoc */
@@ -304,12 +266,10 @@ export class GameService implements GameFacade {
     if (!seated) return;
     const { game, color } = seated;
 
-    game.notify(color, {
-      type: ROOM_JOINED,
-      roomId: game.id,
+    game.notify(
       color,
-      state: game.snapshot(),
-    });
+      Notifications.roomJoined(game.id, color, game.snapshot()),
+    );
   }
 
   /** @inheritdoc */
@@ -321,21 +281,17 @@ export class GameService implements GameFacade {
     const result = game.selectPosition(color, position);
 
     if (!result.ok) {
-      game.notify(color, {
-        type: POSITION_REJECTED,
-        roomId: game.id,
-        position,
-        reason: result.error,
-      });
+      game.notify(
+        color,
+        Notifications.positionRejected(game.id, position, result.error),
+      );
       return;
     }
 
-    game.notify(color, {
-      type: POSITION_ACCEPTED,
-      roomId: game.id,
-      position,
-      moves: result.value,
-    });
+    game.notify(
+      color,
+      Notifications.positionAccepted(game.id, position, result.value),
+    );
   }
 
   /** Resolves the caller's session + game, replying with an error and returning null if either is missing. */

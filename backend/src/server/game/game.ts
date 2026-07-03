@@ -48,7 +48,7 @@ import type { Occupant } from "../occupant/occupant";
 import type { Publisher } from "../bus/bus";
 import { Mutex } from "../util/mutex";
 
-import { ROOM_LEFT, type Notification } from "../protocol/events";
+import { Notifications, type Notification } from "../protocol/events";
 
 /** A single chess match: two color slots, one engine, one lifecycle. */
 export class Game {
@@ -108,12 +108,7 @@ export class Game {
 
   /** Removes the occupant from a color slot and broadcasts room:left. */
   leave(color: PieceColor): void {
-    this.broadcast({
-      type: ROOM_LEFT,
-      roomId: this.id,
-      color,
-      reason: "left",
-    } as Notification);
+    this.broadcast(Notifications.roomLeft(this.id, color));
     this.slots.delete(color);
   }
 
@@ -261,11 +256,17 @@ export class Game {
   snapshot(): GameSnapshot {
     const history = this.chess.moveHistory();
     const { capturedByWhite, capturedByBlack } = this.splitCaptures(history);
+    const outcome = this.outcome();
 
     return {
+      status: this.status,
       fen: this.chess.toFen(),
       isCheck: this.chess.isInCheck(),
-      result: this.outcome(),
+      resultStatus: outcome.status,
+      winner: outcome.winner,
+      hasWinner: outcome.hasWinner,
+      drawReason: outcome.drawReason,
+      endReason: outcome.reason,
       history: history.map((m) => m.san ?? ""),
       capturedByWhite,
       capturedByBlack,

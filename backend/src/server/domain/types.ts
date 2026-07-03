@@ -3,6 +3,8 @@ import type {
   PieceType,
   PieceColor,
   GameResult,
+  GameStatus,
+  DrawReason,
   Position,
   Move,
   TurnContext,
@@ -110,6 +112,24 @@ export interface GameOutcome extends GameResult {
   reason: EndReason;
 }
 
+export const GameOutcome = {
+  /**
+   * Rebuilds the nested GameOutcome shape from a flat GameSnapshot's
+   * outcome fields. The single place that knows the flat ↔ nested mapping,
+   * so events that still want a nested `GameOutcome` (e.g. MOVE_MADE,
+   * GAME_ENDED) don't each hand-roll it from snapshot fields.
+   */
+  fromSnapshot(snapshot: GameSnapshot): GameOutcome {
+    return {
+      status: snapshot.resultStatus,
+      winner: snapshot.winner,
+      hasWinner: snapshot.hasWinner,
+      drawReason: snapshot.drawReason,
+      reason: snapshot.endReason,
+    };
+  },
+};
+
 // Clock state sent with snapshots; not the engine's Clock class.
 export interface ClockState {
   whiteMs: number;
@@ -118,10 +138,22 @@ export interface ClockState {
 }
 
 // Full serializable game state — sent only on join, sync, and undo.
+// Flat by design: consumers (frontend, logs, tests) shouldn't have to
+// destructure a nested `result` object just to read `winner` or `status`.
 export interface GameSnapshot {
+  // Room lifecycle — WAITING (needs an opponent) / ACTIVE (in play) /
+  // FINISHED (game over). Distinct from `resultStatus` below, which
+  // describes the chess position, not the room.
+  status: Lifecycle;
   fen: string;
   isCheck: boolean;
-  result: GameOutcome;
+  // Flattened GameOutcome fields (was: result: GameOutcome). `winner` is
+  // only meaningful when `hasWinner` is true — same contract as GameResult.
+  resultStatus: GameStatus;
+  winner: PieceColor;
+  hasWinner: boolean;
+  drawReason: DrawReason;
+  endReason: EndReason;
   history: string[];
   capturedByWhite: PieceType[];
   capturedByBlack: PieceType[];

@@ -1,10 +1,11 @@
-import type {
-  ClockState,
+import {
   GameOutcome,
-  GameSnapshot,
-  Move,
-  PieceColor,
-  Position,
+  IN_PROGRESS,
+  type ClockState,
+  type GameSnapshot,
+  type Move,
+  type PieceColor,
+  type Position,
 } from "../domain/types";
 import type { MoveError, SelectError } from "../domain/result";
 
@@ -91,7 +92,6 @@ export type Notification =
       type: typeof ROOM_LEFT;
       roomId: string;
       color: PieceColor;
-      reason: string;
     }
   | {
       type: typeof GAME_ENDED;
@@ -133,7 +133,6 @@ export type Notification =
       type: typeof UNDO_DECLINED;
       roomId: string;
       by: PieceColor;
-      reason: string;
     }
   | {
       type: typeof POSITION_ACCEPTED;
@@ -184,3 +183,134 @@ export type Notification =
 // Everything that can flow through Hub. Occupant.notify only accepts
 // Notification — the type system rejects Signals at that boundary.
 export type Event = Notification | Signal;
+
+/**
+ * The single place that builds every Signal. Same rationale as
+ * Notifications below: one spot owns each signal's exact shape instead of
+ * every emitter (Connections, ClockTimer, …) hand-rolling the literal.
+ */
+export const Signals = {
+  connectionOpened(playerId: string, ws: WebSocket): Signal {
+    return { type: CONNECTION_OPENED, playerId, ws, roomId: null };
+  },
+
+  connectionClosed(playerId: string, ws: WebSocket): Signal {
+    return { type: CONNECTION_CLOSED, playerId, ws, roomId: null };
+  },
+
+  /**
+   * Not emitted yet — Connections.identify always emits connectionOpened
+   * regardless of whether resumeOrOpen resumed an existing session or
+   * opened a fresh one. Wire this up once that distinction is surfaced.
+   */
+  connectionResumed(playerId: string, ws: WebSocket): Signal {
+    return { type: CONNECTION_RESUMED, playerId, ws, roomId: null };
+  },
+
+  /** Not emitted yet — no ClockTimer exists to call this. */
+  clockTick(roomId: string, clock: ClockState): Signal {
+    return { type: CLOCK_TICK, roomId, clock };
+  },
+};
+
+/**
+ * The single place that builds every player-facing Notification. Callers
+ * (GameService, Game) pass in the raw ingredients; this object owns each
+ * event's exact shape. Add or rename a field here once, instead of at
+ * every call site that happens to construct that event.
+ *
+ * Lives alongside the Notification union on purpose — one file to check
+ * for "what events exist, what do they carry, and how are they built."
+ */
+export const Notifications = {
+  roomJoined(
+    roomId: string,
+    color: PieceColor,
+    state: GameSnapshot,
+  ): Notification {
+    return { type: ROOM_JOINED, roomId, color, state };
+  },
+
+  /** Broadcast once, the moment a room's second seat fills. */
+  gameStarted(roomId: string, fen: string): Notification {
+    return { type: GAME_STARTED, roomId, fen, clock: null };
+  },
+
+  roomLeft(roomId: string, color: PieceColor): Notification {
+    return { type: ROOM_LEFT, roomId, color };
+  },
+
+  gameEnded(
+    roomId: string,
+    result: GameOutcome,
+    winner: PieceColor | null,
+  ): Notification {
+    return { type: GAME_ENDED, roomId, result, winner };
+  },
+
+  /**
+   * Derives isGameOver/result from the post-move snapshot itself, so
+   * callers just hand over the snapshot instead of recomputing it.
+   */
+  moveMade(
+    roomId: string,
+    by: PieceColor,
+    move: Move,
+    snapshot: GameSnapshot,
+  ): Notification {
+    const isGameOver = snapshot.resultStatus !== IN_PROGRESS;
+
+    return {
+      type: MOVE_MADE,
+      roomId,
+      by,
+      move,
+      isCheck: snapshot.isCheck,
+      isGameOver,
+      result: isGameOver ? GameOutcome.fromSnapshot(snapshot) : null,
+      clock: null,
+    };
+  },
+
+  moveRejected(
+    roomId: string,
+    by: PieceColor,
+    reason: MoveError,
+    from: Position,
+    to: Position,
+  ): Notification {
+    return { type: MOVE_REJECTED, roomId, by, reason, from, to };
+  },
+
+  undoRequested(
+    roomId: string,
+    by: PieceColor,
+    expiresAt: number,
+  ): Notification {
+    return { type: UNDO_REQUESTED, roomId, by, expiresAt };
+  },
+
+  undoApplied(roomId: string, state: GameSnapshot): Notification {
+    return { type: UNDO_APPLIED, roomId, state, clock: null };
+  },
+
+  undoDeclined(roomId: string, by: PieceColor): Notification {
+    return { type: UNDO_DECLINED, roomId, by };
+  },
+
+  positionAccepted(
+    roomId: string,
+    position: Position,
+    moves: Position[],
+  ): Notification {
+    return { type: POSITION_ACCEPTED, roomId, position, moves };
+  },
+
+  positionRejected(
+    roomId: string,
+    position: Position,
+    reason: SelectError,
+  ): Notification {
+    return { type: POSITION_REJECTED, roomId, position, reason };
+  },
+};
