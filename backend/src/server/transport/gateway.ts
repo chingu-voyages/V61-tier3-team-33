@@ -146,6 +146,10 @@ export class Gateway {
     }
   };
 
+  get appInstance(): Elysia {
+    return this.app;
+  }
+
   start(port: number = 3001): void {
     this.app.listen(port, () => {
       log.info("chess server running", { port });
