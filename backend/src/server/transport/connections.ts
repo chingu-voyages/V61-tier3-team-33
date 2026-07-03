@@ -2,6 +2,7 @@ import type { WebSocket } from "../domain/types";
 import type { Publisher } from "../bus/bus";
 import type { Protocol } from "../protocol/protocol";
 import type { SessionStore } from "../session/session-store";
+import type { Session } from "../session/session";
 import type { Notification } from "../protocol/events";
 import { Signals } from "../protocol/events";
 import { Reply } from "../protocol/replies";
@@ -27,7 +28,7 @@ export class Connections {
    * new one. Either way, announces the connection on the bus and replies
    * with the session's playerId/token so the client can persist it.
    */
-  identify(ws: WebSocket, token?: string): void {
+  identify(ws: WebSocket, token?: string): Session {
     const session = this.sessions.resumeOrOpen(ws, token);
 
     log.info("connection identified", {
@@ -38,6 +39,8 @@ export class Connections {
     this.publisher.emit(Signals.connectionOpened(session.playerId, ws));
 
     Reply.send(ws, Reply.handshake(session.playerId, session.token));
+
+    return session;
   }
 
   /** Drops the session bound to this socket and announces the disconnect. */

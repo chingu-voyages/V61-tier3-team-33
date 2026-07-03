@@ -24,7 +24,7 @@ import { EventLogger } from "../../logging/event-logger";
 import { logger as rootLogger } from "../../logging/logger";
 import { Reply } from "../protocol/replies";
 import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../protocol/errors";
-import type { WebSocket } from "../domain/types";
+import { HUMAN_VS_HUMAN, type WebSocket } from "../domain/types";
 import type { GameFacade } from "../services/game-facade";
 import type { SessionStore } from "../session/session-store";
 import type { GameStore } from "../game/game-store";
@@ -80,9 +80,22 @@ export class Gateway {
     }
 
     switch (cmd.type) {
-      case SESSION_HANDSHAKE:
-        this.connections.identify(ws, cmd.token);
+      case SESSION_HANDSHAKE: {
+        const session = this.connections.identify(ws, cmd.token);
+
+        // A reload/reconnect resumes a session that may already be seated
+        // in an active room. The client has no way to know that on its
+        // own (its in-memory game state was just wiped by the reload), so
+        // proactively replay the rejoin here instead of waiting for a
+        // room:join the client isn't going to send. GameService.join's
+        // "Rejoin on reconnect" branch keys off session.roomId/color, not
+        // the input payload, so the mode passed here is a required-but-
+        // unused placeholder.
+        if (session.roomId && session.color !== null) {
+          this.gameService.join(ws, { mode: session.mode ?? HUMAN_VS_HUMAN });
+        }
         break;
+      }
 
       case SESSION_PONG:
         this.connections.pong(ws);
