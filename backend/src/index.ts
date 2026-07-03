@@ -4,8 +4,8 @@ import { Gateway } from "./server/transport/gateway";
 
 const gateway = new Gateway();
 
-// Vercel serverless export
-export const fetch = gateway.appInstance.handle;
+// Vercel serverless export (Elysia auto-detection + HTTP routes)
+export default gateway.appInstance;
 
 // Standalone server (local dev, non-Vercel)
 if (!Bun.env.VERCEL) {

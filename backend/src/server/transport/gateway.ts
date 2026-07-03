@@ -59,6 +59,7 @@ export class Gateway {
   }
 
   private setup(): void {
+    this.app.get("/health", () => ({ status: "ok" }));
     this.app.ws("/ws", {
       open: this.handleOpen,
       message: this.handleMessage,
