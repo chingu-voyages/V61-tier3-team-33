@@ -4,6 +4,7 @@ import { EVENTS } from '../Rooms/event';
 import { Room } from '../Rooms/roomClass';
 import type { MoveMessage } from './server.types';
 import { Position, WHITE, BLACK } from "./chess";
+import type { TimeControlMessageSetup } from "./server.types";
 
 // Define proper types
 interface WebSocketData {
@@ -36,6 +37,8 @@ function buildChessState(room: Room): string {
         whitePlayer: room.whitePlayer,
         blackPlayer: room.blackPlayer,
         gameStatus: room.gameStatus,
+        whitePlayerTimeMs: room.whitePlayerTimeMs,
+        blackPlayerTimeMs: room.blackPlayerTimeMs,
     })
 }
 
@@ -143,6 +146,8 @@ export const app = new Elysia()
                         const added = targetRoom.addPlayer(joinedID)
                         targetRoom.gameStatus = "active"
 
+                        targetRoom.startClock() // Start the clock when the game becomes active
+
                         if (!added) {
                             ws.send(JSON.stringify({
                                 type: EVENTS.ERROR,
@@ -222,6 +227,22 @@ export const app = new Elysia()
                           break
                       }
                   
+                      const mover: "white" | "black" = sender === targetRoom.whitePlayer ? "white" : "black";
+                      const clockResult = targetRoom.onMoveMade(mover);
+
+                      if (clockResult.flagFall) {
+                        targetRoom.gameStatus = "over";
+                        const flagPayload = JSON.stringify({
+                            type: EVENTS.FALL_OF_FLAG,
+                            roomId: targetRoom.id,
+                            loser: clockResult.loser
+                        });
+                        for (const id of targetRoom.players) {
+                            users.get(id)?.ws.send(flagPayload);
+                        }
+                        break;
+                      }
+
                       // Parse the move
                       const from = Position.parse(message.from)
                       const to = Position.parse(message.to)
@@ -271,7 +292,27 @@ export const app = new Elysia()
                           users.get(id)?.ws.send(payload)
                       }
                       break
-                  }
+                    }
+
+                    case EVENTS.TIME_CONTROL_SETUP: {
+                        const msg = data as TimeControlMessageSetup
+                        const room = rooms.get(msg.roomId)
+
+                        if (!room) {
+                            ws.send(JSON.stringify({ type: EVENTS.ERROR, message: "Room not found" }))
+                            break;
+                        }
+
+                        if (room.gameStatus !== "waiting") {
+                            ws.send(JSON.stringify({ type: EVENTS.ERROR, message: "Cannot change time control once the game has begun" }))
+                            break;
+                        }
+
+                        room.setTimeControl(msg.timeControl)
+                        ws.send(JSON.stringify({ type: EVENTS.TIME_CONTROL_SETUP, roomId: room.id, timeControl: msg.timeControl }));
+                        break;
+                    }
+
 
                     case EVENTS.CHESS_STATE: {
                         const stateRequest = data as ChessStateRequest
