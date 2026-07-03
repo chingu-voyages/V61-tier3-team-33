@@ -1,4 +1,4 @@
-import type { JoinInput, MoveInput } from "../domain/types";
+import type { JoinInput, MoveInput, Position } from "../domain/types";
 
 // What the client asks the server to do. One-directional: client → server only.
 // Decoded once by Protocol.decode; never sent back out, never passed through Hub.
@@ -19,6 +19,10 @@ export const UNDO_DECLINE = "undo:decline" as const;
 export const GAME_RESIGN = "game:resign" as const;
 export const STATE_SYNC = "state:sync" as const;
 
+// The click-a-piece step before move:make — routed to GameService, answered
+// with position:accept (legal destinations) or position:reject.
+export const POSITION_SELECT = "position:select" as const;
+
 export type Command =
   | { type: typeof SESSION_HANDSHAKE; token?: string }
   | { type: typeof SESSION_PONG }
@@ -29,4 +33,5 @@ export type Command =
   | { type: typeof UNDO_ACCEPT }
   | { type: typeof UNDO_DECLINE }
   | { type: typeof GAME_RESIGN }
-  | { type: typeof STATE_SYNC };
+  | { type: typeof STATE_SYNC }
+  | { type: typeof POSITION_SELECT; position: Position };

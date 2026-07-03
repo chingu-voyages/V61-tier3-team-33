@@ -12,6 +12,7 @@ import {
   GAME_RESIGN,
   STATE_SYNC,
   ROOM_LEAVE,
+  POSITION_SELECT,
 } from "../protocol/commands";
 import { JsonCodec } from "../protocol/json-codec";
 import { Sessions } from "../session/session-store";
@@ -117,6 +118,10 @@ export class Gateway {
 
       case STATE_SYNC:
         this.gameService.sync(ws);
+        break;
+
+      case POSITION_SELECT:
+        this.gameService.selectPosition(ws, cmd.position);
         break;
     }
   };

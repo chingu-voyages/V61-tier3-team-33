@@ -30,6 +30,7 @@ type EventFamily = FamilyOf<Event["type"]>;
 const FAMILY_COLOR: Record<EventFamily, string> = {
   move: "\x1b[36m", // cyan
   undo: "\x1b[34m", // blue
+  position: "\x1b[37m", // white
   game: "\x1b[32m", // green
   room: "\x1b[32m", // green
   clock: "\x1b[33m", // yellow

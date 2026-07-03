@@ -44,6 +44,24 @@ export const INVALID_MODE = JoinError("invalid-mode");
 
 export type JoinError = typeof ROOM_FULL | typeof INVALID_MODE;
 
+// SelectError — position:select (the click-a-piece step before move:make).
+// A separate union from MoveError even where the reasons overlap in spirit
+// (not-your-turn, game-over): selecting is a read-only query over any
+// square on the board, not an attempted move over a from/to pair, so it
+// has its own failure shape (e.g. NOT_YOUR_PIECE has no MoveError analog).
+const SelectError = brandedTag<"SelectError">();
+
+export const SELECT_GAME_OVER = SelectError("game-over");
+export const SELECT_NOT_YOUR_TURN = SelectError("not-your-turn");
+export const SELECT_SQUARE_EMPTY = SelectError("square-empty");
+export const SELECT_NOT_YOUR_PIECE = SelectError("not-your-piece");
+
+export type SelectError =
+  | typeof SELECT_GAME_OVER
+  | typeof SELECT_NOT_YOUR_TURN
+  | typeof SELECT_SQUARE_EMPTY
+  | typeof SELECT_NOT_YOUR_PIECE;
+
 // StrategyError
 const StrategyError = brandedTag<"StrategyError">();
 

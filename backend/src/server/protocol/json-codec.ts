@@ -12,6 +12,7 @@ import {
   UNDO_DECLINE,
   GAME_RESIGN,
   STATE_SYNC,
+  POSITION_SELECT,
 } from "./commands";
 
 type Raw = Record<string, unknown>;
@@ -84,6 +85,11 @@ const decoders: Record<Command["type"], Decoder> = {
   [UNDO_DECLINE]: () => ({ type: UNDO_DECLINE }),
   [GAME_RESIGN]: () => ({ type: GAME_RESIGN }),
   [STATE_SYNC]: () => ({ type: STATE_SYNC }),
+
+  [POSITION_SELECT]: (raw) => {
+    if (typeof raw.position !== "number") return null;
+    return { type: POSITION_SELECT, position: raw.position } as Command;
+  },
 };
 
 /** JSON wire format. */

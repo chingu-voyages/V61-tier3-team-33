@@ -29,9 +29,11 @@ import {
   UNDO_REQUESTED,
   UNDO_APPLIED,
   UNDO_DECLINED,
+  POSITION_ACCEPTED,
+  POSITION_REJECTED,
 } from "../protocol/events";
 import { SESSION_ERROR } from "../protocol/errors";
-import { E2, E4, E5 } from "../../chess";
+import { E2, E3, E4, E5, E7 } from "../../chess";
 
 describe("GameService", () => {
   /** A Protocol whose encode just JSON-stringifies the notification. */
@@ -362,6 +364,62 @@ describe("GameService", () => {
         }),
       );
       expect(sent(black).length).toBe(blackCallsBefore); // black got nothing
+    });
+  });
+
+  describe("selectPosition", () => {
+    it("replies NOT_IN_GAME when authenticated but not seated", async () => {
+      const { service, sessions } = makeService();
+      const ws = makeSocket("p1");
+      connect(sessions, ws);
+
+      await service.selectPosition(ws, E2);
+
+      expect(lastSent(ws)).toEqual(
+        expect.objectContaining({ type: SESSION_ERROR, code: NOT_IN_GAME }),
+      );
+    });
+
+    it("accepts your own piece and replies with its legal destinations", async () => {
+      const { service, sessions } = makeService();
+      const { white } = await seatTwoPlayers(service, sessions);
+
+      await service.selectPosition(white, E2);
+
+      expect(lastSent(white)).toEqual(
+        expect.objectContaining({
+          type: POSITION_ACCEPTED,
+          position: E2,
+          moves: expect.arrayContaining([E3, E4]),
+        }),
+      );
+    });
+
+    it("rejects the opponent's piece and only notifies the requester", async () => {
+      const { service, sessions } = makeService();
+      const { white, black } = await seatTwoPlayers(service, sessions);
+      const blackCallsBefore = sent(black).length;
+
+      await service.selectPosition(white, E7);
+
+      expect(lastSent(white)).toEqual(
+        expect.objectContaining({
+          type: POSITION_REJECTED,
+          position: E7,
+        }),
+      );
+      expect(sent(black).length).toBe(blackCallsBefore);
+    });
+
+    it("rejects selecting when it isn't your turn", async () => {
+      const { service, sessions } = makeService();
+      const { black } = await seatTwoPlayers(service, sessions);
+
+      await service.selectPosition(black, E7);
+
+      expect(lastSent(black)).toEqual(
+        expect.objectContaining({ type: POSITION_REJECTED, position: E7 }),
+      );
     });
   });
 

@@ -6,6 +6,7 @@ import {
   type JoinInput,
   type MoveInput,
   type PieceColor,
+  type Position,
   type WebSocket,
 } from "../domain/types";
 import type { Game } from "../game/game";
@@ -23,6 +24,8 @@ import {
   GAME_STARTED,
   MOVE_MADE,
   MOVE_REJECTED,
+  POSITION_ACCEPTED,
+  POSITION_REJECTED,
   ROOM_JOINED,
   UNDO_APPLIED,
   UNDO_DECLINED,
@@ -57,6 +60,9 @@ export interface GameFacade {
   leave(ws: WebSocket): Promise<void>;
   /** Resends the caller's current game state. */
   sync(ws: WebSocket): Promise<void>;
+  /** The click-a-piece step before move — replies with the legal
+   * destination squares, or a rejection reason. */
+  selectPosition(ws: WebSocket, position: Position): Promise<void>;
 }
 
 /** Orchestrates client actions against sessions and games; wire-level only, no game rules. */
@@ -326,6 +332,32 @@ export class GameService implements GameFacade {
       roomId: game.id,
       color,
       state: game.snapshot(),
+    });
+  }
+
+  /** @inheritdoc */
+  async selectPosition(ws: WebSocket, position: Position): Promise<void> {
+    const seated = this.seated(ws);
+    if (!seated) return;
+    const { game, color } = seated;
+
+    const result = game.selectPosition(color, position);
+
+    if (!result.ok) {
+      game.notify(color, {
+        type: POSITION_REJECTED,
+        roomId: game.id,
+        position,
+        reason: result.error,
+      });
+      return;
+    }
+
+    game.notify(color, {
+      type: POSITION_ACCEPTED,
+      roomId: game.id,
+      position,
+      moves: result.value,
     });
   }
 

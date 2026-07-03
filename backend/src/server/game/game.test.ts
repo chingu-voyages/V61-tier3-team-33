@@ -22,10 +22,16 @@ import {
   NO_HISTORY,
   ROOM_FULL,
   INVALID_MODE,
+  SELECT_GAME_OVER,
+  SELECT_NOT_YOUR_TURN,
+  SELECT_SQUARE_EMPTY,
+  SELECT_NOT_YOUR_PIECE,
 } from "../domain/result";
 import { MOVE_MADE } from "../protocol/events";
 import {
+  A1,
   D5,
+  D6,
   D7,
   E2,
   E3,
@@ -356,6 +362,77 @@ describe("Game", () => {
       const result = await game.move(WHITE, { from: E2, to: E4 });
 
       expect(result).toEqual({ ok: false, error: GAME_OVER });
+    });
+  });
+
+  describe("selectPosition", () => {
+    it("rejects selecting before the game is ACTIVE", () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1")); // only one seat filled
+
+      const result = game.selectPosition(WHITE, E2);
+
+      expect(result).toEqual({ ok: false, error: SELECT_GAME_OVER });
+    });
+
+    it("rejects selecting when it isn't that color's turn", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      const result = game.selectPosition(BLACK, E7);
+
+      expect(result).toEqual({ ok: false, error: SELECT_NOT_YOUR_TURN });
+    });
+
+    it("rejects selecting an empty square", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      const result = game.selectPosition(WHITE, E3);
+
+      expect(result).toEqual({ ok: false, error: SELECT_SQUARE_EMPTY });
+    });
+
+    it("rejects selecting the opponent's piece", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      const result = game.selectPosition(WHITE, E7);
+
+      expect(result).toEqual({ ok: false, error: SELECT_NOT_YOUR_PIECE });
+    });
+
+    it("returns the legal destination squares for your own piece", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      const result = game.selectPosition(WHITE, E2);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok result");
+      expect(result.value.sort()).toEqual([E3, E4].sort());
+    });
+
+    it("returns an empty array, not an error, for a piece with no legal moves", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      // Rook on a1 is boxed in by its own pawn/knight at the start.
+      const result = game.selectPosition(WHITE, A1);
+
+      expect(result).toEqual({ ok: true, value: [] });
+    });
+
+    it("reflects the position after moves have been played", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      await game.move(WHITE, { from: E2, to: E4 });
+
+      const result = game.selectPosition(BLACK, D7);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok result");
+      expect(result.value.sort()).toEqual([D5, D6].sort());
     });
   });
 

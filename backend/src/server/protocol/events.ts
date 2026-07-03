@@ -6,7 +6,7 @@ import type {
   PieceColor,
   Position,
 } from "../domain/types";
-import type { MoveError } from "../domain/result";
+import type { MoveError, SelectError } from "../domain/result";
 
 type WebSocket = unknown;
 
@@ -29,6 +29,10 @@ export const MOVE_REJECTED = "move:rejected" as const;
 export const UNDO_REQUESTED = "undo:requested" as const;
 export const UNDO_APPLIED = "undo:applied" as const;
 export const UNDO_DECLINED = "undo:declined" as const;
+
+// Position selection (click-a-piece step before move:make) — emitted by Game
+export const POSITION_ACCEPTED = "position:accept" as const;
+export const POSITION_REJECTED = "position:reject" as const;
 
 // Clock — emitted by ClockTimer (owned by Moves)
 export const CLOCK_STARTED = "clock:started" as const;
@@ -130,6 +134,18 @@ export type Notification =
       roomId: string;
       by: PieceColor;
       reason: string;
+    }
+  | {
+      type: typeof POSITION_ACCEPTED;
+      roomId: string;
+      position: Position;
+      moves: Position[];
+    }
+  | {
+      type: typeof POSITION_REJECTED;
+      roomId: string;
+      position: Position;
+      reason: SelectError;
     }
   | {
       type: typeof CLOCK_STARTED;

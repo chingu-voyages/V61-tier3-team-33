@@ -20,6 +20,7 @@ import {
   type Mode,
   type PieceColor,
   type PieceType,
+  type Position,
 } from "../domain/types";
 
 import {
@@ -32,10 +33,15 @@ import {
   NO_HISTORY,
   ROOM_FULL,
   INVALID_MODE,
+  SELECT_GAME_OVER,
+  SELECT_NOT_YOUR_TURN,
+  SELECT_SQUARE_EMPTY,
+  SELECT_NOT_YOUR_PIECE,
   type Result,
   type MoveError,
   type UndoError,
   type JoinError,
+  type SelectError,
 } from "../domain/result";
 
 import type { Occupant } from "../occupant/occupant";
@@ -153,6 +159,34 @@ export class Game {
     }
 
     return ok();
+  }
+
+  /**
+   * Returns the legal destination squares for the piece on `position`,
+   * assuming `color` is the one attempting the selection. Read-only — it
+   * doesn't touch history/hash, so unlike move()/undo() it isn't run
+   * through the mutex; there's no mutation for a concurrent call to race.
+   * Caller (GameService) turns the result into position:accept/reject.
+   */
+  selectPosition(
+    color: PieceColor,
+    position: Position,
+  ): Result<Position[], SelectError> {
+    if (this.status !== ACTIVE) return err(SELECT_GAME_OVER);
+    if (this.chess.sideToMove() !== color) return err(SELECT_NOT_YOUR_TURN);
+
+    const piece = this.chess.pieceAt(position);
+    if (piece === null) return err(SELECT_SQUARE_EMPTY);
+    if (piece.color !== color) return err(SELECT_NOT_YOUR_PIECE);
+
+    // Dedupe: a pawn one step from promotion has one legal move per
+    // promoteTo piece type, all sharing the same `to` square.
+    const destinations = new Set<Position>();
+    for (const move of this.chess.legalMovesFrom(position)) {
+      destinations.add(move.to);
+    }
+
+    return ok([...destinations]);
   }
 
   /** Applies a move for `color`. Caller broadcasts MOVE_MADE on success. */
