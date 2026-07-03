@@ -1,3 +1,4 @@
+import { Elysia } from "elysia";
 import config from "./config/config";
 import { Gateway } from "./server/transport/gateway";
 
