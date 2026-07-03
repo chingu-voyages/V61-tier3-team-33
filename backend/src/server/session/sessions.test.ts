@@ -1,5 +1,5 @@
 import { describe, expect, it, spyOn, afterEach } from "bun:test";
-import { Sessions } from "./session-store";
+import { Sessions } from "./sessions";
 import {
   WHITE,
   HUMAN_VS_HUMAN,

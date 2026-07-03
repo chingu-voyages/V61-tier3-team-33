@@ -10,7 +10,7 @@ import {
   type WebSocket,
 } from "../domain/types";
 import type { Game } from "../game/game";
-import type { GameStore } from "../game/games";
+import type { GameStore } from "../game/game-store";
 import { Human } from "../occupant/human";
 import {
   GAME_FINISHED,
@@ -30,40 +30,17 @@ import {
   UNDO_APPLIED,
   UNDO_DECLINED,
   UNDO_REQUESTED,
-  type Notification,
 } from "../protocol/events";
 import type { Protocol } from "../protocol/protocol";
 import { Reply } from "../protocol/replies";
-import type { SessionStore } from "../session/sessions";
+import type { SessionStore } from "../session/session-store";
 import { logger as rootLogger } from "../../logging/logger";
+import type { GameFacade } from "./game-facade";
 
 const log = rootLogger.child({ module: "GameService" });
 
 /** How long an undo request stays valid; only seeds `expiresAt`, not enforced yet. */
 const UNDO_REQUEST_TTL_MS = 30 * 1000;
-
-/** Player-facing actions a client can trigger over a socket. */
-export interface GameFacade {
-  /** Joins or rejoins a game. */
-  join(ws: WebSocket, input: JoinInput): Promise<void>;
-  /** Attempts a move for the caller's color. */
-  move(ws: WebSocket, input: MoveInput): Promise<void>;
-  /** Asks the opponent to undo the last move. */
-  requestUndo(ws: WebSocket): Promise<void>;
-  /** Accepts the opponent's pending undo request. */
-  acceptUndo(ws: WebSocket): Promise<void>;
-  /** Declines the opponent's pending undo request. */
-  declineUndo(ws: WebSocket): Promise<void>;
-  /** Ends the game as a resignation by the caller. */
-  resign(ws: WebSocket): Promise<void>;
-  /** Leaves the game. */
-  leave(ws: WebSocket): Promise<void>;
-  /** Resends the caller's current game state. */
-  sync(ws: WebSocket): Promise<void>;
-  /** The click-a-piece step before move — replies with the legal
-   * destination squares, or a rejection reason. */
-  selectPosition(ws: WebSocket, position: Position): Promise<void>;
-}
 
 /** Orchestrates client actions against sessions and games; wire-level only, no game rules. */
 export class GameService implements GameFacade {

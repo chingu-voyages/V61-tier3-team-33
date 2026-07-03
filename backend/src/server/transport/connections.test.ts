@@ -3,7 +3,7 @@ import { Connections } from "./connections";
 import { CONNECTION_OPENED, CONNECTION_CLOSED } from "../protocol/events";
 import { SESSION_HANDSHAKE } from "../protocol/commands";
 import { WS_OPEN, type WebSocket } from "../domain/types";
-import type { SessionStore } from "../session/sessions";
+import type { SessionStore } from "../session/session-store";
 import type { Session } from "../session/session";
 import type { Publisher } from "../bus/bus";
 import type { Protocol } from "../protocol/protocol";

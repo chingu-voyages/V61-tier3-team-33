@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { GameService } from "./game-service";
-import { Sessions } from "../session/session-store";
-import { Games } from "../game/game-store";
+import { Sessions } from "../session/sessions";
+import { Games } from "../game/games";
 import { Hub } from "../bus/bus";
 import {
   WHITE,

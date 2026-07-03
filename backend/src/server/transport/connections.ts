@@ -1,7 +1,7 @@
 import type { WebSocket } from "../domain/types";
 import type { Publisher } from "../bus/bus";
 import type { Protocol } from "../protocol/protocol";
-import type { SessionStore } from "../session/sessions";
+import type { SessionStore } from "../session/session-store";
 import type { Notification } from "../protocol/events";
 import { CONNECTION_OPENED, CONNECTION_CLOSED } from "../protocol/events";
 import { Reply } from "../protocol/replies";

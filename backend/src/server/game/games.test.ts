@@ -7,7 +7,7 @@ import {
   beforeEach,
   afterEach,
 } from "bun:test";
-import { Games } from "./game-store";
+import { Games } from "./games";
 import type { Occupant } from "../occupant/occupant";
 import type { Publisher } from "../bus/bus";
 import {

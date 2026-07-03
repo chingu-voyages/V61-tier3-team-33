@@ -15,9 +15,9 @@ import {
   POSITION_SELECT,
 } from "../protocol/commands";
 import { JsonCodec } from "../protocol/json-codec";
-import { Sessions } from "../session/session-store";
+import { Sessions } from "../session/sessions";
 import { Connections } from "./connections";
-import { Games } from "../game/game-store";
+import { Games } from "../game/games";
 import { GameService } from "../services/game-service";
 import { Hub } from "../bus/bus";
 import { EventLogger } from "../../logging/event-logger";
@@ -25,9 +25,9 @@ import { logger as rootLogger } from "../../logging/logger";
 import { Reply } from "../protocol/replies";
 import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../protocol/errors";
 import type { WebSocket } from "../domain/types";
-import type { GameFacade } from "../services/game-service";
-import type { SessionStore } from "../session/sessions";
-import type { GameStore } from "../game/games";
+import type { GameFacade } from "../services/game-facade";
+import type { SessionStore } from "../session/session-store";
+import type { GameStore } from "../game/game-store";
 
 const log = rootLogger.child({ module: "Gateway" });
 
