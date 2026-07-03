@@ -3,6 +3,7 @@ import { MoveContext as MC, TurnContext as TC } from "./state"
 
 import { Board, Square } from "./board"
 import { Piece, KING, WHITE, BLACK } from "./piece"
+import type { PieceColor } from "./piece"
 import { Position, File, Rank, NO_POSITION, RANK_3, RANK_6 } from "./position"
 
 function decodePiecePlacement(
@@ -378,5 +379,15 @@ export const FEN = {
     const err = decodeFEN(fen, ctx)
     if (err) return null
     return ctx.board
+  },
+
+  /** Just the side-to-move field — for UI that only needs whose turn it
+   * is (a turn indicator, a click-to-move guard) without decoding the
+   * full board. */
+  sideToMoveFromFEN(fen: string): PieceColor | null {
+    const ctx = TC.create()
+    const err = decodeFEN(fen, ctx)
+    if (err) return null
+    return ctx.sideToMove
   },
 }
