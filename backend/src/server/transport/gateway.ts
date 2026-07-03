@@ -19,6 +19,8 @@ import { Connections } from "./connections";
 import { Games } from "../game/game-store";
 import { GameService } from "../services/game-service";
 import { Hub } from "../bus/bus";
+import { EventLogger } from "../../logging/event-logger";
+import { logger as rootLogger } from "../../logging/logger";
 import { Reply } from "../protocol/replies";
 import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../protocol/errors";
 import type { WebSocket } from "../domain/types";
@@ -26,10 +28,13 @@ import type { GameFacade } from "../services/game-service";
 import type { SessionStore } from "../session/sessions";
 import type { GameStore } from "../game/games";
 
+const log = rootLogger.child({ module: "Gateway" });
+
 export class Gateway {
   private app: Elysia;
   private connections: Connections;
   private gameService: GameFacade;
+  private eventLogger: EventLogger;
 
   constructor(
     private protocol: Protocol = new JsonCodec(),
@@ -39,6 +44,8 @@ export class Gateway {
   ) {
     this.connections = new Connections(sessions, hub, protocol);
     this.gameService = new GameService(sessions, games, protocol);
+    this.eventLogger = new EventLogger();
+    this.eventLogger.start(hub);
     this.app = new Elysia();
     this.setup();
   }
@@ -63,6 +70,7 @@ export class Gateway {
     const cmd = this.protocol.decode(raw);
 
     if (cmd === null) {
+      log.warn("unparseable or unknown command received");
       Reply.send(
         ws,
         Reply.error(INVALID_PAYLOAD, "Unparseable or unknown command."),
@@ -115,7 +123,7 @@ export class Gateway {
 
   start(port: number = 3001): void {
     this.app.listen(port, () => {
-      console.log(`♟️ Chess server running on port ${port}`);
+      log.info("chess server running", { port });
     });
   }
 }

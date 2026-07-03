@@ -32,6 +32,9 @@ import {
 import type { Protocol } from "../protocol/protocol";
 import { Reply } from "../protocol/replies";
 import type { SessionStore } from "../session/sessions";
+import { logger as rootLogger } from "../../logging/logger";
+
+const log = rootLogger.child({ module: "GameService" });
 
 /** How long an undo request stays valid; only seeds `expiresAt`, not enforced yet. */
 const UNDO_REQUEST_TTL_MS = 30 * 1000;
@@ -114,6 +117,7 @@ export class GameService implements GameFacade {
     if (input.roomId) {
       const found = this.games.get(input.roomId);
       if (!found) {
+        log.warn("join attempted on missing room", { roomId: input.roomId });
         Reply.send(ws, Reply.error(ROOM_NOT_FOUND, "Room not found."));
         return;
       }
@@ -329,16 +333,24 @@ export class GameService implements GameFacade {
   private seated(ws: WebSocket): { game: Game; color: PieceColor } | null {
     const session = this.sessions.bySocket(ws);
     if (!session) {
+      log.warn("action from unauthenticated socket");
       Reply.send(ws, Reply.error(NOT_AUTHENTICATED, "Session not found."));
       return null;
     }
     if (!session.roomId || session.color === null) {
+      log.warn("action from socket not in a game", {
+        playerId: session.playerId,
+      });
       Reply.send(ws, Reply.error(NOT_IN_GAME, "You are not in a game."));
       return null;
     }
 
     const game = this.games.get(session.roomId);
     if (!game) {
+      log.warn("session referenced a missing room", {
+        playerId: session.playerId,
+        roomId: session.roomId,
+      });
       Reply.send(ws, Reply.error(ROOM_NOT_FOUND, "Room not found."));
       return null;
     }

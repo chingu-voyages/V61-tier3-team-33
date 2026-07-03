@@ -1,7 +1,6 @@
+import config from "./config/config";
 import { Gateway } from "./server/transport/gateway";
 
 const gateway = new Gateway();
 
-const PORT = Number(process.env.PORT ?? 3001);
-
-gateway.start(PORT);
+gateway.start(config.port);

@@ -5,6 +5,9 @@ import type { SessionStore } from "../session/sessions";
 import type { Notification } from "../protocol/events";
 import { CONNECTION_OPENED, CONNECTION_CLOSED } from "../protocol/events";
 import { Reply } from "../protocol/replies";
+import { logger as rootLogger } from "../../logging/logger";
+
+const log = rootLogger.child({ module: "Connections" });
 
 /**
  * Owns the connection lifecycle: handshake (resume-or-open a session),
@@ -27,6 +30,11 @@ export class Connections {
   identify(ws: WebSocket, token?: string): void {
     const session = this.sessions.resumeOrOpen(ws, token);
 
+    log.info("connection identified", {
+      playerId: session.playerId,
+      resumed: Boolean(token),
+    });
+
     this.publisher.emit({
       type: CONNECTION_OPENED,
       playerId: session.playerId,
@@ -43,6 +51,8 @@ export class Connections {
     if (!session) return;
 
     this.sessions.drop(ws);
+
+    log.info("connection closed", { playerId: session.playerId });
 
     this.publisher.emit({
       type: CONNECTION_CLOSED,

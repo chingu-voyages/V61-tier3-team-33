@@ -50,10 +50,17 @@ export interface Publisher {
   emit(event: Event): void;
 }
 
-// Anything that can be subscribed to.
+// Anything that can be subscribed to. Priority is optional here for the
+// same reason it's optional on Hub itself: most subscribers don't care
+// and should get DEFERRED for free. Only pass FAST when a handler's
+// latency genuinely matters (see Priority docs above).
 export interface Subscriber {
-  on<T extends string>(type: T, handler: Handler<T>): Unsubscribe;
-  onAny(handler: EventHandler): Unsubscribe;
+  on<T extends string>(
+    type: T,
+    handler: Handler<T>,
+    priority?: Priority,
+  ): Unsubscribe;
+  onAny(handler: EventHandler, priority?: Priority): Unsubscribe;
 }
 
 export class Hub implements Publisher, Subscriber {

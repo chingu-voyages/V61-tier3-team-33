@@ -4,6 +4,9 @@ import {
   INVALID_MAX_DELAY,
   type RetryConfigErrorCode,
 } from "../domain/result";
+import { logger as rootLogger } from "../../logging/logger";
+
+const log = rootLogger.child({ module: "Retry" });
 
 // Default number of attempts before giving up.
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -66,7 +69,19 @@ export class Retry {
         lastError = e;
         const isLastAttempt = attempt === this.maxAttempts - 1;
         if (!isLastAttempt) {
-          await Bun.sleep(this.backoffDelay(attempt));
+          const delay = this.backoffDelay(attempt);
+          log.warn("attempt failed, retrying", {
+            attempt: attempt + 1,
+            maxAttempts: this.maxAttempts,
+            delayMs: Math.round(delay),
+            error: e instanceof Error ? e.message : String(e),
+          });
+          await Bun.sleep(delay);
+        } else {
+          log.error("all attempts exhausted", {
+            attempts: this.maxAttempts,
+            error: e instanceof Error ? e.message : String(e),
+          });
         }
       }
     }
