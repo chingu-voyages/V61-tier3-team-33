@@ -1,6 +1,8 @@
 import { Elysia } from "elysia";
+import cors from "@elysiajs/cors";
 
 import type { Protocol } from "../protocol/protocol";
+import config from "../../config/config";
 import {
   SESSION_HANDSHAKE,
   SESSION_PONG,
@@ -47,7 +49,12 @@ export class Gateway {
     this.gameService = new GameService(sessions, games, protocol);
     this.eventLogger = new EventLogger();
     this.eventLogger.start(hub);
-    this.app = new Elysia();
+    this.app = new Elysia().use(
+      cors({
+        origin: config.clientUrl,
+        credentials: true,
+      }),
+    );
     this.setup();
   }
 
