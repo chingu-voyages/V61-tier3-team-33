@@ -8,8 +8,8 @@ export type Room={
    gameStatus:"active"|"over"|"waiting"
 }
 
-export type TimeControl = 
-    | { mode: "timed"; minutes: number; seconds: number; ms?: number }
+export type TimeControl =
+    | { mode: "per_move"; minutes: number; seconds: number; ms?: number }
     | { mode: "async" }
 
 export type ClockState = {

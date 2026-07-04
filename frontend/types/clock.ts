@@ -1,3 +1,3 @@
 export type TimeControl =
-    | { mode: "timed"; minutes: number; seconds: number; ms?: number }
+    | { mode: "per_move"; minutes: number; seconds: number; ms?: number }
     | { mode: "async" }

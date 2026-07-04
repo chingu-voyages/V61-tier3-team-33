@@ -3,7 +3,7 @@ import type { User } from '../Rooms/room.type'
 import { EVENTS } from '../Rooms/event';
 import { Room } from '../Rooms/roomClass';
 import type { MoveMessage } from './server.types';
-import { Position, WHITE, BLACK } from "./chess";
+import { Position, WHITE } from "./chess";
 import type { TimeControlMessageSetup } from "./server.types";
 
 // Define proper types
@@ -23,6 +23,51 @@ interface ChessStateRequest {
 
 const users = new Map<string, User>()
 const rooms = new Map<string, Room>()
+const abandonTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+const ABANDON_TIMEOUT_MS = 5 * 60 * 1000
+
+function startAbandonTimer(roomId: string): void {
+    const existing = abandonTimers.get(roomId)
+    if (existing) clearTimeout(existing)
+
+    const room = rooms.get(roomId)
+    const tc = room?.timeControl
+    let timeoutMs = ABANDON_TIMEOUT_MS
+    if (tc?.mode === "per_move") {
+        timeoutMs = (tc.minutes * 60 + tc.seconds) * 1000 + (tc.ms ?? 0)
+    }
+
+    const timer = setTimeout(() => {
+        const room = rooms.get(roomId)
+        if (!room || room.gameStatus !== "active") return
+
+        const loser = room.chess.sideToMove() === WHITE ? "white" : "black"
+        room.gameStatus = "over"
+
+        const payload = JSON.stringify({
+            type: EVENTS.AUTO_RESIGNED,
+            roomId,
+            loser
+        })
+
+        for (const id of room.players) {
+            users.get(id)?.ws.send(payload)
+        }
+
+        abandonTimers.delete(roomId)
+    }, timeoutMs)
+
+    abandonTimers.set(roomId, timer)
+}
+
+function clearAbandonTimer(roomId: string): void {
+    const existing = abandonTimers.get(roomId)
+    if (existing) {
+        clearTimeout(existing)
+        abandonTimers.delete(roomId)
+    }
+}
 
 function buildChessState(room: Room): string {
     return JSON.stringify({
@@ -146,7 +191,8 @@ export const app = new Elysia()
                         const added = targetRoom.addPlayer(joinedID)
                         targetRoom.gameStatus = "active"
 
-                        targetRoom.startClock() // Start the clock when the game becomes active
+                        targetRoom.startClock()
+                        startAbandonTimer(roomIdtoJoin)
 
                         if (!added) {
                             ws.send(JSON.stringify({
@@ -232,6 +278,7 @@ export const app = new Elysia()
 
                       if (clockResult.flagFall) {
                         targetRoom.gameStatus = "over";
+                        clearAbandonTimer(targetRoom.id);
                         const flagPayload = JSON.stringify({
                             type: EVENTS.FALL_OF_FLAG,
                             roomId: targetRoom.id,
@@ -290,6 +337,12 @@ export const app = new Elysia()
                       for (const id of targetRoom.players) {
                           console.log("Sending to", id)
                           users.get(id)?.ws.send(payload)
+                      }
+
+                      if (targetRoom.gameStatus === "over") {
+                          clearAbandonTimer(targetRoom.id)
+                      } else {
+                          startAbandonTimer(targetRoom.id)
                       }
                       break
                     }
@@ -359,6 +412,7 @@ export const app = new Elysia()
             }
 
             if (room.players.length === 0 || room.gameStatus === "over") {
+                clearAbandonTimer(room.id)
                 rooms.delete(room.id)
             }
         }

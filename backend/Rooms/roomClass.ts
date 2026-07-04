@@ -84,7 +84,7 @@ export class Room{
 
     public setTimeControl(tc: TimeControl): void {
         this.timeControl = tc;
-        if (tc.mode === "timed") {
+        if (tc.mode === "per_move") {
             const totalMs = (tc.minutes * 60 + tc.seconds) * 1000 + (tc.ms ?? 0);
             this.whitePlayerTimeMs = totalMs;
             this.blackPlayerTimeMs = totalMs;
@@ -111,15 +111,18 @@ export class Room{
             return { flagFall: false };
         }
 
-        if (this.lastMoveAt !== null) {
-            const used = Date.now() - this.lastMoveAt;
-            if (mover === "white") {
-                this.whitePlayerTimeMs = Math.max(0, (this.whitePlayerTimeMs ?? 0) - used);
-                if (this.whitePlayerTimeMs === 0) return { flagFall: true, loser: "white" };
-            } else {
-                this.blackPlayerTimeMs = Math.max(0, (this.blackPlayerTimeMs ?? 0) - used);
-                if (this.blackPlayerTimeMs === 0) return { flagFall: true, loser: "black" };
+        if (this.timeControl.mode === "per_move") {
+            const limitMs = (this.timeControl.minutes * 60 + this.timeControl.seconds) * 1000 + (this.timeControl.ms ?? 0);
+            if (this.lastMoveAt !== null) {
+                const used = Date.now() - this.lastMoveAt;
+                if (used > limitMs) {
+                    return { flagFall: true, loser: mover };
+                }
             }
+            this.whitePlayerTimeMs = limitMs;
+            this.blackPlayerTimeMs = limitMs;
+            this.lastMoveAt = Date.now();
+            return { flagFall: false };
         }
 
         this.lastMoveAt = Date.now();

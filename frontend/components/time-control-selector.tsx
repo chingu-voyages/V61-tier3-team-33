@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button"
 import type { TimeControl } from "@/types/clock"
 
 const PRESETS: { label: string; value: TimeControl }[] = [
-    { label: "1 min",      value: { mode: "timed", minutes: 1,  seconds: 0  } },
-    { label: "3 min",      value: { mode: "timed", minutes: 3,  seconds: 0  } },
-    { label: "3 | 2",      value: { mode: "timed", minutes: 3,  seconds: 2  } },
-    { label: "5 min",      value: { mode: "timed", minutes: 5,  seconds: 0  } },
-    { label: "10 min",     value: { mode: "timed", minutes: 10, seconds: 0  } },
-    { label: "Async",      value: { mode: "async"                            } },
+    { label: "1 min", value: { mode: "per_move", minutes: 1, seconds: 0 } },
+    { label: "2 min", value: { mode: "per_move", minutes: 2, seconds: 0 } },
+    { label: "3 min", value: { mode: "per_move", minutes: 3, seconds: 0 } },
+    { label: "4 min", value: { mode: "per_move", minutes: 4, seconds: 0 } },
+    { label: "5 min", value: { mode: "per_move", minutes: 5, seconds: 0 } },
+    { label: "Async", value: { mode: "async"                            } },
 ]
 
 interface Props {
@@ -35,7 +35,7 @@ export function TimeControlSelector({ onSelect }: Props) {
 
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">Choisir le contrôle de temps</p>
+            <p className="text-sm text-muted-foreground">Choose time control</p>
             <div className="grid grid-cols-3 gap-2">
                 {PRESETS.map((preset) => (
                     <Button
