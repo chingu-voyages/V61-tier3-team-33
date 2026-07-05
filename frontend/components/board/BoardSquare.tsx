@@ -1,4 +1,4 @@
-import { Piece } from "@/lib/core/piece"
+import { Piece } from "@/core/piece"
 import { cn } from "@/lib/utils"
 import { Activity } from "react"
 import { getPieceIcon } from "../pieces"

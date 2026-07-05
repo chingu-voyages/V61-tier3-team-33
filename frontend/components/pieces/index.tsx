@@ -11,7 +11,7 @@ import {
   type PieceType,
   type PieceColor,
   type Piece,
-} from "@/lib/core/piece"
+} from "@/core/piece"
 
 type PieceIconProps = SVGAttributes<SVGSVGElement>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import type { Board } from "@/lib/core/board"
+import type { Board } from "@/core/board"
 import { createContext, use } from "react"
 
 export type GameState = {

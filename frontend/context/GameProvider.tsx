@@ -2,8 +2,8 @@
 
 import { useReducer, useCallback } from "react"
 import { gameReducer, GameContext } from "./use-game"
-import { FEN } from "@/lib/core/fen"
-import { Board } from "@/lib/core/board"
+import { FEN } from "@/core/fen"
+import { Board } from "@/core/board"
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 

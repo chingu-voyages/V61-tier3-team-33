@@ -1,5 +1,5 @@
-import { Board as TBoard, Square } from "@/lib/core/board"
-import { Position } from "@/lib/core/position"
+import { Board as TBoard, Square } from "@/core/board"
+import { Position } from "@/core/position"
 import { BoardSquare } from "./BoardSquare"
 
 interface BoardProps {
@@ -14,7 +14,7 @@ export function Board({ board }: BoardProps) {
         key={Position.index(position)}
         piece={Square.decode(value)}
         isDark={Position.isDarkSquare(position)}
-      />,
+      />
     )
   }
   return (
