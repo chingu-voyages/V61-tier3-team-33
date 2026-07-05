@@ -45,6 +45,7 @@ export type GameEvent =
       type: typeof GAME_STARTED
       roomId: string
       fen: string
+      turn: PieceColor
       clock: ClockState | null
     }
   | {
@@ -66,6 +67,7 @@ export type GameEvent =
       move: Move
       isCheck: boolean
       isGameOver: boolean
+      turn: PieceColor
       result: GameOutcome | null
       clock: ClockState | null
     }

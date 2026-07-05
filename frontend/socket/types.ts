@@ -63,6 +63,7 @@ export interface ClockState {
 
 export interface GameSnapshot {
   fen: string
+  turn: PieceColor
   isCheck: boolean
   result: GameOutcome
   history: string[]
