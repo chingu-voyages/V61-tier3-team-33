@@ -9,6 +9,8 @@ import type {
   Move,
 } from "./types"
 
+export const ANY = "*" as const
+
 export const ROOM_JOINED = "room:joined" as const
 export const GAME_STARTED = "game:started" as const
 export const ROOM_LEFT = "room:left" as const

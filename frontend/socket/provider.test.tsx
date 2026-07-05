@@ -46,4 +46,13 @@ describe("SocketProvider", () => {
       JSON.stringify({ foo: "bar" }),
     ])
   })
+
+  test("onAnyMessage is wired to client", () => {
+    const { result } = renderHook(() => useSocketContext(), { wrapper })
+    FakeSocket.instances[0].triggerOpen()
+    const received: unknown[] = []
+    result.current.onAnyMessage((raw) => received.push(raw))
+    FakeSocket.instances[0].triggerMessage({ type: "PING" })
+    expect(received).toEqual([{ type: "PING" }])
+  })
 })

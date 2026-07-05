@@ -2,13 +2,13 @@
 
 import { useEffect, useRef } from "react"
 import { useSocketContext } from "./context"
-import { hasType, type ServerEvent } from "./events"
+import { hasType, ANY, type ServerEvent } from "./events"
 
-export function useSocketEvent<K extends ServerEvent["type"]>(
-  type: K,
-  handler: (message: Extract<ServerEvent, { type: K }>) => void
+export function useSocketEvent(
+  type: ServerEvent["type"] | typeof ANY,
+  handler: (message: ServerEvent) => void
 ): void {
-  const { onMessage } = useSocketContext()
+  const { onMessage, onAnyMessage } = useSocketContext()
   const handlerRef = useRef(handler)
 
   useEffect(() => {
@@ -16,8 +16,11 @@ export function useSocketEvent<K extends ServerEvent["type"]>(
   })
 
   useEffect(() => {
+    if (type === ANY) {
+      return onAnyMessage((raw) => handlerRef.current(raw as ServerEvent))
+    }
     return onMessage(type, (raw) => {
       if (hasType(raw, type)) handlerRef.current(raw)
     })
-  }, [onMessage, type])
+  }, [onMessage, onAnyMessage, type])
 }

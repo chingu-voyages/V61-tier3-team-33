@@ -62,6 +62,26 @@ describe("SocketClient", () => {
     expect(received).toEqual([])
   })
 
+  test("onAnyMessage receives all messages regardless of type", () => {
+    const client = makeClient()
+    FakeSocket.instances[0].triggerOpen()
+    const received: unknown[] = []
+    client.onAnyMessage((raw) => received.push(raw))
+    FakeSocket.instances[0].triggerMessage({ type: "PING" })
+    FakeSocket.instances[0].triggerMessage({ type: "PONG" })
+    expect(received).toEqual([{ type: "PING" }, { type: "PONG" }])
+  })
+
+  test("onAnyMessage unsubscribe stops delivery", () => {
+    const client = makeClient()
+    FakeSocket.instances[0].triggerOpen()
+    const received: unknown[] = []
+    const unsubscribe = client.onAnyMessage((raw) => received.push(raw))
+    unsubscribe()
+    FakeSocket.instances[0].triggerMessage({ type: "PING" })
+    expect(received).toEqual([])
+  })
+
   test("CLOSED reconnects by creating a new socket", async () => {
     const client = makeClient()
     FakeSocket.instances[0].triggerOpen()

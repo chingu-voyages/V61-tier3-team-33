@@ -9,6 +9,7 @@ export interface Socket {
   send: (command: object) => void
   reconnect: () => void
   onMessage: (type: string, handler: Handler) => Unsubscribe
+  onAnyMessage: (handler: Handler) => Unsubscribe
 }
 
 export const SocketContext = createContext<Socket | null>(null)

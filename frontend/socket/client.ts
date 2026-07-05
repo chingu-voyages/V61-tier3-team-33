@@ -32,6 +32,9 @@ export default class SocketClient {
   // Notified on every inbound message, keyed by message type — for feature code.
   private messageListeners: Map<string, Set<MessageListener>> = new Map()
 
+  // Notified on every inbound message, regardless of type — for debug tooling.
+  private observers: Set<MessageListener> = new Set()
+
   // Constructor for creating sockets — real WebSocket, or a fake for tests.
   private readonly SocketCtor: typeof WebSocket
 
@@ -74,6 +77,11 @@ export default class SocketClient {
     return () => this.messageListeners.get(type)?.delete(handler)
   }
 
+  onAnyMessage = (handler: MessageListener): Unsubscribe => {
+    this.observers.add(handler)
+    return () => this.observers.delete(handler)
+  }
+
   send = (command: object): void => {
     if (!this.socket || this.socket.readyState !== this.SocketCtor.OPEN) return
     this.socket.send(JSON.stringify(command))
@@ -89,6 +97,7 @@ export default class SocketClient {
     this.clearTimer()
     this.statusListener.clear()
     this.messageListeners.clear()
+    this.observers.clear()
     this.teardownSocket()
   }
 
@@ -107,6 +116,9 @@ export default class SocketClient {
   }
 
   private notifyMessage(raw: unknown) {
+    for (const observer of this.observers) {
+      observer(raw)
+    }
     const type = (raw as { type?: string } | null)?.type
     if (!type) return
     for (const listener of this.messageListeners.get(type) ?? []) {
