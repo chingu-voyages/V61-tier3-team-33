@@ -261,6 +261,7 @@ export class Game {
     return {
       status: this.status,
       fen: this.chess.toFen(),
+      turn: this.chess.sideToMove(),
       isCheck: this.chess.isInCheck(),
       resultStatus: outcome.status,
       winner: outcome.winner,

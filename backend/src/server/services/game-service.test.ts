@@ -131,7 +131,7 @@ describe("GameService", () => {
       );
       // GAME_STARTED goes to both seated occupants, not just the joiner.
       expect(sent(white).at(-1)).toEqual(
-        expect.objectContaining({ type: GAME_STARTED }),
+        expect.objectContaining({ type: GAME_STARTED, turn: WHITE }),
       );
     });
 

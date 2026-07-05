@@ -86,6 +86,7 @@ export type Notification =
       type: typeof GAME_STARTED;
       roomId: string;
       fen: string;
+      turn: PieceColor;
       clock: ClockState | null;
     }
   | {
@@ -106,6 +107,7 @@ export type Notification =
       move: Move;
       isCheck: boolean;
       isGameOver: boolean;
+      turn: PieceColor;
       result: GameOutcome | null;
       clock: ClockState | null;
     }
@@ -232,8 +234,8 @@ export const Notifications = {
   },
 
   /** Broadcast once, the moment a room's second seat fills. */
-  gameStarted(roomId: string, fen: string): Notification {
-    return { type: GAME_STARTED, roomId, fen, clock: null };
+  gameStarted(roomId: string, fen: string, turn: PieceColor): Notification {
+    return { type: GAME_STARTED, roomId, fen, turn, clock: null };
   },
 
   roomLeft(roomId: string, color: PieceColor): Notification {
@@ -267,6 +269,7 @@ export const Notifications = {
       move,
       isCheck: snapshot.isCheck,
       isGameOver,
+      turn: snapshot.turn,
       result: isGameOver ? GameOutcome.fromSnapshot(snapshot) : null,
       clock: null,
     };

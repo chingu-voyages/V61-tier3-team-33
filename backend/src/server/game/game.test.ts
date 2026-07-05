@@ -531,6 +531,7 @@ describe("Game", () => {
       const snapshot = game.snapshot();
 
       expect(snapshot.isCheck).toBe(false);
+      expect(snapshot.turn).toBe(WHITE);
       expect(snapshot.history).toEqual([]);
       expect(snapshot.capturedByWhite).toEqual([]);
       expect(snapshot.capturedByBlack).toEqual([]);
@@ -547,6 +548,7 @@ describe("Game", () => {
       const snapshot = game.snapshot();
 
       expect(snapshot.history).toEqual(["e4", "e5"]);
+      expect(snapshot.turn).toBe(WHITE);
     });
 
     it("tracks captured pieces by the color that captured them", async () => {

@@ -146,6 +146,7 @@ export interface GameSnapshot {
   // describes the chess position, not the room.
   status: Lifecycle;
   fen: string;
+  turn: PieceColor;
   isCheck: boolean;
   // Flattened GameOutcome fields (was: result: GameOutcome). `winner` is
   // only meaningful when `hasWinner` is true — same contract as GameResult.

@@ -130,7 +130,7 @@ export class GameService implements GameFacade {
     game.notify(color, Notifications.roomJoined(game.id, color, state));
 
     if (game.isActive) {
-      game.broadcast(Notifications.gameStarted(game.id, state.fen));
+      game.broadcast(Notifications.gameStarted(game.id, state.fen, state.turn));
     }
   }
 
