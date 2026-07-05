@@ -24,6 +24,7 @@ import { Reply } from "../protocol/replies";
 import type { SessionStore } from "../session/session-store";
 import { logger as rootLogger } from "../../logging/logger";
 import type { GameFacade } from "./game-facade";
+import type { Session } from "../session/session";
 
 const log = rootLogger.child({ module: "GameService" });
 
@@ -135,9 +136,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async move(ws: WebSocket, input: MoveInput): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     const result = await game.move(color, input);
 
@@ -163,9 +168,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async requestUndo(ws: WebSocket): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     if (!game.isActive) {
       Reply.send(
@@ -194,9 +203,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async acceptUndo(ws: WebSocket): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     const requestedBy = this.pendingUndos.get(game.id);
 
@@ -214,9 +227,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async declineUndo(ws: WebSocket): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     const requestedBy = this.pendingUndos.get(game.id);
     if (requestedBy === undefined || requestedBy === color) return;
@@ -228,9 +245,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async resign(ws: WebSocket): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     const result = await game.resign(color);
     if (!result.ok) {
@@ -250,9 +271,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async leave(ws: WebSocket): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     game.leave(color);
     this.pendingUndos.delete(game.id);
@@ -262,9 +287,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async sync(ws: WebSocket): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     game.notify(
       color,
@@ -274,9 +303,13 @@ export class GameService implements GameFacade {
 
   /** @inheritdoc */
   async selectPosition(ws: WebSocket, position: Position): Promise<void> {
-    const seated = this.seated(ws);
-    if (!seated) return;
-    const { game, color } = seated;
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
 
     const result = game.selectPosition(color, position);
 
@@ -294,14 +327,17 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** Resolves the caller's session + game, replying with an error and returning null if either is missing. */
-  private seated(ws: WebSocket): { game: Game; color: PieceColor } | null {
+  private getSession(ws: WebSocket): Session | null {
     const session = this.sessions.bySocket(ws);
     if (!session) {
       log.warn("action from unauthenticated socket");
       Reply.send(ws, Reply.error(NOT_AUTHENTICATED, "Session not found."));
       return null;
     }
+    return session;
+  }
+
+  private getGame(ws: WebSocket, session: Session): Game | null {
     if (!session.roomId || session.color === null) {
       log.warn("action from socket not in a game", {
         playerId: session.playerId,
@@ -320,6 +356,6 @@ export class GameService implements GameFacade {
       return null;
     }
 
-    return { game, color: session.color };
+    return game;
   }
 }
