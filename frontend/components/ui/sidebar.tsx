@@ -205,7 +205,7 @@ function Sidebar({
             render={
               <Button
                 variant="ghost"
-                className="absolute inset-e-4 top-3.25 bg-secondary"
+                className="absolute inset-e-4 top-3.25 z-10 bg-secondary"
                 size="icon-sm"
               />
             }

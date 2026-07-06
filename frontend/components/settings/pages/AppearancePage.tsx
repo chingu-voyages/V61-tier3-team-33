@@ -78,7 +78,7 @@ export function AppearancePage() {
             Select your preferred board and piece colors.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {CHESS_THEMES.map((chessTheme) => (
             <button
               key={chessTheme.id}
