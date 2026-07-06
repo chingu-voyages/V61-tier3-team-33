@@ -2,7 +2,7 @@ import { Inter, Outfit } from "next/font/google"
 
 import "./globals.css"
 import { cn } from "@/lib/utils"
-import { AppProvider } from "@/context/AppProvider"
+import { AppProvider } from "@/context/app/AppProvider"
 
 const outfitHeading = Outfit({ subsets: ["latin"], variable: "--font-heading" })
 

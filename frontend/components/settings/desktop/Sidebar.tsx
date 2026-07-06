@@ -2,7 +2,7 @@
 
 import { IconSearch } from "@tabler/icons-react"
 import {
-  Sidebar,
+  Sidebar as UiSidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
@@ -13,13 +13,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { settingsSections } from "@/components/settings/settings-sections"
-import { useSettingsContext } from "@/components/settings/settings-context"
+import { useSettingsContext } from "@/context/settings/settings-context"
 
-export function SettingsSidebar() {
+export function Sidebar() {
   const { state, goToSection } = useSettingsContext()
 
   return (
-    <Sidebar collapsible="none" className="h-auto w-56 shrink-0 border-e">
+    <UiSidebar collapsible="none" className="h-auto w-56 shrink-0 border-e">
       <div className="relative mx-3 mt-4 mb-2">
         <IconSearch className="absolute inset-s-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <SidebarInput placeholder="Search..." className="ps-8" />
@@ -44,6 +44,6 @@ export function SettingsSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar>
+    </UiSidebar>
   )
 }

@@ -4,7 +4,7 @@ import { AppHeader } from "@/components/main/AppHeader"
 import { AppSidebar } from "@/components/main/AppSidebar"
 import { Board } from "@/components/board/Board"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { useGame } from "@/context/game-context"
+import { useGame } from "@/context/game/game-context"
 
 export default function Page() {
   const { state } = useGame()

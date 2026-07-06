@@ -1,6 +1,11 @@
 import type { ComponentType } from "react"
 
-import { IconPalette, IconShield, IconSettings, IconUser } from "@tabler/icons-react"
+import {
+  IconPalette,
+  IconShield,
+  IconSettings,
+  IconUser,
+} from "@tabler/icons-react"
 
 import { AccountPage } from "@/components/settings/pages/AccountPage"
 import { AppearancePage } from "@/components/settings/pages/AppearancePage"
@@ -15,7 +20,12 @@ export interface SettingsSection {
 }
 
 export const settingsSections: SettingsSection[] = [
-  { id: "profile", label: "Profile", icon: IconUser, component: ProfilePage },
+  {
+    id: "profile",
+    label: "Profile",
+    icon: IconUser,
+    component: ProfilePage,
+  },
   {
     id: "appearance",
     label: "Appearance",
@@ -28,7 +38,12 @@ export const settingsSections: SettingsSection[] = [
     icon: IconSettings,
     component: GameplayPage,
   },
-  { id: "account", label: "Account", icon: IconShield, component: AccountPage },
+  {
+    id: "account",
+    label: "Account",
+    icon: IconShield,
+    component: AccountPage,
+  },
 ]
 
 export function getSection(id: string) {

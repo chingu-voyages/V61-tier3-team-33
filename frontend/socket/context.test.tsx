@@ -16,6 +16,7 @@ describe("useSocketContext", () => {
       reconnect: () => {},
       onMessage: () => () => {},
       onAnyMessage: () => () => {},
+      onAnySend: () => () => {},
     }
     const { result } = renderHook(() => useSocketContext(), {
       wrapper: ({ children }) => (
