@@ -1,6 +1,6 @@
 "use client"
 
-import { ThemeProvider } from "@/context/theme/theme-provider"
+import { ThemeProvider } from "@/context/theme/ThemeProvider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SocketProvider } from "@/socket/provider"
 import { GameProvider } from "@/context/game/GameProvider"
