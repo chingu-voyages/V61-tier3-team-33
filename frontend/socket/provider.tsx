@@ -43,6 +43,7 @@ export function SocketProvider({
       reconnect: client?.reconnect ?? noop,
       onMessage: client?.onMessage ?? onMessageNoop,
       onAnyMessage: client?.onAnyMessage ?? cbNoop,
+      onAnySend: client?.onAnySend ?? cbNoop,
     }),
     [status, client]
   )

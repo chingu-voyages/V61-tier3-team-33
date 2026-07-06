@@ -35,6 +35,9 @@ export default class SocketClient {
   // Notified on every inbound message, regardless of type — for debug tooling.
   private observers: Set<MessageListener> = new Set()
 
+  // Notified on every outbound send — for debug tooling.
+  private outObservers: Set<MessageListener> = new Set()
+
   // Constructor for creating sockets — real WebSocket, or a fake for tests.
   private readonly SocketCtor: typeof WebSocket
 
@@ -82,9 +85,15 @@ export default class SocketClient {
     return () => this.observers.delete(handler)
   }
 
+  onAnySend = (handler: MessageListener): Unsubscribe => {
+    this.outObservers.add(handler)
+    return () => this.outObservers.delete(handler)
+  }
+
   send = (command: object): void => {
     if (!this.socket || this.socket.readyState !== this.SocketCtor.OPEN) return
     this.socket.send(JSON.stringify(command))
+    for (const observer of this.outObservers) observer(command)
   }
 
   reconnect = (): void => {
@@ -98,6 +107,7 @@ export default class SocketClient {
     this.statusListener.clear()
     this.messageListeners.clear()
     this.observers.clear()
+    this.outObservers.clear()
     this.teardownSocket()
   }
 
