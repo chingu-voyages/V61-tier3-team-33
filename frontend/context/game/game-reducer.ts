@@ -1,14 +1,15 @@
 import type { Board } from "@/core/board"
 import type { PieceColor } from "@/core/piece"
 import type { Position } from "@/core/position"
-import type { ClockState, GameOutcome } from "@/socket/types"
+import type { ClockState, GameOutcome, Lifecycle } from "@/socket/types"
+import { ACTIVE, FINISHED } from "@/socket/types"
 import type { MoveError } from "@/socket/errors"
 
 export interface GameState {
   board: Board
   roomId: string | null
   color: PieceColor | null
-  started: boolean
+  status: Lifecycle | null
   isCheck: boolean
   result: GameOutcome | null
   clock: ClockState | null
@@ -23,8 +24,8 @@ export type GameAction =
       roomId: string
       color: PieceColor
       board: Board
+      status: Lifecycle
       isCheck: boolean
-      result: GameOutcome
       turn: PieceColor | null
     }
   | {
@@ -43,8 +44,8 @@ export type GameAction =
   | {
       type: "UNDO_APPLIED"
       board: Board
+      status: Lifecycle
       isCheck: boolean
-      result: GameOutcome
       turn: PieceColor | null
     }
   | {
@@ -73,8 +74,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         roomId: action.roomId,
         color: action.color,
         board: action.board,
+        status: action.status,
         isCheck: action.isCheck,
-        result: action.result,
         turn: action.turn,
         lastMoveRejection: null,
       }
@@ -84,7 +85,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         board: action.board,
         clock: action.clock,
         turn: action.turn,
-        started: true,
+        status: ACTIVE,
       }
     case "MOVE_RESULT":
       return {
@@ -99,13 +100,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         board: action.board,
+        status: action.status,
         isCheck: action.isCheck,
-        result: action.result,
         turn: action.turn,
         pendingUndo: null,
       }
     case "GAME_ENDED":
-      return { ...state, result: action.result, pendingUndo: null }
+      return {
+        ...state,
+        result: action.result,
+        status: FINISHED,
+        pendingUndo: null,
+      }
     case "UNDO_REQUESTED":
       return {
         ...state,
@@ -127,7 +133,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         roomId: null,
         color: null,
-        started: false,
+        status: null,
         pendingUndo: null,
       }
   }

@@ -26,7 +26,7 @@ const initialState: GameState = {
   board: FEN.boardFromFEN(STARTING_FEN) ?? Board.create(),
   roomId: null,
   color: null,
-  started: false,
+  status: null,
   isCheck: false,
   result: null,
   clock: null,
@@ -47,8 +47,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       roomId: msg.roomId,
       color: msg.color,
       board,
+      status: msg.state.status,
       isCheck: msg.state.isCheck,
-      result: msg.state.result,
       turn: msg.state.turn,
     })
   })
@@ -81,8 +81,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     dispatch({
       type: "UNDO_APPLIED",
       board,
+      status: msg.state.status,
       isCheck: msg.state.isCheck,
-      result: msg.state.result,
       turn: msg.state.turn,
     })
   })

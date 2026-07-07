@@ -4,6 +4,14 @@ import { GameStatus, DrawReason } from "@/core/game"
 import { MoveType } from "@/core/move"
 import { SESSION_HANDSHAKE } from "./commands"
 
+// Room lifecycle — WAITING (needs an opponent) / ACTIVE (in play) /
+// FINISHED (game over). Distinct from GameStatus, which describes the
+// chess position, not the room.
+export type Lifecycle = 0 | 1 | 2
+export const WAITING: Lifecycle = 0
+export const ACTIVE: Lifecycle = 1
+export const FINISHED: Lifecycle = 2
+
 export type Mode = 0 | 1 | 2
 export const HUMAN_VS_HUMAN: Mode = 0
 export const HUMAN_VS_AI: Mode = 1
@@ -47,6 +55,8 @@ export interface Move {
   san?: string
 }
 
+// Nested outcome shape used by move:made / game:ended (not by
+// GameSnapshot, which flattens these fields instead).
 export interface GameOutcome {
   status: GameStatus
   winner: PieceColor
@@ -61,11 +71,18 @@ export interface ClockState {
   active: PieceColor | null
 }
 
+// Full serializable game state — sent on room:joined, undo:applied, and
+// state:sync. Flat by design, matching the backend's wire shape exactly.
 export interface GameSnapshot {
+  status: Lifecycle
   fen: string
   turn: PieceColor
   isCheck: boolean
-  result: GameOutcome
+  resultStatus: GameStatus
+  winner: PieceColor
+  hasWinner: boolean
+  drawReason: DrawReason
+  endReason: EndReason
   history: string[]
   capturedByWhite: PieceType[]
   capturedByBlack: PieceType[]
