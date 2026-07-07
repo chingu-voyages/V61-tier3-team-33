@@ -10,6 +10,7 @@ import {
 } from "../domain/types";
 import type { Game } from "../game/game";
 import type { GameStore } from "../game/game-store";
+import { createClock } from "../clock/factory";
 import { Human } from "../occupant/human";
 import {
   GAME_FINISHED,
@@ -45,7 +46,7 @@ export class GameService implements GameFacade {
     private protocol: Protocol,
   ) {}
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async join(ws: WebSocket, input: JoinInput): Promise<void> {
     const session = this.sessions.bySocket(ws);
     if (!session) {
@@ -99,7 +100,7 @@ export class GameService implements GameFacade {
     } else {
       game =
         this.games.findWaiting(input.mode) ??
-        this.games.create(undefined, input.mode);
+        this.games.create(undefined, input.mode, createClock(input.clock));
     }
 
     const color = input.color ?? game.nextColor();
@@ -130,11 +131,11 @@ export class GameService implements GameFacade {
     game.notify(color, Notifications.roomJoined(game.id, color, state));
 
     if (game.isActive) {
-      game.broadcast(Notifications.gameStarted(game.id, state.fen, state.turn));
+      game.broadcast(Notifications.gameStarted(game.id, state.fen, state.turn, game.timer.state));
     }
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async move(ws: WebSocket, input: MoveInput): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;
@@ -166,7 +167,7 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async requestUndo(ws: WebSocket): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;
@@ -201,7 +202,7 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async acceptUndo(ws: WebSocket): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;
@@ -225,7 +226,7 @@ export class GameService implements GameFacade {
     game.broadcast(Notifications.undoApplied(game.id, game.snapshot()));
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async declineUndo(ws: WebSocket): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;
@@ -243,7 +244,7 @@ export class GameService implements GameFacade {
     game.broadcast(Notifications.undoDeclined(game.id, color));
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async resign(ws: WebSocket): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;
@@ -269,7 +270,7 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async leave(ws: WebSocket): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;
@@ -285,7 +286,7 @@ export class GameService implements GameFacade {
     this.sessions.bind(ws, { roomId: null, color: null, mode: null });
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async sync(ws: WebSocket): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;
@@ -301,7 +302,7 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   async selectPosition(ws: WebSocket, position: Position): Promise<void> {
     const session = this.getSession(ws);
     if (!session) return;

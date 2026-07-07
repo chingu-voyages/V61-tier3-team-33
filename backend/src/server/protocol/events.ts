@@ -234,8 +234,8 @@ export const Notifications = {
   },
 
   /** Broadcast once, the moment a room's second seat fills. */
-  gameStarted(roomId: string, fen: string, turn: PieceColor): Notification {
-    return { type: GAME_STARTED, roomId, fen, turn, clock: null };
+  gameStarted(roomId: string, fen: string, turn: PieceColor, clock: ClockState | null): Notification {
+    return { type: GAME_STARTED, roomId, fen, turn, clock };
   },
 
   roomLeft(roomId: string, color: PieceColor): Notification {
@@ -271,7 +271,7 @@ export const Notifications = {
       isGameOver,
       turn: snapshot.turn,
       result: isGameOver ? GameOutcome.fromSnapshot(snapshot) : null,
-      clock: null,
+      clock: snapshot.clock ?? null,
     };
   },
 
@@ -294,7 +294,7 @@ export const Notifications = {
   },
 
   undoApplied(roomId: string, state: GameSnapshot): Notification {
-    return { type: UNDO_APPLIED, roomId, state, clock: null };
+    return { type: UNDO_APPLIED, roomId, state, clock: state.clock ?? null };
   },
 
   undoDeclined(roomId: string, by: PieceColor): Notification {
@@ -315,5 +315,25 @@ export const Notifications = {
     reason: SelectError,
   ): Notification {
     return { type: POSITION_REJECTED, roomId, position, reason };
+  },
+
+  clockStarted(
+    roomId: string,
+    color: PieceColor,
+    remainingMs: number,
+  ): Notification {
+    return { type: CLOCK_STARTED, roomId, color, remainingMs };
+  },
+
+  clockPaused(
+    roomId: string,
+    color: PieceColor,
+    remainingMs: number,
+  ): Notification {
+    return { type: CLOCK_PAUSED, roomId, color, remainingMs };
+  },
+
+  clockExpired(roomId: string, color: PieceColor): Notification {
+    return { type: CLOCK_EXPIRED, roomId, color };
   },
 };

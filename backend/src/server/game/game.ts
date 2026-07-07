@@ -10,6 +10,7 @@ import {
   FINISHED,
   RULES,
   RESIGNATION,
+  TIMEOUT,
   IN_PROGRESS,
   NO_DRAW_REASON,
   type EndReason,
@@ -45,10 +46,17 @@ import {
 } from "../domain/result";
 
 import type { Occupant } from "../occupant/occupant";
-import type { Publisher } from "../bus/bus";
+import type { Publisher, Subscriber } from "../bus/bus";
+import { FAST } from "../bus/bus";
 import { Mutex } from "../util/mutex";
+import type { Clock } from "../clock/clock";
+import type { Timer } from "../clock/timer";
 
-import { Notifications, type Notification } from "../protocol/events";
+import {
+  Notifications,
+  CLOCK_EXPIRED,
+  type Notification,
+} from "../protocol/events";
 
 /** A single chess match: two color slots, one engine, one lifecycle. */
 export class Game {
@@ -64,9 +72,25 @@ export class Game {
   constructor(
     readonly id: string,
     readonly mode: Mode,
-    private publisher: Publisher,
+    readonly clock: Clock,
+    private publisher: Publisher & Subscriber,
+    readonly timer: Timer,
     private onActivated?: () => void,
-  ) {}
+  ) {
+    this.setup();
+  }
+
+  private setup(): void {
+    this.publisher.on(
+      CLOCK_EXPIRED,
+      (_roomId, event) => {
+        if (event.type === CLOCK_EXPIRED) {
+          this.expire();
+        }
+      },
+      FAST,
+    );
+  }
 
   get isEmpty(): boolean {
     return this.slots.size === 0;
@@ -150,6 +174,7 @@ export class Game {
     this.slots.set(color, occupant);
     if (this.isFull) {
       this.status = ACTIVE;
+      this.timer.start(this.clock.initialMs, this.clock.initialMs, WHITE);
       this.onActivated?.();
     }
 
@@ -196,8 +221,14 @@ export class Game {
       if (this.chess.pieceAt(input.from) === null) return err(SQUARE_EMPTY);
 
       try {
+        this.timer.stop(color);
         const applied = this.chess.move(input.from, input.to, input.promoteTo);
         this.settleIfOver();
+
+        if (this.status === ACTIVE) {
+          const opponent = color === WHITE ? BLACK : WHITE;
+          this.timer.startNext(opponent);
+        }
 
         return ok(applied);
       } catch (e) {
@@ -215,6 +246,7 @@ export class Game {
     return this.lock.run(async () => {
       if (this.status !== ACTIVE) return err(GAME_OVER);
 
+      this.timer.dispose();
       const winner = by === WHITE ? BLACK : WHITE;
       this.status = FINISHED;
       this.endReason = RESIGNATION;
@@ -230,6 +262,15 @@ export class Game {
 
       return ok(outcome);
     });
+  }
+
+  /** Called internally when the timer emits CLOCK_EXPIRED. Safe to call multiple times. */
+  expire(): void {
+    if (this.status !== ACTIVE) return;
+    this.timer.dispose();
+    this.status = FINISHED;
+    this.endReason = TIMEOUT;
+    this.finishedAt = Date.now();
   }
 
   /** Undoes the last move, reopening the game if it had just finished. */
@@ -271,6 +312,7 @@ export class Game {
       history: history.map((m) => m.san ?? ""),
       capturedByWhite,
       capturedByBlack,
+      clock: this.timer.state,
     };
   }
 
@@ -291,6 +333,18 @@ export class Game {
 
   /** The current outcome, built from a given (or freshly-fetched) engine result. */
   private outcome(engineResult = this.chess.gameResult()): GameOutcome {
+    if (this.endReason === TIMEOUT) {
+      const expiredSide = this.chess.sideToMove();
+      const winner = expiredSide === WHITE ? BLACK : WHITE;
+      return {
+        status: IN_PROGRESS,
+        winner,
+        hasWinner: true,
+        drawReason: NO_DRAW_REASON,
+        reason: TIMEOUT,
+      };
+    }
+
     return {
       status: engineResult.status,
       winner: engineResult.winner,

@@ -9,7 +9,7 @@ import {
 } from "bun:test";
 import { Games } from "./games";
 import type { Occupant } from "../occupant/occupant";
-import type { Publisher } from "../bus/bus";
+import type { Publisher, Subscriber } from "../bus/bus";
 import {
   WHITE,
   BLACK,
@@ -24,7 +24,7 @@ describe("Games", () => {
   }
 
   function makePublisher() {
-    return { emit: mock(() => {}) } satisfies Publisher;
+    return { emit: mock(() => {}), on: mock(() => () => {}), onAny: mock(() => () => {}) } satisfies Publisher & Subscriber;
   }
 
   /** Fresh store with short TTLs, so expiry tests don't need huge fake-time jumps. */

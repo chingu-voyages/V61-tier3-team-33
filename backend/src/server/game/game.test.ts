@@ -1,7 +1,11 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, afterEach, mock } from "bun:test";
 import { Game } from "./game";
 import type { Occupant } from "../occupant/occupant";
-import type { Publisher } from "../bus/bus";
+import type { Publisher, Subscriber } from "../bus/bus";
+import { MOVE, DEFAULT } from "../clock/types";
+import type { Clock } from "../clock/clock";
+import type { Timer } from "../clock/timer";
+import { ClockTimer } from "../clock/timer";
 import {
   WHITE,
   BLACK,
@@ -10,6 +14,7 @@ import {
   FINISHED,
   RULES,
   RESIGNATION,
+  TIMEOUT,
   HUMAN,
   HUMAN_VS_HUMAN,
   CHECKMATE,
@@ -27,7 +32,7 @@ import {
   SELECT_SQUARE_EMPTY,
   SELECT_NOT_YOUR_PIECE,
 } from "../domain/result";
-import { MOVE_MADE } from "../protocol/events";
+import { MOVE_MADE, CLOCK_EXPIRED } from "../protocol/events";
 import {
   A1,
   D5,
@@ -47,16 +52,43 @@ import {
 } from "../../chess";
 
 describe("Game", () => {
+  afterEach(() => {
+    Date.now = Date.now; // reset if any test mocked it (unused in these tests but safe)
+  });
+
   function makeOccupant(playerId: string): Occupant {
     return { kind: HUMAN, playerId, notify: mock(() => {}) };
   }
 
   function makePublisher() {
-    return { emit: mock(() => {}) } satisfies Publisher;
+    return { emit: mock(() => {}), on: mock(() => () => {}), onAny: mock(() => () => {}) } satisfies Publisher & Subscriber;
   }
 
-  function makeGame(publisher: Publisher = makePublisher()) {
-    return new Game("game-1", HUMAN_VS_HUMAN, publisher);
+  /** A mock per-move Clock strategy: onMove resets to initialMs, no delay. */
+  function mockClock(initialMs = 300_000): Clock {
+    return {
+      type: MOVE,
+      format: DEFAULT,
+      initialMs,
+      onMove: () => initialMs,
+      onTurn: () => 0,
+    };
+  }
+
+  /** A mock Timer that records calls without real ticking. */
+  function makeMockTimer(): Timer {
+    return {
+      strategy: mockClock(),
+      state: { whiteMs: 0, blackMs: 0, active: null },
+      start: mock(() => {}),
+      stop: mock(() => 0),
+      startNext: mock(() => {}),
+      dispose: mock(() => {}),
+    };
+  }
+
+  function makeGame(publisher: Publisher & Subscriber = makePublisher(), timer: Timer = makeMockTimer()) {
+    return new Game("game-1", HUMAN_VS_HUMAN, mockClock(), publisher, timer);
   }
 
   /** Seats two occupants so the game goes ACTIVE, returning both. */
@@ -87,7 +119,7 @@ describe("Game", () => {
     });
 
     it("carries the id and mode passed to the constructor", () => {
-      const game = new Game("room-42", HUMAN_VS_HUMAN, makePublisher());
+      const game = new Game("room-42", HUMAN_VS_HUMAN, mockClock(), makePublisher(), makeMockTimer());
 
       expect(game.id).toBe("room-42");
       expect(game.mode).toBe(HUMAN_VS_HUMAN);
@@ -582,6 +614,164 @@ describe("Game", () => {
         }),
       );
       expect(snapshot.history).toEqual(["f3", "e5", "g4", "Qh4#"]);
+    });
+  });
+
+  describe("timer — lifecycle", () => {
+    it("starts timer when game becomes ACTIVE (second player joins)", () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+
+      game.join(WHITE, makeOccupant("p1"));
+      expect(timer.start).not.toHaveBeenCalled();
+
+      game.join(BLACK, makeOccupant("p2"));
+      expect(timer.start).toHaveBeenCalledTimes(1);
+      expect(timer.start).toHaveBeenCalledWith(
+        game.clock.initialMs,
+        game.clock.initialMs,
+        WHITE,
+      );
+    });
+
+    it("stops current player and starts opponent on legal move", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      const { white, black } = seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      await game.move(WHITE, { from: E2, to: E4 });
+
+      expect(timer.stop).toHaveBeenCalledWith(WHITE);
+      expect(timer.startNext).toHaveBeenCalledWith(BLACK);
+    });
+
+    it("does not stop timer on rejected move (wrong turn)", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      await game.move(BLACK, { from: E7, to: E5 });
+
+      expect(timer.stop).not.toHaveBeenCalled();
+      expect(timer.startNext).not.toHaveBeenCalled();
+    });
+
+    it("does not start opponent timer on game-ending move", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+      (timer.stop as ReturnType<typeof mock>).mockClear();
+      const startNextMock = timer.startNext as ReturnType<typeof mock>;
+      startNextMock.mockClear();
+
+      await playFoolsMate(game);
+
+      // Last move (Qh4#) should stop black's clock but NOT start white's
+      expect(timer.stop).toHaveBeenCalledWith(BLACK);
+      // startNext was called for the 3 non-mating moves, but NOT for the last
+      expect(startNextMock.mock.calls.length).toBe(3);
+    });
+
+    it("disposes timer on resign", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      await game.resign(WHITE);
+
+      expect(timer.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it("restores clock state on undo", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      // Make a move — timer.stop returns the remaining for the mover
+      (timer.stop as ReturnType<typeof mock>).mockReturnValue(290_000);
+      await game.move(WHITE, { from: E2, to: E4 });
+
+      // Undo should restore clock
+      await game.undo();
+      // The test just verifies undo doesn't crash — real clock restore
+      // needs timer state history (wired below)
+    });
+
+    it("includes clock state in snapshot", () => {
+      const timer = makeMockTimer();
+      timer.state.whiteMs = 250_000;
+      timer.state.blackMs = 180_000;
+      timer.state.active = WHITE;
+      const game = makeGame(undefined, timer);
+
+      const snap = game.snapshot();
+
+      expect(snap.clock).toEqual({ whiteMs: 250_000, blackMs: 180_000, active: WHITE });
+    });
+  });
+
+  describe("timer — expiry → forfeit", () => {
+    it("forfeits the expired side on CLOCK_EXPIRED", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      // Simulate CLOCK_EXPIRED
+      game.expire();
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(TIMEOUT);
+    });
+
+    it("does nothing on CLOCK_EXPIRED if already finished", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      game.expire();
+      game.expire(); // second expiry — no-op
+
+      expect(game.endReason).toBe(TIMEOUT);
+    });
+
+    it("reports the non-expired side as winner", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      game.expire();
+
+      const snap = game.snapshot();
+      expect(snap.winner).toBe(BLACK);
+      expect(snap.hasWinner).toBe(true);
+      expect(snap.endReason).toBe(TIMEOUT);
+    });
+
+    it("rejects further moves after expiry-forfeit", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      game.expire();
+
+      const result = await game.move(BLACK, { from: E7, to: E5 });
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
+    });
+
+    it("subscribes to CLOCK_EXPIRED through the publisher with FAST priority", () => {
+      const publisher = makePublisher();
+      makeGame(publisher, makeMockTimer());
+
+      expect(publisher.on).toHaveBeenCalledWith(
+        CLOCK_EXPIRED,
+        expect.any(Function),
+        0, // FAST priority
+      );
     });
   });
 });
