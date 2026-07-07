@@ -26,17 +26,17 @@ export class Sessions implements SessionStore {
 
   constructor(private disconnectedTtlMs = DISCONNECTED_TTL_MS) {}
 
-  /** Looks up the session currently bound to this socket. */
+  /** {@inheritDoc} */
   bySocket(ws: WebSocket): Session | null {
     return this.bySocketMap.get(ws.id) ?? null;
   }
 
-  /** Looks up a session by its resume token, regardless of connection state. */
+  /** {@inheritDoc} */
   byToken(token: string): Session | null {
     return this.byTokenMap.get(token) ?? null;
   }
 
-  /** Creates and stores a new session for a freshly connected socket. */
+  /** {@inheritDoc} */
   open(ws: WebSocket, playerId: string): Session {
     const session: Session = {
       token: crypto.randomUUID(),
@@ -55,12 +55,7 @@ export class Sessions implements SessionStore {
     return session;
   }
 
-  /**
-   * Reattaches a prior session to a new socket, or null if the token is
-   * invalid/expired. Rekeys `bySocketMap`: the old socket's entry is
-   * removed and a new one is added under the new socket, since a Map keyed
-   * by object identity has no way to "rename" a key in place.
-   */
+  /** {@inheritDoc} */
   resume(token: string, ws: WebSocket): Session | null {
     const session = this.byTokenMap.get(token);
     if (!session) return null;
@@ -73,25 +68,13 @@ export class Sessions implements SessionStore {
     return session;
   }
 
-  /**
-   * Resumes the session for `token` if it's valid, reattaching it to `ws`;
-   * otherwise opens a brand new session for `ws` with a freshly generated
-   * playerId.
-   */
+  /** {@inheritDoc} */
   resumeOrOpen(ws: WebSocket, token?: string): Session {
     const resumed = token ? this.resume(token, ws) : undefined;
     return resumed ?? this.open(ws, generatePlayerId());
   }
 
-  /**
-   * Marks the session bound to this socket as disconnected, e.g. on
-   * disconnect. Unlike `Games.drop`, this does NOT immediately erase the
-   * session — it's removed from `bySocketMap` (the socket is dead, so
-   * there's nothing left to look it up by) but stays in `byTokenMap`,
-   * stamped with `disconnectedAt`, so `resume()` can still reattach it
-   * within `disconnectedTtlMs`. `prune()` is what actually deletes it once
-   * that window passes without a reconnect.
-   */
+  /** {@inheritDoc} */
   drop(ws: WebSocket): void {
     const session = this.bySocketMap.get(ws.id);
     if (!session) return;
@@ -100,11 +83,7 @@ export class Sessions implements SessionStore {
     session.disconnectedAt = Date.now();
   }
 
-  /**
-   * Merges the given fields into the session bound to this socket. Since
-   * `bySocketMap` and `byTokenMap` hold the same Session object, mutating
-   * it here is visible through both indexes with no re-sync needed.
-   */
+  /** {@inheritDoc} */
   bind(ws: WebSocket, patch: Partial<Session>): void {
     const session = this.bySocketMap.get(ws.id);
     if (!session) return;
@@ -112,7 +91,7 @@ export class Sessions implements SessionStore {
     Object.assign(session, patch);
   }
 
-  /** Removes all sessions that have been disconnected past `disconnectedTtlMs`. */
+  /** {@inheritDoc} */
   prune(): void {
     for (const session of this.byTokenMap.values()) {
       if (this.isExpired(session)) {
@@ -121,9 +100,7 @@ export class Sessions implements SessionStore {
     }
   }
 
-  /**
-   * Begins periodic pruning every `intervalMs`. Restarts cleanly if already running.
-   */
+  /** {@inheritDoc} */
   startPruning(intervalMs: number = DEFAULT_PRUNE_INTERVAL_MS): void {
     if (this.pruner) {
       this.stopPruning();
@@ -137,7 +114,7 @@ export class Sessions implements SessionStore {
     this.pruner = setTimeout(tick, intervalMs);
   }
 
-  /** Stops periodic pruning started by `startPruning`. Safe to call if not running. */
+  /** {@inheritDoc} */
   stopPruning(): void {
     if (!this.pruner) return;
 

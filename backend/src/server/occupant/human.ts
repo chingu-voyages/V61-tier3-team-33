@@ -17,7 +17,7 @@ export class Human implements Occupant {
     private protocol: Protocol,
   ) {}
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   notify(event: Notification): void {
     this.ws.send(this.protocol.encode(event));
   }

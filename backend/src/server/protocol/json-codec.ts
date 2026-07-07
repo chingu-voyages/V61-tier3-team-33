@@ -94,7 +94,7 @@ const decoders: Record<Command["type"], Decoder> = {
 
 /** JSON wire format. */
 export class JsonCodec implements Protocol {
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   decode(raw: unknown): Command | null {
     if (!isPlainObject(raw)) return null;
     if (typeof raw.type !== "string") return null;
@@ -105,7 +105,7 @@ export class JsonCodec implements Protocol {
     return decode(raw);
   }
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   encode(event: Notification): string {
     return JSON.stringify(event);
   }

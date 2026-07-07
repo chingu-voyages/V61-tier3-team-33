@@ -43,23 +43,36 @@ type HandlerRegistry = Map<string, HandlerBucket>;
 
 const newBucket = (): HandlerBucket => [new Set(), new Set()];
 
-// Anything that can broadcast events. `roomId` is read straight off the
-// event (every Event variant carries one, `null` when it isn't scoped to
-// a room), so callers never pass it separately.
+/** Anything that can broadcast events. */
 export interface Publisher {
+  /**
+   * Publishes an event to all subscribers.
+   * @param event — the event to broadcast; `roomId` is read straight off the event itself
+   */
   emit(event: Event): void;
 }
 
-// Anything that can be subscribed to. Priority is optional here for the
-// same reason it's optional on Hub itself: most subscribers don't care
-// and should get DEFERRED for free. Only pass FAST when a handler's
-// latency genuinely matters (see Priority docs above).
+/** Anything that can be subscribed to. Priority defaults to DEFERRED. */
 export interface Subscriber {
+  /**
+   * Subscribes to a specific event type.
+   * @param type — event type string to match
+   * @param handler — called with `(roomId, event)` when an event of this type fires
+   * @param priority — delivery lane; `FAST` runs synchronously, `DEFERRED` runs on a macrotask
+   * @returns a function that unsubscribes the handler
+   */
   on<T extends string>(
     type: T,
     handler: Handler<T>,
     priority?: Priority,
   ): Unsubscribe;
+
+  /**
+   * Subscribes to every event type.
+   * @param handler — called with `(roomId, event)` on every event
+   * @param priority — delivery lane
+   * @returns a function that unsubscribes the handler
+   */
   onAny(handler: EventHandler, priority?: Priority): Unsubscribe;
 }
 
@@ -74,10 +87,7 @@ export class Hub implements Publisher, Subscriber {
     private onError: ErrorHandler = (e) => console.error("[Hub]", e),
   ) {}
 
-  // Dispatch an event: fast-lane handlers run immediately (same tick, in
-  // order); deferred-lane handlers are each scheduled on their own macrotask
-  // so a large fan-out can't block the thread or delay fast-lane delivery.
-  // roomId comes from the event's own `roomId` field.
+  /** {@inheritDoc} */
   emit(event: Event): void {
     const roomId = event.roomId;
     const [fastWild, deferredWild] = this.wild;
@@ -99,9 +109,7 @@ export class Hub implements Publisher, Subscriber {
     }
   }
 
-  // Subscribe to one event type; handler gets that event pre-narrowed.
-  // Defaults to DEFERRED so a handler only ever blocks the hot path if it
-  // explicitly opts into FAST.
+  /** {@inheritDoc} */
   on<T extends string>(
     type: T,
     handler: Handler<T>,
@@ -118,7 +126,7 @@ export class Hub implements Publisher, Subscriber {
     return () => set?.delete(broad);
   }
 
-  // Subscribe to every event, regardless of type.
+  /** {@inheritDoc} */
   onAny(handler: EventHandler, priority: Priority = DEFERRED): Unsubscribe {
     const set = this.wild[priority];
     set?.add(handler);
