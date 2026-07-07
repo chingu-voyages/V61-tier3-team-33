@@ -156,7 +156,7 @@ function WhiteRook(props: PieceIconProps) {
   )
 }
 
-export function WhiteQueen(props: PieceIconProps) {
+function WhiteQueen(props: PieceIconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" {...props}>
       <path
