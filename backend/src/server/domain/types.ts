@@ -9,6 +9,7 @@ import type {
   Move,
   TurnContext,
 } from "../../chess";
+import type { ClockFormat } from "../clock/types";
 
 // Re-exports from chess submodules (not in barrel)
 export type { Brand } from "../../chess/core/brand";
@@ -158,6 +159,7 @@ export interface GameSnapshot {
   history: string[];
   capturedByWhite: PieceType[];
   capturedByBlack: PieceType[];
+  clock: ClockState | null;
 }
 
 // Client → server move input.
@@ -173,6 +175,14 @@ export interface JoinInput {
   mode: Mode;
   color?: PieceColor;
   difficulty?: Difficulty;
+  clock?: ClockConfig;
+}
+
+export interface ClockConfig {
+  format: ClockFormat;
+  initialMs?: number;
+  incrementMs?: number;
+  delayMs?: number;
 }
 
 // Whether a color slot is filled by a person or a computer opponent.
