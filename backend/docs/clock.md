@@ -13,13 +13,21 @@ Pick a base class depending on how time should behave:
 | `MoveClock` | Time resets to `initialMs` each turn | `onMove` / `onTurn` (optional) |
 | `MatchClock` | Time ticks down across the whole game | `onMove` (required) |
 
-**Per-move example** (time resets each turn):
+**1. Register the format constant in `types.ts`:**
+
+```ts
+// types.ts
+export const BLITZ = ClockFormat("blitz");
+export const FISCHER = ClockFormat("fischer");
+```
+
+**2. Create the strategy class, importing the format from `types.ts`:**
+
+Per-move (time resets each turn):
 
 ```ts
 import { MoveClock } from "./move/move";
-import { ClockFormat } from "./types";
-
-export const BLITZ = ClockFormat("blitz");
+import { BLITZ } from "../types";
 
 export class Blitz extends MoveClock {
   readonly initialMs: number;
@@ -28,13 +36,11 @@ export class Blitz extends MoveClock {
 }
 ```
 
-**Match-length example** (time accumulates across the whole game):
+Match-length (time accumulates across the whole game):
 
 ```ts
 import { MatchClock } from "./match/match";
-import { ClockFormat } from "./types";
-
-export const FISCHER = ClockFormat("fischer");
+import { FISCHER } from "../types";
 
 export class Fischer extends MatchClock {
   readonly initialMs: number;
@@ -53,29 +59,19 @@ export class Fischer extends MatchClock {
 
 If neither base class fits, implement `Clock` directly.
 
-### 2. Register your format constant
-
-Add your `ClockFormat` constant to `types.ts`:
-
-```ts
-// types.ts
-export const BLITZ = ClockFormat("blitz");
-export const FISCHER = ClockFormat("fischer");
-```
-
-### 3. Wire into the factory
+### 2. Wire into the factory
 
 Add a `case` to the switch in `factory.ts` and delete the default stub:
 
 ```ts
 // factory.ts — delete DefaultClock class and defaultClock() function too
-case BLITZ:   return new Blitz(config.initialMs);
-case FISCHER: return new Fischer(config.initialMs, config.incrementMs ?? 0);
+case BLITZ:   return new Blitz();
+case FISCHER: return new Fischer();
 ```
 
 **Don't forget to remove** the `DefaultClock` class, the `defaultClock()` function, and the `// TODO` comments when you wire in your first real strategy.
 
-### 4. Test your strategy
+### 3. Test your strategy
 
 The timer tests in `timer.test.ts` use **mock** strategies — they already cover the timer lifecycle and work with any `Clock` implementation. Add strategy-specific tests in a file next to your class:
 
@@ -94,12 +90,12 @@ describe("Blitz", () => {
 });
 ```
 
-### 5. Use your strategy
+### 4. Use your strategy
 
-Pass it as `ClockConfig` when creating a game:
+Pass the format constant when creating a game:
 
 ```ts
-createGame(format: BLITZ, initialMs: 30_000)
+createGame(BLITZ)
 ```
 
 ---
@@ -129,18 +125,7 @@ Emits `CLOCK_STARTED`, `CLOCK_PAUSED`, `CLOCK_TICK`, `CLOCK_EXPIRED`.
 ### Factory (`factory.ts`)
 
 ```ts
-createClock(config?: ClockConfig): Clock
+createClock(format?: ClockFormat): Clock
 ```
 
-`ClockConfig`:
-
-```ts
-interface ClockConfig {
-  format: ClockFormat;      // your constant from types.ts
-  initialMs?: number;       // per-side starting time
-  incrementMs?: number;     // Fischer-style increment per move
-  delayMs?: number;         // Bronstein-style delay per turn
-}
-```
-
-With no config it returns a default 5‑minute per‑move clock.
+With no format it returns a default 5‑minute per‑move clock.

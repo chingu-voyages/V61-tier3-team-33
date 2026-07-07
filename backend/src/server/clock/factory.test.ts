@@ -9,15 +9,11 @@ describe("createClock", () => {
     expect(c.type).toBe(MOVE);
   });
 
-  it("returns default strategy with custom initialMs", () => {
-    const c = createClock({ format: DEFAULT, initialMs: 60_000 });
-    expect(c.initialMs).toBe(60_000);
-  });
-
-  it("returns a move-type strategy (no carry-over between moves)", () => {
-    const c = createClock({ format: DEFAULT, initialMs: 120_000 });
+  it("returns default strategy when passed DEFAULT format", () => {
+    const c = createClock(DEFAULT);
+    expect(c.initialMs).toBe(300_000);
     expect(c.type).toBe(MOVE);
-    expect(c.onMove(50_000, 10_000)).toBe(120_000);
+    expect(c.onMove(50_000, 10_000)).toBe(300_000);
   });
 
   it("has no turn delay by default", () => {

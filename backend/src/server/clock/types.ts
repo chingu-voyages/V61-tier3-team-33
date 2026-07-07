@@ -11,7 +11,7 @@ export const MOVE = ClockType("move");
 export const MATCH = ClockType("match");
 
 /**
- * Named format identifier passed via `ClockConfig.format` to `createClock`.
+ * Named format identifier passed to `createClock(format)`.
  * Every strategy must define its own format constant here so the factory can dispatch on it.
  */
 export type ClockFormat = Brand<string, "ClockFormat">;

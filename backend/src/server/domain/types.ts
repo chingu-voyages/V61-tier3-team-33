@@ -175,14 +175,7 @@ export interface JoinInput {
   mode: Mode;
   color?: PieceColor;
   difficulty?: Difficulty;
-  clock?: ClockConfig;
-}
-
-export interface ClockConfig {
-  format: ClockFormat;
-  initialMs?: number;
-  incrementMs?: number;
-  delayMs?: number;
+  clock?: ClockFormat;
 }
 
 // Whether a color slot is filled by a person or a computer opponent.
