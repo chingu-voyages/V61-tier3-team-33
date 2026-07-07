@@ -83,7 +83,11 @@ export function BoardSquare({
 
   return (
     <div
-      className={cn(squareVariants({ tone, state }), squareHoverClass(tone))}
+      className={cn(
+        squareVariants({ tone, state }),
+        squareHoverClass(tone),
+        "aspect-square"
+      )}
       onClick={onClick}
     >
       <Activity mode={piece ? "visible" : "hidden"}>

@@ -18,7 +18,7 @@ export function Board({ board }: BoardProps) {
     )
   }
   return (
-    <div className="aspect-square w-full max-w-160">
+    <div className="aspect-square h-full max-h-[80vh] max-w-full min-h-72 min-w-72">
       <div className="grid h-full w-full grid-cols-8 grid-rows-8">
         {squares}
       </div>
