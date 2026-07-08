@@ -1,14 +1,18 @@
-import type { WebSocket } from "../domain/types";
+import type { WebSocket } from "../types";
 import type { Publisher } from "../bus/bus";
-import type { Protocol } from "../protocol/protocol";
+import type { Codec } from "../codec/codec";
 import type { SessionStore } from "../session/session-store";
 import type { Session } from "../session/session";
 import type { Notification } from "../protocol/events";
-import { Signals } from "../protocol/events";
+import { Signals, Notifications } from "../protocol/events";
 import { Reply } from "../protocol/replies";
-import { logger as rootLogger } from "../../logging/logger";
+import { Grace } from "../util/grace";
+import { logger as rootLogger } from "../../logging/log";
 
 const log = rootLogger.child({ module: "Connections" });
+
+/** How long the disconnected player has to reconnect before the game is abandoned. */
+const GRACE_TIMEOUT_MS = 30 * 1000;
 
 /**
  * Owns the connection lifecycle: handshake (resume-or-open a session),
@@ -17,19 +21,28 @@ const log = rootLogger.child({ module: "Connections" });
  * actually touches sessions, the Hub, and the socket.
  */
 export class Connections {
+  private grace = new Grace();
+
   constructor(
     private sessions: SessionStore,
     private publisher: Publisher,
-    private protocol: Protocol,
+    private protocol: Codec,
+    private graceTimeoutMs: number = GRACE_TIMEOUT_MS,
   ) {}
 
   /**
    * Resumes the caller's session if `token` is valid, otherwise opens a
    * new one. Either way, announces the connection on the bus and replies
    * with the session's playerId/token so the client can persist it.
+   * If this is a resume (reconnect), cancels any grace timer for the player.
    */
   identify(ws: WebSocket, token?: string): Session {
     const session = this.sessions.resumeOrOpen(ws, token);
+
+    // Cancel any grace timer if this is a reconnecting player
+    if (token) {
+      this.grace.cancel(session.playerId);
+    }
 
     log.info("connection identified", {
       playerId: session.playerId,
@@ -48,11 +61,30 @@ export class Connections {
     const session = this.sessions.bySocket(ws);
     if (!session) return;
 
+    const capturedPlayerId = session.playerId;
+    const capturedRoomId = session.roomId;
+    const capturedColor = session.color;
+
     this.sessions.drop(ws);
 
-    log.info("connection closed", { playerId: session.playerId });
+    log.info("connection closed", { playerId: capturedPlayerId });
 
-    this.publisher.emit(Signals.connectionClosed(session.playerId, ws));
+    this.publisher.emit(Signals.connectionClosed(capturedPlayerId, ws));
+
+    // Start grace timer if the player was in a room — the Hub will
+    // notify GameService on expiry so it can abandon the game.
+    if (capturedRoomId !== null && capturedColor !== null) {
+      this.grace.start(
+        capturedPlayerId,
+        capturedColor,
+        this.graceTimeoutMs,
+        () => {
+          this.publisher.emit(
+            Notifications.graceExpired(capturedRoomId, capturedColor),
+          );
+        },
+      );
+    }
   }
 
   /** Heartbeat reply — no-op for now. */
