@@ -1,5 +1,6 @@
 import type { Board } from "@/core/board"
 import type { PieceColor } from "@/core/piece"
+import { WHITE } from "@/core/piece"
 import type { Position } from "@/core/position"
 import type { ClockState, GameOutcome, Lifecycle } from "@/socket/types"
 import { ACTIVE, FINISHED } from "@/socket/types"
@@ -13,6 +14,7 @@ export interface GameState {
   isCheck: boolean
   result: GameOutcome | null
   clock: ClockState | null
+  clockReceivedAt: number | null
   pendingUndo: { by: PieceColor; expiresAt: number } | null
   turn: PieceColor | null
   lastMoveRejection: { reason: MoveError; from: Position; to: Position } | null
@@ -27,11 +29,14 @@ export type GameAction =
       status: Lifecycle
       isCheck: boolean
       turn: PieceColor | null
+      clock: ClockState | null
+      clockReceivedAt: number | null
     }
   | {
       type: "GAME_STARTED"
       board: Board
       clock: ClockState | null
+      clockReceivedAt: number | null
       turn: PieceColor | null
     }
   | {
@@ -39,6 +44,7 @@ export type GameAction =
       isCheck: boolean
       result: GameOutcome | null
       clock: ClockState | null
+      clockReceivedAt: number | null
       turn: PieceColor | null
     }
   | {
@@ -65,6 +71,7 @@ export type GameAction =
       to: Position
     }
   | { type: "ROOM_LEFT" }
+  | { type: "CLOCK_TICK" }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
@@ -77,6 +84,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         status: action.status,
         isCheck: action.isCheck,
         turn: action.turn,
+        clock: action.clock,
+        clockReceivedAt: action.clockReceivedAt,
         lastMoveRejection: null,
       }
     case "GAME_STARTED":
@@ -84,6 +93,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         board: action.board,
         clock: action.clock,
+        clockReceivedAt: action.clockReceivedAt,
         turn: action.turn,
         status: ACTIVE,
       }
@@ -93,6 +103,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         isCheck: action.isCheck,
         result: action.result,
         clock: action.clock,
+        clockReceivedAt: action.clockReceivedAt,
         turn: action.turn,
         lastMoveRejection: null,
       }
@@ -136,5 +147,21 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         status: null,
         pendingUndo: null,
       }
+    case "CLOCK_TICK": {
+      if (!state.clock || state.clock.active === null || state.clockReceivedAt === null) return state
+      const elapsed = performance.now() - state.clockReceivedAt
+      if (state.clock.active === WHITE) {
+        return {
+          ...state,
+          clock: { ...state.clock, whiteMs: Math.max(0, state.clock.whiteMs - elapsed) },
+          clockReceivedAt: performance.now(),
+        }
+      }
+      return {
+        ...state,
+        clock: { ...state.clock, blackMs: Math.max(0, state.clock.blackMs - elapsed) },
+        clockReceivedAt: performance.now(),
+      }
+    }
   }
 }

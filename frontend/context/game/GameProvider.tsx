@@ -1,6 +1,7 @@
 "use client"
 
-import { useReducer, useMemo } from "react"
+import { useReducer, useMemo, useEffect } from "react"
+import { gooeyToast } from "@/components/ui/goey-toaster"
 import { gameReducer, type GameState } from "./game-reducer"
 import { GameContext } from "./game-context"
 import { useSocketEvent } from "@/socket/use-event"
@@ -15,7 +16,12 @@ import {
   UNDO_DECLINED,
   MOVE_REJECTED,
   ROOM_LEFT,
+  GRACE_STARTED,
+  GRACE_CANCELLED,
+  GRACE_EXPIRED,
+  CLOCK_EXPIRED,
 } from "@/socket/events"
+import { FINISHED } from "@/socket/types"
 import { FEN } from "@/core/fen"
 import { Board } from "@/core/board"
 import { WHITE } from "@/core/piece"
@@ -30,6 +36,7 @@ const initialState: GameState = {
   isCheck: false,
   result: null,
   clock: null,
+  clockReceivedAt: null,
   pendingUndo: null,
   turn: WHITE,
   lastMoveRejection: null,
@@ -50,6 +57,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       status: msg.state.status,
       isCheck: msg.state.isCheck,
       turn: msg.state.turn,
+      clock: msg.state.clock,
+      clockReceivedAt: msg.state.clock !== null ? performance.now() : null,
     })
   })
 
@@ -60,6 +69,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       type: "GAME_STARTED",
       board,
       clock: msg.clock,
+      clockReceivedAt: msg.clock !== null ? performance.now() : null,
       turn: msg.turn,
     })
   })
@@ -70,6 +80,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       isCheck: msg.isCheck,
       result: msg.result,
       clock: msg.clock,
+      clockReceivedAt: msg.clock !== null ? performance.now() : null,
       turn: msg.turn,
     })
     actions.syncState()
@@ -111,6 +122,36 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useSocketEvent(ROOM_LEFT, () => {
     dispatch({ type: "ROOM_LEFT" })
   })
+
+  useSocketEvent(GRACE_STARTED, (msg) => {
+    const you = msg.color === WHITE ? "Black" : "White"
+    gooeyToast.warning(`${you} disconnected`, {
+      description: "Waiting for reconnection...",
+      duration: 10_000,
+    })
+  })
+
+  useSocketEvent(GRACE_CANCELLED, (msg) => {
+    const you = msg.color === WHITE ? "Black" : "White"
+    gooeyToast.success(`${you} reconnected`)
+  })
+
+  useSocketEvent(GRACE_EXPIRED, () => {
+    gooeyToast.info("Game abandoned - opponent did not return")
+  })
+
+  useSocketEvent(CLOCK_EXPIRED, (msg) => {
+    const color = msg.color === WHITE ? "White" : "Black"
+    gooeyToast.error(`${color} ran out of time`)
+  })
+
+  useEffect(() => {
+    if (!state.clock || state.clock.active === null || state.status === FINISHED) return
+    const interval = setInterval(() => {
+      dispatch({ type: "CLOCK_TICK" })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [state.clock?.active, state.status])
 
   const value = useMemo(() => ({ state, actions }), [state, actions])
 
