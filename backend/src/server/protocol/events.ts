@@ -6,8 +6,8 @@ import {
   type Move,
   type PieceColor,
   type Position,
-} from "../domain/types";
-import type { MoveError, SelectError } from "../domain/result";
+} from "../types";
+import type { MoveError, SelectError } from "../types";
 
 type WebSocket = unknown;
 
@@ -39,9 +39,8 @@ export const POSITION_REJECTED = "position:reject" as const;
 export const CLOCK_STARTED = "clock:started" as const;
 export const CLOCK_PAUSED = "clock:paused" as const;
 export const CLOCK_EXPIRED = "clock:expired" as const;
-export const CLOCK_TICK = "clock:tick" as const;
 
-// Grace — emitted by GraceTimer (owned by Reactor)
+// Grace — emitted by Grace (owned by Connections)
 export const GRACE_STARTED = "grace:started" as const;
 export const GRACE_CANCELLED = "grace:cancelled" as const;
 export const GRACE_EXPIRED = "grace:expired" as const;
@@ -66,11 +65,6 @@ export type Signal =
       playerId: string;
       ws: WebSocket;
       roomId: null;
-    }
-  | {
-      type: typeof CLOCK_TICK;
-      clock: ClockState;
-      roomId: string;
     };
 
 // Notification — a player needs to know. Reaches Hub subscribers AND
@@ -208,11 +202,6 @@ export const Signals = {
   connectionResumed(playerId: string, ws: WebSocket): Signal {
     return { type: CONNECTION_RESUMED, playerId, ws, roomId: null };
   },
-
-  /** Not emitted yet — no ClockTimer exists to call this. */
-  clockTick(roomId: string, clock: ClockState): Signal {
-    return { type: CLOCK_TICK, roomId, clock };
-  },
 };
 
 /**
@@ -335,5 +324,24 @@ export const Notifications = {
 
   clockExpired(roomId: string, color: PieceColor): Notification {
     return { type: CLOCK_EXPIRED, roomId, color };
+  },
+
+  /** Emitted when a disconnected player's grace period begins. */
+  graceStarted(
+    roomId: string,
+    color: PieceColor,
+    deadlineMs: number,
+  ): Notification {
+    return { type: GRACE_STARTED, roomId, color, deadlineMs };
+  },
+
+  /** Emitted when the disconnected player reconnects before grace expired. */
+  graceCancelled(roomId: string, color: PieceColor): Notification {
+    return { type: GRACE_CANCELLED, roomId, color };
+  },
+
+  /** Emitted when the grace period expires without reconnection. */
+  graceExpired(roomId: string, color: PieceColor): Notification {
+    return { type: GRACE_EXPIRED, roomId, color };
   },
 };
