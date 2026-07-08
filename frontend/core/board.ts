@@ -14,6 +14,33 @@ import {
   WHITE,
 } from "./piece"
 
+export type SquareState = Brand<number, "SquareState">
+
+export const NONE: SquareState = 0 as SquareState
+export const SELECTED: SquareState = 1 as SquareState
+export const LAST_MOVE: SquareState = 2 as SquareState
+export const LEGAL_MOVE: SquareState = 3 as SquareState
+export const LEGAL_CAPTURE: SquareState = 4 as SquareState
+export const CHECK: SquareState = 5 as SquareState
+export const ILLEGAL: SquareState = 6 as SquareState
+export const PREMOVE: SquareState = 7 as SquareState
+
+export type VariantKey =
+  | "none"
+  | "selected"
+  | "lastMove"
+  | "legalMove"
+  | "legalCapture"
+  | "check"
+  | "illegal"
+  | "premove"
+
+export interface StateConfig {
+  selected: Position | null
+  legalMoves: Position[]
+  lastMove: { from: Position; to: Position } | null
+}
+
 export type Square = Brand<number, "Square">
 
 export const Square = Object.assign(
@@ -45,6 +72,39 @@ export const Square = Object.assign(
 
     isOccupied(square: Square): boolean {
       return square !== EMPTY_SQUARE
+    },
+
+    state(position: Position, config: StateConfig): SquareState {
+      if (config.selected === position) return SELECTED
+      if (config.legalMoves.includes(position)) return LEGAL_MOVE
+      if (
+        config.lastMove &&
+        (config.lastMove.from === position || config.lastMove.to === position)
+      )
+        return LAST_MOVE
+      return NONE
+    },
+
+    toVariant(state: SquareState): VariantKey {
+      switch (state) {
+        default:
+        case NONE:
+          return "none"
+        case SELECTED:
+          return "selected"
+        case LAST_MOVE:
+          return "lastMove"
+        case LEGAL_MOVE:
+          return "legalMove"
+        case LEGAL_CAPTURE:
+          return "legalCapture"
+        case CHECK:
+          return "check"
+        case ILLEGAL:
+          return "illegal"
+        case PREMOVE:
+          return "premove"
+      }
     },
   }
 )
