@@ -5,7 +5,7 @@ import {
   HUMAN_VS_HUMAN,
   WS_OPEN,
   type WebSocket,
-} from "../domain/types";
+} from "../types";
 
 describe("Sessions", () => {
   /** A minimal fake WebSocket. Each call makes a distinct object, so two
@@ -78,6 +78,38 @@ describe("Sessions", () => {
       const store = makeStore();
 
       expect(store.byToken("no-such-token")).toBeNull();
+    });
+  });
+
+  describe("byPlayerId", () => {
+    it("returns the session for a known playerId", () => {
+      const store = makeStore();
+      const ws = makeSocket();
+      const session = store.open(ws, "player-42");
+
+      expect(store.byPlayerId("player-42")).toBe(session);
+    });
+
+    it("returns null for an unknown playerId", () => {
+      const store = makeStore();
+      store.open(makeSocket(), "player-1");
+
+      expect(store.byPlayerId("no-such-player")).toBeNull();
+    });
+
+    it("returns null after the session is pruned", () => {
+      const store = makeStore(1000);
+      const ws = makeSocket();
+      const session = store.open(ws, "player-prune");
+      store.drop(ws);
+      // Simulate time passing past TTL
+      const original = Date.now;
+      Date.now = () => session.disconnectedAt! + 1001;
+
+      store.prune();
+
+      Date.now = original;
+      expect(store.byPlayerId("player-prune")).toBeNull();
     });
   });
 

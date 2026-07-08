@@ -1,4 +1,4 @@
-import type { WebSocket } from "../domain/types";
+import type { WebSocket } from "../types";
 import type { Session } from "./session";
 
 /** Read-only — services that need to find sessions but never mutate them. */
@@ -13,6 +13,11 @@ export interface SessionReader {
    * @param token — resume token to look up
    */
   byToken(token: string): Session | null;
+  /**
+   * Looks up a session by its player id, regardless of connection state.
+   * @param playerId — the player's id
+   */
+  byPlayerId(playerId: string): Session | null;
 }
 
 /** Write — services that mutate sessions. */

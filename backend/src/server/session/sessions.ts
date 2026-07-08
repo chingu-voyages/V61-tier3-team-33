@@ -1,4 +1,4 @@
-import type { WebSocket } from "../domain/types";
+import type { WebSocket } from "../types";
 import type { Session } from "./session";
 import type { SessionStore } from "./session-store";
 
@@ -22,6 +22,7 @@ function generatePlayerId(): string {
 export class Sessions implements SessionStore {
   private bySocketMap: Map<string, Session> = new Map();
   private byTokenMap: Map<string, Session> = new Map();
+  private byPlayerIdMap: Map<string, Session> = new Map();
   private pruner: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private disconnectedTtlMs = DISCONNECTED_TTL_MS) {}
@@ -34,6 +35,11 @@ export class Sessions implements SessionStore {
   /** {@inheritDoc} */
   byToken(token: string): Session | null {
     return this.byTokenMap.get(token) ?? null;
+  }
+
+  /** {@inheritDoc} */
+  byPlayerId(playerId: string): Session | null {
+    return this.byPlayerIdMap.get(playerId) ?? null;
   }
 
   /** {@inheritDoc} */
@@ -51,6 +57,7 @@ export class Sessions implements SessionStore {
 
     this.bySocketMap.set(ws.id, session);
     this.byTokenMap.set(session.token, session);
+    this.byPlayerIdMap.set(session.playerId, session);
 
     return session;
   }
@@ -96,6 +103,7 @@ export class Sessions implements SessionStore {
     for (const session of this.byTokenMap.values()) {
       if (this.isExpired(session)) {
         this.byTokenMap.delete(session.token);
+        this.byPlayerIdMap.delete(session.playerId);
       }
     }
   }
