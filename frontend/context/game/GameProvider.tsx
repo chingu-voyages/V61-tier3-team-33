@@ -25,6 +25,7 @@ import { FINISHED } from "@/socket/types"
 import { FEN } from "@/core/fen"
 import { Board } from "@/core/board"
 import { WHITE } from "@/core/piece"
+import { useConnection } from "@/hooks/use-connection"
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -45,6 +46,7 @@ const initialState: GameState = {
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState)
   const actions = useGameActions()
+  useConnection()
 
   useSocketEvent(ROOM_JOINED, (msg) => {
     const board = FEN.boardFromFEN(msg.state.fen)
@@ -119,8 +121,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     })
   })
 
-  useSocketEvent(ROOM_LEFT, () => {
-    dispatch({ type: "ROOM_LEFT" })
+  useSocketEvent(ROOM_LEFT, (msg) => {
+    if (msg.color !== state.color) {
+      const who = msg.color === WHITE ? "White" : "Black"
+      gooeyToast.info(`${who} left the game`)
+    }
+    dispatch({ type: "ROOM_LEFT", color: msg.color })
   })
 
   useSocketEvent(GRACE_STARTED, (msg) => {

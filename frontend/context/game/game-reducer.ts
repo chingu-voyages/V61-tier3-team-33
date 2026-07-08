@@ -70,7 +70,7 @@ export type GameAction =
       from: Position
       to: Position
     }
-  | { type: "ROOM_LEFT" }
+  | { type: "ROOM_LEFT"; color: PieceColor }
   | { type: "CLOCK_TICK" }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -140,6 +140,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         },
       }
     case "ROOM_LEFT":
+      // room:left is broadcast to every occupant, including the one who
+      // stayed — only wipe local room state when it's actually us leaving.
+      // Otherwise the remaining player's board would go blank the moment
+      // their opponent resigns/leaves.
+      if (action.color !== state.color) return state
       return {
         ...state,
         roomId: null,
