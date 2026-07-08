@@ -11,8 +11,8 @@ export const ClockFormat = (value: string): ClockFormat => value as ClockFormat;
 
 export const DEFAULT  = ClockFormat("default");
 export const BULLET   = ClockFormat("bullet");
-export const RAPID_2  = ClockFormat("rapid_2");
-export const RAPID_3  = ClockFormat("rapid_3");
-export const RAPID_4  = ClockFormat("rapid_4");
 export const BLITZ    = ClockFormat("blitz");
-export const ASYNC    = ClockFormat("async");
+export const SWIFT    = ClockFormat("swift");
+export const STEADY   = ClockFormat("steady");
+export const PATIENT  = ClockFormat("patient");
+export const CASUAL   = ClockFormat("casual");
