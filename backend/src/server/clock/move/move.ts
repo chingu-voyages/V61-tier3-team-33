@@ -1,4 +1,4 @@
-import { MOVE, type ClockFormat } from "../types";
+import { MOVE, type ClockFormat } from "../../types";
 import type { Clock } from "../clock";
 
 export abstract class MoveClock implements Clock {

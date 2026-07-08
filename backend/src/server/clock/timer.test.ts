@@ -1,10 +1,10 @@
 import { describe, expect, it, afterEach, mock } from "bun:test";
-import { MOVE, MATCH, DEFAULT } from "./types";
+import { MOVE, MATCH, DEFAULT } from "../types";
 import type { Clock } from "./clock";
 import { ClockTimer } from "./timer";
 import type { Publisher } from "../bus/bus";
-import { WHITE, BLACK } from "../domain/types";
-import { CLOCK_STARTED, CLOCK_PAUSED, CLOCK_EXPIRED, CLOCK_TICK } from "../protocol/events";
+import { WHITE, BLACK } from "../types";
+import { CLOCK_STARTED, CLOCK_PAUSED, CLOCK_EXPIRED } from "../protocol/events";
 
 function makePublisher(): Publisher {
   return { emit: mock(() => {}) };
@@ -32,8 +32,6 @@ function mockMatchStrategy(initialMs = 300_000): Clock {
   };
 }
 
-
-
 const RealNow = Date.now;
 
 /**
@@ -45,13 +43,6 @@ function freezeTime(at: number): void {
   Date.now = mock(() => at);
 }
 
-
-
-// TICK_INTERVAL_MS must be short for tick tests to pass quickly.
-// ClockTimer accepts tickIntervalMs as 4th constructor param.
-// Windows min timer resolution ~15ms, so use 50ms to stay well above that.
-const FAST_TICK = 50;
-
 describe("ClockTimer", () => {
   afterEach(() => {
     // Restore real Date.now after any test that mocked it via freezeTime.
@@ -61,18 +52,18 @@ describe("ClockTimer", () => {
   describe("start", () => {
     it("sets initial times and activates the given color", () => {
       const strategy = mockMoveStrategy();
-      const timer = new ClockTimer(strategy, "room-1", makePublisher(), FAST_TICK);
+      const timer = new ClockTimer(strategy, "room-1", makePublisher());
 
       timer.start(300_000, 300_000, WHITE);
 
-      expect(timer.state.whiteMs).toBe(300_000);
+      expect(timer.state.whiteMs).toBeGreaterThan(299_990);
       expect(timer.state.blackMs).toBe(300_000);
       expect(timer.state.active).toBe(WHITE);
     });
 
     it("emits CLOCK_STARTED with the correct values", () => {
       const publisher = makePublisher();
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher, FAST_TICK);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher);
 
       timer.start(300_000, 300_000, WHITE);
 
@@ -86,18 +77,20 @@ describe("ClockTimer", () => {
       );
     });
 
-    it("starts ticking after start", async () => {
+    it("emits CLOCK_EXPIRED when remaining time elapses", async () => {
       const publisher = makePublisher();
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher, FAST_TICK);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher);
 
-      timer.start(200_000, 200_000, WHITE);
+      timer.start(1, 300_000, WHITE);
 
-      // Wait for at least one tick
-      await Bun.sleep(FAST_TICK * 2);
+      await Bun.sleep(20);
 
-      // A tick should have fired
       expect(publisher.emit).toHaveBeenCalledWith(
-        expect.objectContaining({ type: CLOCK_TICK }),
+        expect.objectContaining({
+          type: CLOCK_EXPIRED,
+          roomId: "room-1",
+          color: WHITE,
+        }),
       );
     });
   });
@@ -106,7 +99,7 @@ describe("ClockTimer", () => {
     it("calls strategy.onMove with correct remaining and elapsed", () => {
       freezeTime(100_000);
       const strategy = mockMoveStrategy(300_000);
-      const timer = new ClockTimer(strategy, "room-1", makePublisher(), FAST_TICK);
+      const timer = new ClockTimer(strategy, "room-1", makePublisher());
       timer.start(300_000, 300_000, WHITE);
 
       freezeTime(105_000); // 5s elapsed
@@ -118,7 +111,7 @@ describe("ClockTimer", () => {
     it("returns the new remaining after strategy.onMove", () => {
       freezeTime(100_000);
       const strategy = mockMoveStrategy(300_000);
-      const timer = new ClockTimer(strategy, "room-1", makePublisher(), FAST_TICK);
+      const timer = new ClockTimer(strategy, "room-1", makePublisher());
       timer.start(300_000, 300_000, WHITE);
 
       freezeTime(105_000);
@@ -127,10 +120,10 @@ describe("ClockTimer", () => {
       expect(result).toBe(300_000); // move strategy resets to initialMs
     });
 
-    it("emits CLOCK_PAUSED with correct values", () => {
-      freezeTime(100_000);
+    it("emits CLOCK_PAUSED with the correct values", () => {
       const publisher = makePublisher();
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher, FAST_TICK);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher);
+      freezeTime(100_000);
       timer.start(300_000, 300_000, WHITE);
 
       freezeTime(105_000);
@@ -141,26 +134,15 @@ describe("ClockTimer", () => {
           type: CLOCK_PAUSED,
           roomId: "room-1",
           color: WHITE,
-          remainingMs: 300_000,
+          remainingMs: 300_000, // move strategy resets to initialMs
         }),
       );
     });
 
-    it("sets active to null after stop", () => {
-      freezeTime(100_000);
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", makePublisher(), FAST_TICK);
-      timer.start(300_000, 300_000, WHITE);
-
-      freezeTime(105_000);
-      timer.stop(WHITE);
-
-      expect(timer.state.active).toBeNull();
-    });
-
-    it("works with a match strategy (keeps remaining)", () => {
+    it("subtracts elapsed time with a match strategy", () => {
       freezeTime(100_000);
       const strategy = mockMatchStrategy(300_000);
-      const timer = new ClockTimer(strategy, "room-1", makePublisher(), FAST_TICK);
+      const timer = new ClockTimer(strategy, "room-1", makePublisher());
       timer.start(300_000, 300_000, WHITE);
 
       freezeTime(105_000);
@@ -170,60 +152,91 @@ describe("ClockTimer", () => {
       expect(strategy.onMove).toHaveBeenCalledWith(300_000, 5_000);
     });
 
-    it("clamps remaining to 0 via strategy (never negative)", () => {
+    it("uses 0 elapsed when stop is called during opponent's delay", () => {
       freezeTime(100_000);
-      // A strategy that returns negative if remaining < elapsed
-      const penaltyStrategy: Clock = {
-        type: MATCH,
+      const strategy: Clock = {
+        type: MOVE,
         format: DEFAULT,
         initialMs: 300_000,
-        onMove: mock((remaining: number, _elapsed: number) => Math.max(0, remaining - 500_000)),
-        onTurn: mock(() => 0),
+        onMove: mock((r: number) => r),
+        onTurn: mock(() => 100), // 100ms Bronstein delay
       };
-      const timer = new ClockTimer(penaltyStrategy, "room-1", makePublisher(), FAST_TICK);
-      timer.start(10_000, 10_000, WHITE);
+      const timer = new ClockTimer(strategy, "room-1", makePublisher());
+      timer.start(300_000, 300_000, WHITE);
 
       freezeTime(110_000);
-      const result = timer.stop(WHITE);
+      timer.stop(WHITE);
 
-      expect(result).toBe(0); // clamped by Math.max(0, ...) inside timer.stop
+      // startNext with 100ms delay — clock hasn't started for BLACK yet
+      timer.startNext(BLACK);
+      expect(timer.state.active).toBeNull(); // delay running
+
+      // Opponent moves before their clock starts — stop should use 0 elapsed
+      timer.stop(BLACK);
+
+      expect(strategy.onMove).toHaveBeenCalledWith(300_000, 0);
     });
   });
 
   describe("startNext", () => {
-    it("calls strategy.onTurn", () => {
-      const strategy = mockMoveStrategy();
-      const timer = new ClockTimer(strategy, "room-1", makePublisher(), FAST_TICK);
+    it("starts the given color with full time after stop", () => {
+      freezeTime(100_000);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", makePublisher());
       timer.start(300_000, 300_000, WHITE);
-      timer.stop(WHITE);
 
-      timer.startNext(BLACK);
-
-      expect(strategy.onTurn).toHaveBeenCalled();
-    });
-
-    it("immediately resumes ticking for delay 0", async () => {
-      const publisher = makePublisher();
-      const strategy = mockMoveStrategy(); // onTurn returns 0
-      const timer = new ClockTimer(strategy, "room-1", publisher, FAST_TICK);
-      timer.start(300_000, 300_000, WHITE);
+      freezeTime(105_000);
       timer.stop(WHITE);
 
       timer.startNext(BLACK);
 
       expect(timer.state.active).toBe(BLACK);
-      expect(publisher.emit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: CLOCK_STARTED,
-          color: BLACK,
-        }),
-      );
+    });
+
+    it("honors delay from strategy.onTurn", async () => {
+      const strategy: Clock = {
+        type: MOVE,
+        format: DEFAULT,
+        initialMs: 300_000,
+        onMove: mock((r: number) => r),
+        onTurn: mock(() => 50), // 50ms delay
+      };
+      const timer = new ClockTimer(strategy, "room-1", makePublisher());
+      freezeTime(100_000);
+      timer.start(300_000, 300_000, WHITE);
+
+      freezeTime(105_000);
+      timer.stop(WHITE);
+
+      timer.startNext(BLACK);
+      expect(timer.state.active).toBeNull(); // delayed, not yet active
+
+      await Bun.sleep(100);
+      expect(timer.state.active).toBe(BLACK);
+    });
+
+    it("applies penalty strategy when over time", () => {
+      // A penalty strategy that subtracts 10_000ms per move
+      const penaltyStrategy: Clock = {
+        type: MOVE,
+        format: DEFAULT,
+        initialMs: 300_000,
+        onMove: mock((remaining: number, _elapsed: number) => Math.max(0, remaining - 10_000)),
+        onTurn: mock(() => 0),
+      };
+      freezeTime(100_000);
+      const timer = new ClockTimer(penaltyStrategy, "room-1", makePublisher());
+      timer.start(300_000, 300_000, WHITE);
+
+      freezeTime(105_000);
+      const result = timer.stop(WHITE);
+
+      expect(result).toBe(290_000); // 300_000 - 10_000 penalty
     });
   });
 
   describe("dispose", () => {
     it("sets active to null", () => {
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", makePublisher(), FAST_TICK);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", makePublisher());
       timer.start(300_000, 300_000, WHITE);
 
       timer.dispose();
@@ -231,34 +244,30 @@ describe("ClockTimer", () => {
       expect(timer.state.active).toBeNull();
     });
 
-    it("stops ticking after dispose", async () => {
+    it("does not emit CLOCK_EXPIRED after dispose", async () => {
       const publisher = makePublisher();
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher, FAST_TICK);
-      timer.start(300_000, 300_000, WHITE);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher);
+      timer.start(1, 300_000, WHITE);
 
       timer.dispose();
-      (publisher.emit as ReturnType<typeof mock>).mockClear();
 
-      await Bun.sleep(FAST_TICK * 3);
+      await Bun.sleep(20);
 
-      // No more ticks should fire after dispose
-      const tickCalls = (publisher.emit as ReturnType<typeof mock>).mock.calls.filter(
-        (c: any[]) => c[0]?.type === CLOCK_TICK,
+      const expiredCalls = (publisher.emit as ReturnType<typeof mock>).mock.calls.filter(
+        (c: any[]) => c[0]?.type === CLOCK_EXPIRED,
       );
-      expect(tickCalls.length).toBe(0);
+      expect(expiredCalls.length).toBe(0);
     });
   });
 
-  describe("tick loop — expiry", () => {
+  describe("expiry", () => {
     it("emits CLOCK_EXPIRED when time reaches 0", async () => {
       const publisher = makePublisher();
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher, FAST_TICK);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher);
 
-      // Start with very little time so it expires within a tick or two
       timer.start(1, 300_000, WHITE);
 
-      // Wait for expiry
-      await Bun.sleep(FAST_TICK * 5);
+      await Bun.sleep(20);
 
       expect(publisher.emit).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -269,16 +278,15 @@ describe("ClockTimer", () => {
       );
     });
 
-    it("stops ticking after expiry", async () => {
+    it("emits CLOCK_EXPIRED only once", async () => {
       const publisher = makePublisher();
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher, FAST_TICK);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher);
       timer.start(1, 300_000, WHITE);
 
-      await Bun.sleep(FAST_TICK * 5);
+      await Bun.sleep(20);
 
-      // Clear calls, wait more, should see no new CLOCK_EXPIRED
       (publisher.emit as ReturnType<typeof mock>).mockClear();
-      await Bun.sleep(FAST_TICK * 3);
+      await Bun.sleep(20);
 
       const expiredCalls = (publisher.emit as ReturnType<typeof mock>).mock.calls.filter(
         (c: any[]) => c[0]?.type === CLOCK_EXPIRED,
@@ -287,43 +295,19 @@ describe("ClockTimer", () => {
     });
 
     it("sets active to null and time to 0 on expiry", async () => {
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", makePublisher(), FAST_TICK);
+      const timer = new ClockTimer(mockMoveStrategy(), "room-1", makePublisher());
       timer.start(1, 300_000, WHITE);
 
-      await Bun.sleep(FAST_TICK * 5);
+      await Bun.sleep(20);
 
       expect(timer.state.active).toBeNull();
       expect(timer.state.whiteMs).toBe(0);
     });
   });
 
-  describe("tick loop — decrement", () => {
-    it("decrements remaining time for the active player", async () => {
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", makePublisher(), FAST_TICK);
-      timer.start(100_000, 200_000, WHITE);
-
-      const before = timer.state.whiteMs;
-      await Bun.sleep(FAST_TICK * 3);
-
-      expect(timer.state.whiteMs).toBeLessThan(before);
-      expect(timer.state.blackMs).toBe(200_000); // untouched
-    });
-
-    it("emits CLOCK_TICK each tick", async () => {
-      const publisher = makePublisher();
-      const timer = new ClockTimer(mockMoveStrategy(), "room-1", publisher, FAST_TICK);
-      timer.start(100_000, 100_000, WHITE);
-
-      await Bun.sleep(FAST_TICK * 3);
-
-      const tickCalls = (publisher.emit as ReturnType<typeof mock>).mock.calls.filter(
-        (c: any[]) => c[0]?.type === CLOCK_TICK,
-      );
-      expect(tickCalls.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it("does not tick for the other color after stop/startNext", async () => {
-      const timer = new ClockTimer(mockMatchStrategy(100_000), "room-1", makePublisher(), FAST_TICK);
+  describe("stop/startNext cycle", () => {
+    it("does not expire the other color after stop/startNext", async () => {
+      const timer = new ClockTimer(mockMatchStrategy(100_000), "room-1", makePublisher());
       freezeTime(100_000);
       timer.start(100_000, 50_000, WHITE);
 
@@ -333,19 +317,16 @@ describe("ClockTimer", () => {
       freezeTime(103_000);
       timer.startNext(BLACK);
 
-      // Restore real time so the tick loop can actually tick
-      Date.now = RealNow;
-      await Bun.sleep(FAST_TICK * 3);
-
-      // Black's time should have decreased, white's should be frozen
-      expect(timer.state.blackMs).toBeLessThan(50_000);
+      // White's time is frozen after stop, only black's timer runs
+      expect(timer.state.whiteMs).toBe(97_000); // 100_000 - 3_000 elapsed
+      expect(timer.state.active).toBe(BLACK);
     });
   });
 
   describe("strategy integration", () => {
     it("honors a match strategy across a full push/pop cycle", async () => {
       const strategy = mockMatchStrategy(300_000);
-      const timer = new ClockTimer(strategy, "room-1", makePublisher(), FAST_TICK);
+      const timer = new ClockTimer(strategy, "room-1", makePublisher());
       freezeTime(100_000);
       timer.start(300_000, 300_000, WHITE);
 

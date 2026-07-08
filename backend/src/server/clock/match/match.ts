@@ -1,4 +1,4 @@
-import { MATCH, type ClockFormat } from "../types";
+import { MATCH, type ClockFormat } from "../../types";
 import type { Clock } from "../clock";
 
 export abstract class MatchClock implements Clock {

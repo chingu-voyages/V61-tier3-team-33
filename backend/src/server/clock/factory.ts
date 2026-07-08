@@ -1,6 +1,6 @@
 import type { Clock } from "./clock";
-import type { ClockFormat } from "./types";
-import { MOVE, DEFAULT } from "./types";
+import type { ClockFormat } from "../types";
+import { MOVE, DEFAULT } from "../types";
 
 function defaultClock(): Clock {
   return new DefaultClock();
@@ -21,7 +21,7 @@ export function createClock(format?: ClockFormat): Clock {
 class DefaultClock implements Clock {
   readonly type = MOVE;
   readonly format = DEFAULT;
-  readonly initialMs = 300_000;
+  readonly initialMs = 30_000;
   onMove(): number {
     return this.initialMs;
   }

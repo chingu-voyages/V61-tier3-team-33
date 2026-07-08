@@ -1,4 +1,4 @@
-import type { ClockType, ClockFormat } from "./types";
+import type { ClockType, ClockFormat } from "../types";
 
 /** A time-control strategy: determines initial time, per-move adjustment, and turn-start delay. */
 export interface Clock {

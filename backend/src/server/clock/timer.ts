@@ -1,6 +1,6 @@
-import { WHITE, type PieceColor, type ClockState } from "../domain/types";
+import { WHITE, BLACK, type PieceColor, type ClockState } from "../types";
 import { type Publisher } from "../bus/bus";
-import { Signals, Notifications } from "../protocol/events";
+import { Notifications } from "../protocol/events";
 import type { Clock } from "./clock";
 
 /** A running chess clock for one game. */
@@ -13,7 +13,8 @@ export interface Timer {
 
   /**
    * Begins counting down for the given color.
-   * Sets initial time for both sides, emits CLOCK_STARTED, and starts the tick loop.
+   * Sets initial time for both sides, emits CLOCK_STARTED,
+   * and schedules a single timer for exact expiration.
    * Called once when the game transitions from WAITING to ACTIVE.
    */
   start(whiteMs: number, blackMs: number, color: PieceColor): void;
@@ -21,7 +22,7 @@ export interface Timer {
   /**
    * Stops the active player's clock.
    * Calculates elapsed time, applies `strategy.onMove()` for time adjustment,
-   * emits CLOCK_PAUSED, and clears timers.
+   * emits CLOCK_PAUSED, and clears expiration timer.
    * @returns the adjusted remaining time for the player who just moved
    */
   stop(color: PieceColor): number;
@@ -42,22 +43,21 @@ export class ClockTimer implements Timer {
   private blackMs!: number;
   private active: PieceColor | null = null;
   private turnStartedAt: number = 0;
-  private lastTickAt: number = 0;
-  private tickTimer: ReturnType<typeof setTimeout> | null = null;
+  private expireTimer: ReturnType<typeof setTimeout> | null = null;
   private delayTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     readonly strategy: Clock,
     private roomId: string,
     private publisher: Publisher,
-    private tickIntervalMs: number = 1000,
   ) {}
 
   /** {@inheritDoc} */
   get state(): ClockState {
+    const elapsed = this.active !== null ? Date.now() - this.turnStartedAt : 0;
     return {
-      whiteMs: this.whiteMs,
-      blackMs: this.blackMs,
+      whiteMs: Math.max(0, this.whiteMs - (this.active === WHITE ? elapsed : 0)),
+      blackMs: Math.max(0, this.blackMs - (this.active === BLACK ? elapsed : 0)),
       active: this.active,
     };
   }
@@ -67,16 +67,15 @@ export class ClockTimer implements Timer {
     this.whiteMs = whiteMs;
     this.blackMs = blackMs;
     this.turnStartedAt = Date.now();
-    this.lastTickAt = Date.now();
     this.active = color;
     this.publisher.emit(Notifications.clockStarted(this.roomId, color, this.timeFor(color)));
-    this.scheduleTick();
+    this.scheduleExpiration();
   }
 
   /** {@inheritDoc} */
   stop(color: PieceColor): number {
     this.clearTimers();
-    const elapsed = Date.now() - this.turnStartedAt;
+    const elapsed = this.active !== null ? Date.now() - this.turnStartedAt : 0;
     this.active = null;
     const remaining = this.timeFor(color);
     const newRemaining = Math.max(0, this.strategy.onMove(remaining, elapsed));
@@ -103,42 +102,28 @@ export class ClockTimer implements Timer {
 
   private resumeTicking(color: PieceColor): void {
     this.turnStartedAt = Date.now();
-    this.lastTickAt = Date.now();
     this.active = color;
     this.publisher.emit(Notifications.clockStarted(this.roomId, color, this.timeFor(color)));
-    this.scheduleTick();
+    this.scheduleExpiration();
   }
 
-  private scheduleTick(): void {
-    this.tickTimer = setTimeout(() => this.tick(), this.tickIntervalMs);
-  }
-
-  private tick(): void {
+  private scheduleExpiration(): void {
     if (this.active === null) return;
-    const now = Date.now();
-    const elapsed = now - this.lastTickAt;
-    this.lastTickAt = now;
-    const color = this.active;
-    const remaining = this.timeFor(color) - elapsed;
-
-    if (remaining <= 0) {
-      this.setTime(color, 0);
-      this.tickTimer = null;
+    const remaining = this.timeFor(this.active);
+    this.expireTimer = setTimeout(() => {
+      if (this.active === null) return;
+      this.setTime(this.active, 0);
+      this.expireTimer = null;
+      const color = this.active;
       this.active = null;
-      this.publisher.emit(Signals.clockTick(this.roomId, this.state));
       this.publisher.emit(Notifications.clockExpired(this.roomId, color));
-      return;
-    }
-
-    this.setTime(color, remaining);
-    this.publisher.emit(Signals.clockTick(this.roomId, this.state));
-    this.scheduleTick();
+    }, remaining);
   }
 
   private clearTimers(): void {
-    if (this.tickTimer !== null) {
-      clearTimeout(this.tickTimer);
-      this.tickTimer = null;
+    if (this.expireTimer !== null) {
+      clearTimeout(this.expireTimer);
+      this.expireTimer = null;
     }
     if (this.delayTimer !== null) {
       clearTimeout(this.delayTimer);
