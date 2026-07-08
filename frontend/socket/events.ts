@@ -52,7 +52,6 @@ export type GameEvent =
       type: typeof ROOM_LEFT
       roomId: string
       color: PieceColor
-      reason: string
     }
   | {
       type: typeof GAME_ENDED
@@ -95,7 +94,6 @@ export type GameEvent =
       type: typeof UNDO_DECLINED
       roomId: string
       by: PieceColor
-      reason: string
     }
   | {
       type: typeof POSITION_ACCEPTED

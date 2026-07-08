@@ -4,7 +4,6 @@ import {
   reducer,
   SocketAction,
   SocketState,
-  SocketStatus,
 } from "./reducer"
 
 export const DEFAULT_DISCONNECTION = 110 * 1000
@@ -63,8 +62,8 @@ export default class SocketClient {
     this.connect()
   }
 
-  snapshot = (): SocketStatus => {
-    return this.state.status
+  snapshot = (): SocketState => {
+    return this.state
   }
 
   subscribe = (callback: StatusListener): Unsubscribe => {

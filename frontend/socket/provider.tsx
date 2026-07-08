@@ -1,13 +1,19 @@
 import { RetryConfig } from "@/lib/retry"
 import { getSocketClient } from "./client"
 import { useMemo, useSyncExternalStore } from "react"
-import { SocketStatus } from "./reducer"
+import { type SocketState } from "./reducer"
 import { Socket, SocketContext } from "./context"
 
 const noop = () => {}
 const cbNoop = () => () => {}
 // used as onMessage fallback; ignores type arg
 const onMessageNoop = (_type: string, _handler: unknown) => () => {}
+
+const serverState: SocketState = {
+  status: "connecting",
+  attempt: 0,
+  disconnectedAt: null,
+}
 
 interface SocketProviderProps {
   url: string
@@ -30,22 +36,23 @@ export function SocketProvider({
     [url]
   )
 
-  const status = useSyncExternalStore(
+  const state = useSyncExternalStore(
     client?.subscribe ?? cbNoop,
-    (): SocketStatus => client?.snapshot() ?? "connecting",
-    (): SocketStatus => "connecting"
+    (): SocketState => client?.snapshot() ?? serverState,
+    (): SocketState => serverState
   )
 
   const socket = useMemo<Socket>(
     () => ({
-      status,
+      status: state.status,
+      attempt: state.attempt,
       send: client?.send ?? noop,
       reconnect: client?.reconnect ?? noop,
       onMessage: client?.onMessage ?? onMessageNoop,
       onAnyMessage: client?.onAnyMessage ?? cbNoop,
       onAnySend: client?.onAnySend ?? cbNoop,
     }),
-    [status, client]
+    [state.status, state.attempt, client]
   )
 
   return (

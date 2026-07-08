@@ -1,3 +1,4 @@
+import type { Brand } from "@/core/brand"
 import { Piece, PieceColor, PieceType } from "@/core/piece"
 import { Position } from "@/core/position"
 import { GameStatus, DrawReason } from "@/core/game"
@@ -28,11 +29,18 @@ export const TIMEOUT: EndReason = 1
 export const RESIGNATION: EndReason = 2
 export const ABANDONED: EndReason = 3
 
+export type ClockFormat = Brand<string, "ClockFormat">
+
+export function ClockFormat(value: string): ClockFormat {
+  return value as ClockFormat
+}
+
 export interface JoinInput {
   roomId?: string
   mode: Mode
   color?: PieceColor
   difficulty?: Difficulty
+  clock?: ClockFormat
 }
 
 export interface MoveInput {
@@ -86,6 +94,7 @@ export interface GameSnapshot {
   history: string[]
   capturedByWhite: PieceType[]
   capturedByBlack: PieceType[]
+  clock: ClockState | null
 }
 
 export interface HandshakeReply {

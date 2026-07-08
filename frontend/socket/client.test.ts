@@ -18,13 +18,13 @@ describe("SocketClient", () => {
 
   test("starts connecting", () => {
     const client = makeClient()
-    expect(client.snapshot()).toBe("connecting")
+    expect(client.snapshot().status).toBe("connecting")
   })
 
   test("OPENED sets status to open", () => {
     const client = makeClient()
     FakeSocket.instances[0].triggerOpen()
-    expect(client.snapshot()).toBe("open")
+    expect(client.snapshot().status).toBe("open")
   })
 
   test("notifies status subscribers", () => {
@@ -86,7 +86,7 @@ describe("SocketClient", () => {
     const client = makeClient()
     FakeSocket.instances[0].triggerOpen()
     FakeSocket.instances[0].triggerClose()
-    expect(client.snapshot()).toBe("reconnecting")
+    expect(client.snapshot().status).toBe("reconnecting")
     await new Promise((r) => setTimeout(r, 50))
     expect(FakeSocket.instances.length).toBe(2)
   })
@@ -94,13 +94,13 @@ describe("SocketClient", () => {
   test("reaches failed after maxDisconnectedMs", () => {
     const client = makeClient({ maxDisconnectedMs: 0 })
     FakeSocket.instances[0].triggerClose()
-    expect(client.snapshot()).toBe("failed")
+    expect(client.snapshot().status).toBe("failed")
   })
 
   test("reconnect() only works when failed", () => {
     const client = makeClient()
     client.reconnect()
-    expect(client.snapshot()).toBe("connecting")
+    expect(client.snapshot().status).toBe("connecting")
   })
 
   test("send() no-ops when not open", () => {
