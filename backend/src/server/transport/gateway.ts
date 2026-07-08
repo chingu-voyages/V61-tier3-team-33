@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 
-import type { Protocol } from "../protocol/protocol";
+import type { Codec } from "../codec/codec";
 import {
   SESSION_HANDSHAKE,
   SESSION_PONG,
@@ -14,17 +14,17 @@ import {
   ROOM_LEAVE,
   POSITION_SELECT,
 } from "../protocol/commands";
-import { JsonCodec } from "../protocol/json-codec";
+import { JsonCodec } from "../codec/json";
 import { Sessions } from "../session/sessions";
 import { Connections } from "./connections";
 import { Games } from "../game/games";
 import { GameService } from "../services/game-service";
 import { Hub } from "../bus/bus";
-import { EventLogger } from "../../logging/event-logger";
-import { logger as rootLogger } from "../../logging/logger";
+import { EventLog } from "../../logging/events";
+import { logger as rootLogger } from "../../logging/log";
 import { Reply } from "../protocol/replies";
 import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../protocol/errors";
-import { HUMAN_VS_HUMAN, type WebSocket } from "../domain/types";
+import { HUMAN_VS_HUMAN, type WebSocket } from "../types";
 import type { GameFacade } from "../services/game-facade";
 import type { SessionStore } from "../session/session-store";
 import type { GameStore } from "../game/game-store";
@@ -35,18 +35,18 @@ export class Gateway {
   private app: Elysia;
   private connections: Connections;
   private gameService: GameFacade;
-  private eventLogger: EventLogger;
+  private EventLog: EventLog;
 
   constructor(
-    private protocol: Protocol = new JsonCodec(),
+    private protocol: Codec = new JsonCodec(),
     sessions: SessionStore = new Sessions(),
     hub: Hub = new Hub(),
     games: GameStore = new Games(hub),
   ) {
     this.connections = new Connections(sessions, hub, protocol);
-    this.gameService = new GameService(sessions, games, protocol);
-    this.eventLogger = new EventLogger();
-    this.eventLogger.start(hub);
+    this.gameService = new GameService(sessions, games, protocol, hub);
+    this.EventLog = new EventLog();
+    this.EventLog.start(hub);
     this.app = new Elysia();
     this.setup();
   }
