@@ -2,6 +2,7 @@ import type { Mode } from "../domain/types";
 import type { Result } from "../domain/result";
 import type { CommitError } from "../domain/result";
 import type { Clock } from "../clock/clock";
+import type { ClockFormat } from "../clock/types";
 import type { Game } from "./game";
 
 /** Read-only — services that need to find games but never mutate them. */
@@ -15,8 +16,9 @@ export interface GameReader {
   /**
    * Finds an open game waiting for a second player in this mode, if any.
    * @param mode — game mode to match
+   * @param format — clock format to match
    */
-  findWaiting(mode: Mode): Game | null;
+  findWaiting(mode: Mode, format: ClockFormat): Game | null;
 }
 
 /** Write — services that mutate games. */

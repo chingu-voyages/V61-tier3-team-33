@@ -2,6 +2,7 @@ import type { Publisher, Subscriber } from "../bus/bus";
 import { ok, type CommitError, type Result } from "../domain/result";
 import { HUMAN_VS_HUMAN, type Mode } from "../domain/types";
 import type { Clock } from "../clock/clock";
+import { type ClockFormat, DEFAULT } from "../clock/types";
 import { createClock } from "../clock/factory";
 import { ClockTimer } from "../clock/timer";
 import { Game } from "./game";
@@ -18,10 +19,14 @@ const EMPTY_TTL_MS = 60 * 1000;
 // How often the sweeper checks for expired games.
 const DEFAULT_SWEEP_INTERVAL_MS = 30 * 1000;
 
-/** In-memory implementation of GameStore, backed by a Map plus a waiting-game queue per mode. */
+function queueKey(mode: Mode, format: ClockFormat): string {
+  return `${mode}:${format}`;
+}
+
+/** In-memory implementation of GameStore, backed by a Map plus a waiting-game queue per (mode, format). */
 export class Games implements GameStore {
   private games: Map<string, Game> = new Map();
-  private queue: Map<Mode, Set<string>> = new Map();
+  private queue: Map<string, Set<string>> = new Map();
   private sweeper: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -36,8 +41,8 @@ export class Games implements GameStore {
   }
 
   /** {@inheritDoc} */
-  findWaiting(mode: Mode): Game | null {
-    const queue = this.queueFor(mode);
+  findWaiting(mode: Mode, format: ClockFormat = DEFAULT): Game | null {
+    const queue = this.queueFor(mode, format);
 
     for (const id of queue) {
       const game = this.games.get(id);
@@ -62,11 +67,11 @@ export class Games implements GameStore {
   ): Game {
     const timer = new ClockTimer(clock, id, this.publisher);
     const game = new Game(id, mode, clock, this.publisher, timer, () => {
-      this.queueFor(mode).delete(id);
+      this.queueFor(mode, clock.format).delete(id);
     });
 
     this.games.set(id, game);
-    this.queueFor(mode).add(id);
+    this.queueFor(mode, clock.format).add(id);
 
     return game;
   }
@@ -86,7 +91,7 @@ export class Games implements GameStore {
     if (!game) return;
 
     this.games.delete(id);
-    this.queue.get(game.mode)?.delete(id);
+    this.queue.get(queueKey(game.mode, game.clock.format))?.delete(id);
   }
 
   /** {@inheritDoc} */
@@ -123,12 +128,13 @@ export class Games implements GameStore {
     this.sweeper = null;
   }
 
-  /** The waiting-id queue for `mode`, creating an empty one on first use. */
-  private queueFor(mode: Mode): Set<string> {
-    let queue = this.queue.get(mode);
+  /** The waiting-id queue for `(mode, format)`, creating an empty one on first use. */
+  private queueFor(mode: Mode, format: ClockFormat): Set<string> {
+    const key = queueKey(mode, format);
+    let queue = this.queue.get(key);
     if (!queue) {
       queue = new Set();
-      this.queue.set(mode, queue);
+      this.queue.set(key, queue);
     }
     return queue;
   }

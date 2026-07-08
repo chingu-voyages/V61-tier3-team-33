@@ -136,8 +136,8 @@ describe("Games", () => {
       expect(store.findWaiting(HUMAN_VS_HUMAN)).toBeNull();
       // The stale id should be gone now too, not just skipped.
       const queue = (
-        store as unknown as { queue: Map<unknown, Set<string>> }
-      ).queue.get(HUMAN_VS_HUMAN);
+        store as unknown as { queue: Map<string, Set<string>> }
+      ).queue.get(`0:default`);
       expect(queue?.has("room-1")).toBe(false);
     });
   });

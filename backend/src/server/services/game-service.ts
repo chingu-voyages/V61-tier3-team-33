@@ -10,6 +10,7 @@ import {
 } from "../domain/types";
 import type { Game } from "../game/game";
 import type { GameStore } from "../game/game-store";
+import { DEFAULT } from "../clock/types";
 import { createClock } from "../clock/factory";
 import { Human } from "../occupant/human";
 import {
@@ -98,9 +99,10 @@ export class GameService implements GameFacade {
       }
       game = found;
     } else {
+      const format = input.clock ?? DEFAULT;
       game =
-        this.games.findWaiting(input.mode) ??
-        this.games.create(undefined, input.mode, createClock(input.clock));
+        this.games.findWaiting(input.mode, format) ??
+        this.games.create(undefined, input.mode, createClock(format));
     }
 
     const color = input.color ?? game.nextColor();
