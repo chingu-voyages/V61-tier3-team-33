@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   IconLink,
   IconCopy,
@@ -20,7 +20,11 @@ interface RoomInviteProps {
 
 export function RoomInvite({ roomId, timeControl, onCancel }: RoomInviteProps) {
   const [copied, setCopied] = useState(false)
-  const url = `${window.location.origin}/play?mode=friend&room=${roomId}`
+  const [url, setUrl] = useState("")
+
+  useEffect(() => {
+    setUrl(`${window.location.origin}/play?mode=friend&room=${roomId}`)
+  }, [roomId])
 
   const copyLink = async () => {
     try {
