@@ -3,8 +3,8 @@ import {
   INVALID_MAX_ATTEMPTS,
   INVALID_MAX_DELAY,
   type RetryConfigErrorCode,
-} from "../domain/result";
-import { logger as rootLogger } from "../../logging/logger";
+} from "../types";
+import { logger as rootLogger } from "../../logging/log";
 
 const log = rootLogger.child({ module: "Retry" });
 

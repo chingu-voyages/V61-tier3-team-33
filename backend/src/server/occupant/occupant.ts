@@ -1,5 +1,5 @@
 import type { Notification } from "../protocol/events";
-import type { OccupantKind } from "../domain/types";
+import type { OccupantKind } from "../types";
 
 /** A player seated at a color slot. */
 export interface Occupant {

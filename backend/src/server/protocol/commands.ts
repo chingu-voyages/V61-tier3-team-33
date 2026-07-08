@@ -1,4 +1,4 @@
-import type { JoinInput, MoveInput, Position } from "../domain/types";
+import type { JoinInput, MoveInput, Position } from "../types";
 
 // What the client asks the server to do. One-directional: client → server only.
 // Decoded once by Protocol.decode; never sent back out, never passed through Hub.

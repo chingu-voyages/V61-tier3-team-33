@@ -16,7 +16,7 @@ import {
   HUMAN,
   HUMAN_VS_HUMAN,
   HUMAN_VS_AI,
-} from "../domain/types";
+} from "../types";
 
 describe("Games", () => {
   function makeOccupant(playerId: string): Occupant {

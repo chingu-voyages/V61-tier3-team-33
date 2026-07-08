@@ -1,8 +1,8 @@
 import type { Publisher, Subscriber } from "../bus/bus";
-import { ok, type CommitError, type Result } from "../domain/result";
-import { HUMAN_VS_HUMAN, type Mode } from "../domain/types";
+import { ok, type CommitError, type Result } from "../types";
+import { HUMAN_VS_HUMAN, type Mode } from "../types";
 import type { Clock } from "../clock/clock";
-import { type ClockFormat, DEFAULT } from "../clock/types";
+import { type ClockFormat, DEFAULT } from "../types";
 import { createClock } from "../clock/factory";
 import { ClockTimer } from "../clock/timer";
 import { Game } from "./game";

@@ -1,8 +1,8 @@
-import type { Mode } from "../domain/types";
-import type { Result } from "../domain/result";
-import type { CommitError } from "../domain/result";
+import type { Mode } from "../types";
+import type { Result } from "../types";
+import type { CommitError } from "../types";
 import type { Clock } from "../clock/clock";
-import type { ClockFormat } from "../clock/types";
+import type { ClockFormat } from "../types";
 import type { Game } from "./game";
 
 /** Read-only — services that need to find games but never mutate them. */

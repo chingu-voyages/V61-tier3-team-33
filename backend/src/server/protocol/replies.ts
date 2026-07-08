@@ -1,7 +1,7 @@
 import { SESSION_HANDSHAKE } from "./commands";
 import { SESSION_ERROR } from "./errors";
 import type { ErrorCode } from "./errors";
-import type { WebSocket } from "../domain/types";
+import type { WebSocket } from "../types";
 
 export type { ErrorCode };
 

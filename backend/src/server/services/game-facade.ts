@@ -3,7 +3,7 @@ import type {
   MoveInput,
   Position,
   WebSocket,
-} from "../domain/types";
+} from "../types";
 
 /** Player-facing actions a client can trigger over a socket. */
 export interface GameFacade {
