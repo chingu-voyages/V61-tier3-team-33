@@ -10,7 +10,7 @@ export interface LogEntry {
   readonly event: Event;
 }
 
-/** Where log entries go. Swappable so a real sink (file, remote) can replace ConsoleSink later without touching EventLogger. */
+/** Where log entries go. Swappable so a real sink (file, remote) can replace ConsoleSink later without touching EventLog. */
 export interface LogSink {
   write(entry: LogEntry): void;
 }
@@ -99,7 +99,7 @@ export class NullSink implements LogSink {
   write(): void {}
 }
 
-/** Fans out to multiple sinks (e.g. console + file) without EventLogger knowing. */
+/** Fans out to multiple sinks (e.g. console + file) without EventLog knowing. */
 export class MultiSink implements LogSink {
   constructor(private readonly sinks: readonly LogSink[]) {}
   write(entry: LogEntry): void {

@@ -1,5 +1,5 @@
-import type { LoggingConfig, LogLevel } from "./logging-config";
-import { loggingConfig } from "./logging-config";
+import type { LogConfig, LogLevel } from "./config";
+import { loggingConfig } from "./config";
 import { createFileWriter, dim, paint, timestamp, truncate, writeJsonLine } from "./format";
 import type { LineWriter } from "./format";
 
@@ -10,8 +10,8 @@ export interface LogFields {
 /**
  * General-purpose app logger — for anything that isn't a bus Event
  * (startup, retries, connection lifecycle, caught errors). Complements
- * EventLogger rather than replacing it: this narrates what the *server*
- * is doing, EventLogger narrates what the *game* is doing.
+ * EventLog rather than replacing it: this narrates what the *server*
+ * is doing, EventLog narrates what the *game* is doing.
  */
 export interface Logger {
   debug(msg: string, fields?: LogFields): void;
@@ -43,7 +43,7 @@ const MAX_INLINE_FIELDS = 300;
 
 class AppLogger implements Logger {
   constructor(
-    private readonly config: LoggingConfig,
+    private readonly config: LogConfig,
     private readonly context: LogFields = {},
     // Shared across a logger and all of its .child()ren so LOG_FILE opens
     // the file once per process, not once per child logger.

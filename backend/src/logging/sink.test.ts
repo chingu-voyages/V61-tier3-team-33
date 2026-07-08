@@ -1,11 +1,11 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import type { LogEntry, LogSink } from "./log-sink";
-import { ConsoleSink, JsonSink, MultiSink, NullSink } from "./log-sink";
+import type { LogEntry, LogSink } from "./sink";
+import { ConsoleSink, JsonSink, MultiSink, NullSink } from "./sink";
 import { dim, paint, timestamp, truncate } from "./format";
 import { CONNECTION_OPENED, ROOM_JOINED } from "../server/protocol/events";
 import type { Event } from "../server/protocol/events";
-import { WHITE } from "../server/domain/types";
-import type { GameSnapshot } from "../server/domain/types";
+import { WHITE } from "../server/types";
+import type { GameSnapshot } from "../server/types";
 
 // Mirrors FAMILY_COLOR in log-sink.ts — kept here as plain literals since
 // the table itself isn't exported.

@@ -1,10 +1,10 @@
 import type { Subscriber, Unsubscribe } from "../server/bus/bus";
 import { DEFERRED } from "../server/bus/bus";
 import type { Event } from "../server/protocol/events";
-import type { LogSink, LogEntry } from "./log-sink";
-import { ConsoleSink, FileSink, JsonSink, MultiSink, NullSink } from "./log-sink";
-import type { LoggingConfig } from "./logging-config";
-import { loggingConfig } from "./logging-config";
+import type { LogSink, LogEntry } from "./sink";
+import { ConsoleSink, FileSink, JsonSink, MultiSink, NullSink } from "./sink";
+import type { LogConfig } from "./config";
+import { loggingConfig } from "./config";
 
 /**
  * Subscribes to every event on the Hub and writes each one to a LogSink.
@@ -15,12 +15,12 @@ import { loggingConfig } from "./logging-config";
  * handlers on their own macrotask, so a slow sink (e.g. disk I/O) only
  * ever delays itself, never the rest of the system.
  */
-export class EventLogger {
+export class EventLog {
   private readonly sink: LogSink;
-  private readonly config: LoggingConfig;
+  private readonly config: LogConfig;
   private unsubscribe: Unsubscribe | null = null;
 
-  constructor(config: LoggingConfig = loggingConfig, sink?: LogSink) {
+  constructor(config: LogConfig = loggingConfig, sink?: LogSink) {
     this.config = config;
     this.sink = sink ?? defaultSinkFor(config);
   }
@@ -56,7 +56,7 @@ export class EventLogger {
   }
 }
 
-function defaultSinkFor(config: LoggingConfig): LogSink {
+function defaultSinkFor(config: LogConfig): LogSink {
   if (!config.enabled) return new NullSink();
   const primary = config.format === "json" ? new JsonSink() : new ConsoleSink();
   // LOG_FILE mirrors everything the primary sink sees into a file too,

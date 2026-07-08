@@ -3,11 +3,11 @@ import { Hub, DEFERRED } from "../server/bus/bus";
 import type { Subscriber } from "../server/bus/bus";
 import { CONNECTION_OPENED, ROOM_JOINED } from "../server/protocol/events";
 import type { Event } from "../server/protocol/events";
-import { WHITE } from "../server/domain/types";
-import type { GameSnapshot } from "../server/domain/types";
-import { EventLogger } from "./event-logger";
-import type { LogSink, LogEntry } from "./log-sink";
-import type { LoggingConfig } from "./logging-config";
+import { WHITE } from "../server/types";
+import type { GameSnapshot } from "../server/types";
+import { EventLog } from "./events";
+import type { LogSink, LogEntry } from "./sink";
+import type { LogConfig } from "./config";
 
 const joined: Event = {
   type: ROOM_JOINED,
@@ -23,7 +23,7 @@ const opened: Event = {
   roomId: null,
 };
 
-function makeConfig(overrides: Partial<LoggingConfig> = {}): LoggingConfig {
+function makeConfig(overrides: Partial<LogConfig> = {}): LogConfig {
   return {
     enabled: true,
     level: "debug",
@@ -40,16 +40,16 @@ function makeSink(): { sink: LogSink; write: ReturnType<typeof mock> } {
   return { sink: { write }, write };
 }
 
-// EventLogger registers on the DEFERRED lane, which Hub runs on a macrotask.
+// EventLog registers on the DEFERRED lane, which Hub runs on a macrotask.
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe("EventLogger.start", () => {
+describe("EventLog.start", () => {
   it("does not subscribe at all when config.enabled is false", () => {
     const onAny = mock(() => () => {});
     const bus: Subscriber = { on: mock(() => () => {}), onAny };
     const { sink } = makeSink();
 
-    new EventLogger(makeConfig({ enabled: false }), sink).start(bus);
+    new EventLog(makeConfig({ enabled: false }), sink).start(bus);
 
     expect(onAny).not.toHaveBeenCalled();
   });
@@ -59,21 +59,21 @@ describe("EventLogger.start", () => {
     const bus: Subscriber = { on: mock(() => () => {}), onAny };
     const { sink } = makeSink();
 
-    new EventLogger(makeConfig(), sink).start(bus);
+    new EventLog(makeConfig(), sink).start(bus);
 
     expect(onAny).toHaveBeenCalledTimes(1);
     expect(onAny.mock.calls[0]?.[1]).toBe(DEFERRED);
   });
 });
 
-describe("EventLogger event handling (via a real Hub)", () => {
+describe("EventLog event handling (via a real Hub)", () => {
   it("writes a LogEntry with time/roomId/type/event to the sink", async () => {
     const hub = new Hub();
     const { sink, write } = makeSink();
     const nowSpy = spyOn(Date, "now").mockReturnValue(123_456);
 
     try {
-      new EventLogger(makeConfig(), sink).start(hub);
+      new EventLog(makeConfig(), sink).start(hub);
       hub.emit(joined);
 
       // DEFERRED handlers don't run synchronously.
@@ -97,7 +97,7 @@ describe("EventLogger event handling (via a real Hub)", () => {
     const hub = new Hub();
     const { sink, write } = makeSink();
 
-    new EventLogger(makeConfig(), sink).start(hub);
+    new EventLog(makeConfig(), sink).start(hub);
     hub.emit(opened);
     await flush();
 
@@ -112,7 +112,7 @@ describe("EventLogger event handling (via a real Hub)", () => {
     const { sink, write } = makeSink();
     const config = makeConfig({ exclude: new Set([ROOM_JOINED]) });
 
-    new EventLogger(config, sink).start(hub);
+    new EventLog(config, sink).start(hub);
     hub.emit(joined);
     await flush();
 
@@ -124,7 +124,7 @@ describe("EventLogger event handling (via a real Hub)", () => {
     const { sink, write } = makeSink();
     const config = makeConfig({ exclude: new Set([CONNECTION_OPENED]) });
 
-    new EventLogger(config, sink).start(hub);
+    new EventLog(config, sink).start(hub);
     hub.emit(joined);
     await flush();
 
@@ -136,7 +136,7 @@ describe("EventLogger event handling (via a real Hub)", () => {
     const { sink, write } = makeSink();
     const config = makeConfig({ sampleRates: new Map([[ROOM_JOINED, 0]]) });
 
-    new EventLogger(config, sink).start(hub);
+    new EventLog(config, sink).start(hub);
     hub.emit(joined);
     hub.emit(joined);
     await flush();
@@ -149,7 +149,7 @@ describe("EventLogger event handling (via a real Hub)", () => {
     const { sink, write } = makeSink();
     const config = makeConfig({ sampleRates: new Map([[ROOM_JOINED, 1]]) });
 
-    new EventLogger(config, sink).start(hub);
+    new EventLog(config, sink).start(hub);
     hub.emit(joined);
     hub.emit(joined);
     await flush();
@@ -164,7 +164,7 @@ describe("EventLogger event handling (via a real Hub)", () => {
       sampleRates: new Map([[CONNECTION_OPENED, 0]]),
     });
 
-    new EventLogger(config, sink).start(hub);
+    new EventLog(config, sink).start(hub);
     hub.emit(joined);
     await flush();
 
@@ -178,7 +178,7 @@ describe("EventLogger event handling (via a real Hub)", () => {
     const randomSpy = spyOn(Math, "random");
 
     try {
-      new EventLogger(config, sink).start(hub);
+      new EventLog(config, sink).start(hub);
 
       randomSpy.mockReturnValue(0.3); // below 0.5 -> logs
       hub.emit(joined);
@@ -195,18 +195,18 @@ describe("EventLogger event handling (via a real Hub)", () => {
   });
 });
 
-describe("EventLogger.stop", () => {
+describe("EventLog.stop", () => {
   it("stops delivery to the sink after being called", async () => {
     const hub = new Hub();
     const { sink, write } = makeSink();
-    const eventLogger = new EventLogger(makeConfig(), sink);
+    const eventLog = new EventLog(makeConfig(), sink);
 
-    eventLogger.start(hub);
+    eventLog.start(hub);
     hub.emit(joined);
     await flush();
     expect(write).toHaveBeenCalledTimes(1);
 
-    eventLogger.stop();
+    eventLog.stop();
     hub.emit(joined);
     await flush();
     expect(write).toHaveBeenCalledTimes(1);
@@ -214,29 +214,29 @@ describe("EventLogger.stop", () => {
 
   it("is a harmless no-op when called before start()", () => {
     const { sink } = makeSink();
-    const eventLogger = new EventLogger(makeConfig(), sink);
+    const eventLog = new EventLog(makeConfig(), sink);
 
-    expect(() => eventLogger.stop()).not.toThrow();
+    expect(() => eventLog.stop()).not.toThrow();
   });
 
   it("is a harmless no-op when called twice", () => {
     const hub = new Hub();
     const { sink } = makeSink();
-    const eventLogger = new EventLogger(makeConfig(), sink);
+    const eventLog = new EventLog(makeConfig(), sink);
 
-    eventLogger.start(hub);
-    eventLogger.stop();
+    eventLog.start(hub);
+    eventLog.stop();
 
-    expect(() => eventLogger.stop()).not.toThrow();
+    expect(() => eventLog.stop()).not.toThrow();
   });
 });
 
-describe("EventLogger default sink selection", () => {
+describe("EventLog default sink selection", () => {
   it("defaults to a console-writing sink when format is 'pretty' and no sink is given", async () => {
     const log = spyOn(console, "log").mockImplementation(() => {});
     try {
       const hub = new Hub();
-      new EventLogger(makeConfig({ format: "pretty" })).start(hub);
+      new EventLog(makeConfig({ format: "pretty" })).start(hub);
 
       hub.emit(joined);
       await flush();
@@ -251,7 +251,7 @@ describe("EventLogger default sink selection", () => {
     const write = spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
       const hub = new Hub();
-      new EventLogger(makeConfig({ format: "json" })).start(hub);
+      new EventLog(makeConfig({ format: "json" })).start(hub);
 
       hub.emit(joined);
       await flush();
@@ -267,7 +267,7 @@ describe("EventLogger default sink selection", () => {
     const write = spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
       const hub = new Hub();
-      new EventLogger(makeConfig({ enabled: false })).start(hub);
+      new EventLog(makeConfig({ enabled: false })).start(hub);
 
       hub.emit(joined);
       await flush();

@@ -3,22 +3,19 @@
 
 import config from "../config/config";
 import type { Event } from "../server/protocol/events";
-import { CLOCK_TICK } from "../server/protocol/events";
 
 export type LogFormat = "pretty" | "json";
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
-export interface LoggingConfig {
+export interface LogConfig {
   // Master on/off switch.
   readonly enabled: boolean;
-  // Minimum level a Logger call must meet to reach a sink. EventLogger
+  // Minimum level a Logger call must meet to reach a sink. EventLog
   // ignores this — bus events aren't leveled, see exclude/sampleRates.
   readonly level: LogLevel;
   // "pretty" (colored, human) in dev; "json" (ndjson to stdout) in prod.
   readonly format: LogFormat;
-  // Event types dropped before they reach a sink. CLOCK_TICK fires every
-  // ~250ms per active game and drowns everything else out, so it's
-  // excluded by default in prod. Override with LOG_EXCLUDE.
+  // Event types dropped before they reach a sink. Override with LOG_EXCLUDE.
   readonly exclude: ReadonlySet<Event["type"]>;
   // Per-type sampling rate in [0, 1], for types you want partial rather
   // than zero visibility into. Unlisted types default to 1 (log every
@@ -42,7 +39,7 @@ function parseList(raw: string | undefined): string[] {
 
 // LOG_EXCLUDE / LOG_SAMPLE are env vars — untyped input by nature. The
 // casts to Event["type"] happen right here, at the point each one is
-// parsed, so every other file that reads LoggingConfig gets to trust
+// parsed, so every other file that reads LogConfig gets to trust
 // the type instead of re-checking it.
 function parseSampleRates(raw: string | undefined): Map<Event["type"], number> {
   const rates = new Map<Event["type"], number>();
@@ -59,7 +56,7 @@ function parseSampleRates(raw: string | undefined): Map<Event["type"], number> {
   return rates;
 }
 
-const DEFAULT_EXCLUDE: Event["type"][] = isProd ? [CLOCK_TICK] : [];
+const DEFAULT_EXCLUDE: Event["type"][] = [];
 
 // "" (unset, via config's `?? ""` elsewhere) and whitespace-only both mean
 // "no file logging" — trimmed here so `LOG_FILE=` in a .env doesn't
@@ -69,7 +66,7 @@ function parseFilePath(raw: string | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export const loggingConfig: LoggingConfig = {
+export const loggingConfig: LogConfig = {
   enabled: config.logEnabled,
   level: (config.logLevel as LogLevel) ?? (isProd ? "info" : "debug"),
   format: (config.logFormat as LogFormat) ?? (isProd ? "json" : "pretty"),

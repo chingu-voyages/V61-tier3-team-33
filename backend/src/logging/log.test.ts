@@ -1,7 +1,7 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import { logger } from "./logger";
-import { loggingConfig } from "./logging-config";
-import type { LogLevel } from "./logging-config";
+import { logger } from "./log";
+import { loggingConfig } from "./config";
+import type { LogLevel } from "./config";
 
 describe("logger", () => {
   // logger.ts's own LEVEL_ORDER isn't exported, so it's reproduced here to
