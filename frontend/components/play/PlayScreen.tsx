@@ -1,0 +1,132 @@
+"use client"
+
+import { use, useReducer, useCallback, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { TimeControl as TimeControlPicker } from "./TimeControl"
+import { RoomInvite } from "./RoomInvite"
+import { MatchSearch } from "./MatchSearch"
+import { View } from "@/components/board/View"
+import { playReducer, createInitialPhase } from "./play-reducer"
+import type { PlayMode, TimeControl } from "./types"
+import { useGameActions } from "@/socket/use-action"
+import { useSocketEvent } from "@/socket/use-event"
+import { GAME_STARTED, ROOM_JOINED } from "@/socket/events"
+import { ClockFormat, HUMAN_VS_HUMAN, ACTIVE } from "@/socket/types"
+import { SessionContext } from "@/context/session/session-context"
+import { useGame } from "@/context/game/game-context"
+import { gooeyToast } from "@/components/ui/goey-toaster"
+
+interface PlayScreenProps {
+  mode: PlayMode
+  roomId?: string
+}
+
+export function PlayScreen({ mode, roomId }: PlayScreenProps) {
+  const router = useRouter()
+  const [phase, dispatch] = useReducer(playReducer, { mode, roomId }, createInitialPhase)
+  const actions = useGameActions()
+  const session = use(SessionContext)
+  const joinSentRef = useRef(false)
+  const game = useGame()
+
+  // If already in a game on mount (reconnect), show the board
+  useEffect(() => {
+    if (game.state.roomId && game.state.status !== null && game.state.status >= ACTIVE && phase.phase !== "play") {
+      dispatch({ type: "OPPONENT_JOINED" })
+    }
+  }, [game.state.roomId, game.state.status, phase.phase])
+
+  const goHome = useCallback(() => {
+    if (phase.phase !== "pick-time") {
+      actions.leaveRoom()
+    }
+    router.push("/")
+  }, [router, actions, phase])
+
+  const createRoom = useCallback(
+    (tc: TimeControl) => {
+      // Guard against clicking before the handshake completes — without
+      // this we'd flip to the "invite" phase with no join ever sent,
+      // stranding the user on that screen forever.
+      if (!session) {
+        gooeyToast.error("Still connecting\u2026", {
+          description: "Hang tight, try again in a moment.",
+        })
+        return
+      }
+      const id = crypto.randomUUID().slice(0, 8)
+      dispatch({
+        type: "CREATE_ROOM",
+        roomId: id,
+        timeControl: tc,
+      })
+      actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: id, clock: ClockFormat(tc.id) })
+    },
+    [actions, session]
+  )
+
+  const startSearch = useCallback(
+    (tc: TimeControl) => {
+      if (!session) {
+        gooeyToast.error("Still connecting\u2026", {
+          description: "Hang tight, try again in a moment.",
+        })
+        return
+      }
+      dispatch({ type: "START_SEARCH", timeControl: tc })
+      actions.joinRoom({ mode: HUMAN_VS_HUMAN, clock: ClockFormat(tc.id) })
+    },
+    [actions, session]
+  )
+
+  // Auto-join when entering via invite link (roomId from URL, phase is "invite")
+  useEffect(() => {
+    if (session && phase.phase === "invite" && !joinSentRef.current) {
+      joinSentRef.current = true
+      actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: phase.roomId })
+    }
+  }, [session, phase, actions])
+
+  useSocketEvent(GAME_STARTED, () => {
+    dispatch({ type: "OPPONENT_JOINED" })
+  })
+
+  useSocketEvent(ROOM_JOINED, (msg) => {
+    if (msg.state.status >= ACTIVE) {
+      dispatch({ type: "OPPONENT_JOINED" })
+    }
+  })
+
+  if (phase.phase === "pick-time") {
+    return (
+      <TimeControlPicker
+        mode={phase.mode}
+        open
+        connecting={!session}
+        onPick={phase.mode === "friend" ? createRoom : startSearch}
+        onCancel={goHome}
+      />
+    )
+  }
+
+  if (phase.phase === "invite") {
+    return (
+      <RoomInvite
+        roomId={phase.roomId}
+        timeControl={phase.timeControl}
+        onCancel={goHome}
+      />
+    )
+  }
+
+  if (phase.phase === "search") {
+    return (
+      <MatchSearch
+        timeControl={phase.timeControl}
+        onCancel={goHome}
+      />
+    )
+  }
+
+  return <View onLeave={goHome} />
+}
