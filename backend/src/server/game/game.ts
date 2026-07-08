@@ -9,6 +9,7 @@ import {
   ACTIVE,
   FINISHED,
   RULES,
+  ABANDONED,
   RESIGNATION,
   TIMEOUT,
   IN_PROGRESS,
@@ -22,7 +23,7 @@ import {
   type PieceColor,
   type PieceType,
   type Position,
-} from "../domain/types";
+} from "../types";
 
 import {
   ok,
@@ -43,7 +44,7 @@ import {
   type UndoError,
   type JoinError,
   type SelectError,
-} from "../domain/result";
+} from "../types";
 
 import type { Occupant } from "../occupant/occupant";
 import type { Publisher, Subscriber } from "../bus/bus";
@@ -68,6 +69,7 @@ export class Game {
   private chess: Chess = new Chess();
   private slots = new Map<PieceColor, Occupant>();
   private lock = new Mutex();
+  private abandonedBy: PieceColor | null = null;
 
   constructor(
     readonly id: string,
@@ -264,6 +266,25 @@ export class Game {
     });
   }
 
+  /**
+   * Ends the game due to abandonment by `color` (grace period expired).
+   * No-op if already finished. Like `expire`, broadcasts internally.
+   */
+  async abandon(by: PieceColor): Promise<void> {
+    return this.lock.run(async () => {
+      if (this.status !== ACTIVE) return;
+
+      this.timer.dispose();
+      this.abandonedBy = by;
+      this.status = FINISHED;
+      this.endReason = ABANDONED;
+      this.finishedAt = Date.now();
+
+      const outcome = this.outcome();
+      this.broadcast(Notifications.gameEnded(this.id, outcome, outcome.winner));
+    });
+  }
+
   /** Called internally when the timer emits CLOCK_EXPIRED. Safe to call multiple times. */
   expire(): void {
     if (this.status !== ACTIVE) return;
@@ -271,6 +292,8 @@ export class Game {
     this.status = FINISHED;
     this.endReason = TIMEOUT;
     this.finishedAt = Date.now();
+    const result = this.outcome();
+    this.broadcast(Notifications.gameEnded(this.id, result, result.winner));
   }
 
   /** Undoes the last move, reopening the game if it had just finished. */
@@ -342,6 +365,18 @@ export class Game {
         hasWinner: true,
         drawReason: NO_DRAW_REASON,
         reason: TIMEOUT,
+      };
+    }
+
+    if (this.endReason === ABANDONED && this.abandonedBy !== null) {
+      const winner = this.abandonedBy === WHITE ? BLACK : WHITE;
+      const hasOpponent = this.slots.has(winner);
+      return {
+        status: IN_PROGRESS,
+        winner: hasOpponent ? winner : WHITE,
+        hasWinner: hasOpponent,
+        drawReason: NO_DRAW_REASON,
+        reason: ABANDONED,
       };
     }
 

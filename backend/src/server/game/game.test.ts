@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach, mock } from "bun:test";
 import { Game } from "./game";
 import type { Occupant } from "../occupant/occupant";
 import type { Publisher, Subscriber } from "../bus/bus";
-import { MOVE, DEFAULT } from "../clock/types";
+import { MOVE, DEFAULT } from "../types";
 import type { Clock } from "../clock/clock";
 import type { Timer } from "../clock/timer";
 import { ClockTimer } from "../clock/timer";
@@ -12,13 +12,14 @@ import {
   WAITING,
   ACTIVE,
   FINISHED,
+  ABANDONED,
   RULES,
   RESIGNATION,
   TIMEOUT,
   HUMAN,
   HUMAN_VS_HUMAN,
   CHECKMATE,
-} from "../domain/types";
+} from "../types";
 import {
   NOT_YOUR_TURN,
   ILLEGAL_MOVE,
@@ -31,8 +32,8 @@ import {
   SELECT_NOT_YOUR_TURN,
   SELECT_SQUARE_EMPTY,
   SELECT_NOT_YOUR_PIECE,
-} from "../domain/result";
-import { MOVE_MADE, CLOCK_EXPIRED } from "../protocol/events";
+} from "../types";
+import { MOVE_MADE, CLOCK_EXPIRED, ROOM_LEFT } from "../protocol/events";
 import {
   A1,
   D5,
@@ -275,6 +276,106 @@ describe("Game", () => {
 
       expect(white.notify).not.toHaveBeenCalled();
       expect(reconnected.notify).toHaveBeenCalledWith(event);
+    });
+  });
+
+  describe("isEmpty", () => {
+    it("returns true when no slots are filled", () => {
+      const game = makeGame();
+      expect(game.isEmpty).toBe(true);
+    });
+
+    it("returns false when at least one slot is filled", () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+      expect(game.isEmpty).toBe(false);
+    });
+  });
+
+  describe("isWaiting", () => {
+    it("returns true when status is WAITING", () => {
+      const game = makeGame();
+      expect(game.isWaiting).toBe(true);
+    });
+
+    it("returns false when status is ACTIVE", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      expect(game.isWaiting).toBe(false);
+    });
+
+    it("returns false when status is FINISHED", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.expire();
+      expect(game.isWaiting).toBe(false);
+    });
+  });
+
+  describe("isActive", () => {
+    it("returns true when status is ACTIVE", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      expect(game.isActive).toBe(true);
+    });
+
+    it("returns false when status is WAITING", () => {
+      const game = makeGame();
+      expect(game.isActive).toBe(false);
+    });
+
+    it("returns false when status is FINISHED", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.expire();
+      expect(game.isActive).toBe(false);
+    });
+  });
+
+  describe("leave", () => {
+    it("removes the occupant from the slot", () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+      game.join(BLACK, makeOccupant("p2"));
+
+      game.leave(WHITE);
+
+      expect(game.getOccupant(WHITE)).toBeNull();
+      expect(game.isFull).toBe(false);
+    });
+
+    it("broadcasts ROOM_LEFT to the publisher", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      game.join(WHITE, makeOccupant("p1"));
+
+      game.leave(WHITE);
+
+      expect(publisher.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: ROOM_LEFT, color: WHITE }),
+      );
+    });
+
+    it("does not throw when leaving an already-empty slot", () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+      game.leave(WHITE);
+      game.leave(WHITE); // already empty — should be safe
+      expect(game.isEmpty).toBe(true);
+    });
+
+    it("allows the last occupant to leave without crashing (EC35)", () => {
+      const publisher = makePublisher();
+      const timer = makeMockTimer();
+      const game = makeGame(publisher, timer);
+      seatBothPlayers(game); // game becomes ACTIVE, timer started
+      game.leave(WHITE);
+      game.leave(BLACK); // last occupant leaves
+
+      expect(game.isEmpty).toBe(true);
+      expect(game.isActive).toBe(true); // leave doesn't change status
+      // Game should still be accessible for queries
+      expect(game.nextColor()).toBe(WHITE);
     });
   });
 
@@ -772,6 +873,139 @@ describe("Game", () => {
         expect.any(Function),
         0, // FAST priority
       );
+    });
+  });
+
+  describe("abandon", () => {
+    it("ends the game as ABANDONED with the opponent as winner", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(ABANDONED);
+      const snap = game.snapshot();
+      expect(snap.winner).toBe(BLACK);
+      expect(snap.hasWinner).toBe(true);
+      expect(snap.endReason).toBe(ABANDONED);
+    });
+
+    it("broadcasts GAME_ENDED with abandonment result", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      expect(publisher.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "game:ended",
+          result: expect.objectContaining({ reason: ABANDONED, winner: BLACK }),
+        }),
+      );
+    });
+
+    it("is a no-op if already finished", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE); // first — ends the game
+      publisher.emit = mock(() => {}); // reset broadcast spy
+      await game.abandon(BLACK); // second — no-op
+
+      expect(game.endReason).toBe(ABANDONED);
+      expect(publisher.emit).not.toHaveBeenCalled();
+    });
+
+    it("disposes the timer", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      expect(timer.dispose).toHaveBeenCalled();
+    });
+
+    it("rejects further moves after abandonment", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      const result = await game.move(BLACK, { from: E7, to: E5 });
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
+    });
+
+    it("handles abandon when both slots have occupants", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      await game.abandon(BLACK);
+
+      expect(game.snapshot().winner).toBe(WHITE);
+    });
+
+    it("handles abandon when the opponent slot is empty", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.leave(BLACK); // opponent leaves — game is still ACTIVE but only WHITE remains
+
+      await game.abandon(WHITE);
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(ABANDONED);
+      const snap = game.snapshot();
+      expect(snap.hasWinner).toBe(false);
+      expect(snap.winner).toBe(WHITE); // dummy default, not meaningful when hasWinner=false
+    });
+
+    it("is a no-op if game is not ACTIVE (WAITING)", async () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+
+      await game.abandon(WHITE);
+
+      expect(game.isFinished).toBe(false);
+      expect(game.status).toBe(WAITING);
+    });
+  });
+
+  describe("expire — edge cases", () => {
+    it("broadcasts even when no occupants are seated", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      game.join(WHITE, makeOccupant("p1"));
+      game.join(BLACK, makeOccupant("p2"));
+      game.leave(WHITE);
+      game.leave(BLACK); // both occupants gone, game still ACTIVE
+
+      game.expire();
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(TIMEOUT);
+      expect(publisher.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "game:ended",
+        }),
+      );
+    });
+
+    it("is a no-op if already finished with no occupants", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+      game.expire();
+
+      game.leave(WHITE);
+      game.leave(BLACK);
+      publisher.emit = mock(() => {}); // reset after leave broadcasts
+      game.expire(); // second expiry — should not broadcast
+
+      expect(publisher.emit).not.toHaveBeenCalled();
     });
   });
 });
