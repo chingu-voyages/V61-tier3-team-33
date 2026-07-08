@@ -1,6 +1,6 @@
-import type { Protocol } from "./protocol";
-import type { Command } from "./commands";
-import type { Notification } from "./events";
+import type { Codec } from "./codec";
+import type { Command } from "../protocol/commands";
+import type { Notification } from "../protocol/events";
 import {
   SESSION_HANDSHAKE,
   SESSION_PONG,
@@ -13,35 +13,26 @@ import {
   GAME_RESIGN,
   STATE_SYNC,
   POSITION_SELECT,
-} from "./commands";
+} from "../protocol/commands";
 
 type Raw = Record<string, unknown>;
 
-/** True if value is a plain object (not null, not an array). */
 function isPlainObject(value: unknown): value is Raw {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Returns v if it's a string or undefined, otherwise undefined. */
 const optionalString = (v: unknown): string | undefined =>
   v === undefined || typeof v === "string"
     ? (v as string | undefined)
     : undefined;
 
-/** Returns v if it's a number or undefined, otherwise undefined. */
 const optionalNumber = (v: unknown): number | undefined =>
   v === undefined || typeof v === "number"
     ? (v as number | undefined)
     : undefined;
 
-/** Validates one command type's fields and builds the Command, or returns null. */
 type Decoder = (raw: Raw) => Command | null;
 
-/**
- * One decoder per `Command["type"]`. A `Record` (not a `switch`) so adding a
- * new `Command` variant without adding its decoder is a compile error —
- * exhaustiveness enforced by the type system, not a runtime `never` check.
- */
 const decoders: Record<Command["type"], Decoder> = {
   [SESSION_HANDSHAKE]: (raw) => {
     if (raw.token !== undefined && typeof raw.token !== "string") return null;
@@ -92,9 +83,7 @@ const decoders: Record<Command["type"], Decoder> = {
   },
 };
 
-/** JSON wire format. */
-export class JsonCodec implements Protocol {
-  /** {@inheritDoc} */
+export class JsonCodec implements Codec {
   decode(raw: unknown): Command | null {
     if (!isPlainObject(raw)) return null;
     if (typeof raw.type !== "string") return null;
@@ -105,7 +94,6 @@ export class JsonCodec implements Protocol {
     return decode(raw);
   }
 
-  /** {@inheritDoc} */
   encode(event: Notification): string {
     return JSON.stringify(event);
   }

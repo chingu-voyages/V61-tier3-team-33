@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { JsonCodec } from "./json-codec";
+import { JsonCodec } from "./json";
 import {
   SESSION_HANDSHAKE,
   SESSION_PONG,
@@ -12,9 +12,9 @@ import {
   GAME_RESIGN,
   STATE_SYNC,
   type Command,
-} from "./commands";
-import { ROOM_JOINED } from "./events";
-import { HUMAN_VS_HUMAN, WHITE, EASY } from "../domain/types";
+} from "../protocol/commands";
+import { ROOM_JOINED } from "../protocol/events";
+import { HUMAN_VS_HUMAN, WHITE, EASY } from "../types";
 
 const codec = new JsonCodec();
 
