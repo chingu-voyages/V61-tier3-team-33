@@ -14,6 +14,34 @@ import {
   STATE_SYNC,
   POSITION_SELECT,
 } from "../protocol/commands";
+import {
+  DEFAULT,
+  BULLET,
+  BLITZ,
+  SWIFT,
+  STEADY,
+  PATIENT,
+  CASUAL,
+  type ClockFormat,
+} from "../types";
+
+const CLOCK_FORMATS: ReadonlySet<string> = new Set([
+  DEFAULT,
+  BULLET,
+  BLITZ,
+  SWIFT,
+  STEADY,
+  PATIENT,
+  CASUAL,
+]);
+
+const optionalClockFormat = (v: unknown): ClockFormat | undefined => {
+  if (v === undefined) return undefined;
+  if (typeof v === "string" && CLOCK_FORMATS.has(v)) {
+    return v as ClockFormat;
+  }
+  return undefined;
+};
 
 type Raw = Record<string, unknown>;
 
@@ -47,12 +75,20 @@ const decoders: Record<Command["type"], Decoder> = {
     if (raw.color !== undefined && typeof raw.color !== "number") return null;
     if (raw.difficulty !== undefined && typeof raw.difficulty !== "number")
       return null;
+    // clock is only honored when creating a new room (no roomId); joining an
+    // existing room always uses that room's format, decided server-side.
+    if (
+      raw.clock !== undefined &&
+      (typeof raw.clock !== "string" || !CLOCK_FORMATS.has(raw.clock))
+    )
+      return null;
     return {
       type: ROOM_JOIN,
       mode: raw.mode,
       roomId: optionalString(raw.roomId),
       color: optionalNumber(raw.color),
       difficulty: optionalNumber(raw.difficulty),
+      clock: optionalClockFormat(raw.clock),
     } as Command;
   },
 

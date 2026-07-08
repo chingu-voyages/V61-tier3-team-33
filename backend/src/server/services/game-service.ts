@@ -10,7 +10,7 @@ import {
 } from "../types";
 import type { Game } from "../game/game";
 import type { GameStore } from "../game/game-store";
-import { DEFAULT } from "../types";
+import { BLITZ } from "../types";
 import { createClock } from "../clock/factory";
 import { Human } from "../occupant/human";
 import {
@@ -69,6 +69,7 @@ export class GameService implements GameFacade {
 
   /** {@inheritDoc} */
   async join(ws: WebSocket, input: JoinInput): Promise<void> {
+    log.info("join: input", { input });
     const session = this.sessions.bySocket(ws);
     if (!session) {
       Reply.send(ws, Reply.error(NOT_AUTHENTICATED, "Session not found."));
@@ -136,7 +137,7 @@ export class GameService implements GameFacade {
       }
       game = found;
     } else {
-      const format = input.clock ?? DEFAULT;
+      const format = input.clock ?? BLITZ;
       game =
         this.games.findWaiting(input.mode, format) ??
         this.games.create(undefined, input.mode, createClock(format));
@@ -144,6 +145,7 @@ export class GameService implements GameFacade {
 
     const color = input.color ?? game.nextColor();
     if (color === null) {
+      log.warn("join rejected: game full", { roomId: game.id, input });
       Reply.send(ws, Reply.error(GAME_FULL, "Game is full."));
       return;
     }
@@ -167,6 +169,8 @@ export class GameService implements GameFacade {
 
     const state = game.snapshot();
 
+    log.info("join: output", { roomId: game.id, color, fen: state.fen, turn: state.turn });
+
     game.notify(color, Notifications.roomJoined(game.id, color, state));
 
     if (game.isActive) {
@@ -184,9 +188,18 @@ export class GameService implements GameFacade {
 
     const color = session.color!;
 
+    log.info("move: input", { roomId: game.id, color, input });
+
     const result = await game.move(color, input);
 
     if (!result.ok) {
+      log.warn("move: rejected", {
+        roomId: game.id,
+        color,
+        error: result.error,
+        from: input.from,
+        to: input.to,
+      });
       game.notify(
         color,
         Notifications.moveRejected(
@@ -201,6 +214,15 @@ export class GameService implements GameFacade {
     }
 
     const snapshot = game.snapshot();
+
+    log.info("move: output", {
+      roomId: game.id,
+      color,
+      move: result.value,
+      fen: snapshot.fen,
+      turn: snapshot.turn,
+    });
+
     game.broadcast(
       Notifications.moveMade(game.id, color, result.value, snapshot),
     );
@@ -217,6 +239,7 @@ export class GameService implements GameFacade {
     const color = session.color!;
 
     if (!game.isActive) {
+      log.warn("requestUndo: rejected, game finished", { roomId: game.id, color });
       Reply.send(
         ws,
         Reply.error(GAME_FINISHED, "This game has already finished."),
@@ -226,9 +249,14 @@ export class GameService implements GameFacade {
 
     // No-op if a request is already pending (either side) — the opponent
     // should accept/decline the existing one instead.
-    if (this.pendingUndos.has(game.id)) return;
+    if (this.pendingUndos.has(game.id)) {
+      log.info("requestUndo: ignored, already pending", { roomId: game.id, color });
+      return;
+    }
 
     this.pendingUndos.set(game.id, color);
+
+    log.info("requestUndo: output", { roomId: game.id, color });
 
     const opponentColor = color === WHITE ? BLACK : WHITE;
     game.notify(
@@ -253,6 +281,8 @@ export class GameService implements GameFacade {
 
     const requestedBy = this.pendingUndos.get(game.id);
 
+    log.info("acceptUndo: input", { roomId: game.id, color, requestedBy });
+
     // No pending request, or you can't accept your own — silently ignore
     // rather than invent a dedicated error code for a stale client action.
     if (requestedBy === undefined || requestedBy === color) return;
@@ -260,7 +290,12 @@ export class GameService implements GameFacade {
     this.pendingUndos.delete(game.id);
 
     const result = await game.undo();
-    if (!result.ok) return;
+    if (!result.ok) {
+      log.warn("acceptUndo: game.undo() failed", { roomId: game.id, color });
+      return;
+    }
+
+    log.info("acceptUndo: output", { roomId: game.id });
 
     game.broadcast(Notifications.undoApplied(game.id, game.snapshot()));
   }
@@ -276,9 +311,14 @@ export class GameService implements GameFacade {
     const color = session.color!;
 
     const requestedBy = this.pendingUndos.get(game.id);
+
+    log.info("declineUndo: input", { roomId: game.id, color, requestedBy });
+
     if (requestedBy === undefined || requestedBy === color) return;
 
     this.pendingUndos.delete(game.id);
+
+    log.info("declineUndo: output", { roomId: game.id, color });
 
     game.broadcast(Notifications.undoDeclined(game.id, color));
   }
@@ -293,8 +333,11 @@ export class GameService implements GameFacade {
 
     const color = session.color!;
 
+    log.info("resign: input", { roomId: game.id, color });
+
     const result = await game.resign(color);
     if (!result.ok) {
+      log.warn("resign: rejected, game finished", { roomId: game.id, color });
       Reply.send(
         ws,
         Reply.error(GAME_FINISHED, "This game has already finished."),
@@ -303,6 +346,8 @@ export class GameService implements GameFacade {
     }
 
     this.pendingUndos.delete(game.id);
+
+    log.info("resign: output", { roomId: game.id, winner: result.value.winner });
 
     game.broadcast(
       Notifications.gameEnded(game.id, result.value, result.value.winner),
@@ -319,10 +364,14 @@ export class GameService implements GameFacade {
 
     const color = session.color!;
 
+    log.info("leave: input", { roomId: game.id, color });
+
     game.leave(color);
     this.pendingUndos.delete(game.id);
 
     this.sessions.bind(ws, { roomId: null, color: null, mode: null });
+
+    log.info("leave: output", { roomId: game.id, color });
   }
 
   /** {@inheritDoc} */
@@ -334,6 +383,8 @@ export class GameService implements GameFacade {
     if (!game) return;
 
     const color = session.color!;
+
+    log.info("sync: input/output", { roomId: game.id, color });
 
     game.notify(
       color,
@@ -351,15 +402,25 @@ export class GameService implements GameFacade {
 
     const color = session.color!;
 
+    log.info("selectPosition: input", { roomId: game.id, color, position });
+
     const result = game.selectPosition(color, position);
 
     if (!result.ok) {
+      log.warn("selectPosition: rejected", {
+        roomId: game.id,
+        color,
+        position,
+        error: result.error,
+      });
       game.notify(
         color,
         Notifications.positionRejected(game.id, position, result.error),
       );
       return;
     }
+
+    log.info("selectPosition: output", { roomId: game.id, color, position, value: result.value });
 
     game.notify(
       color,

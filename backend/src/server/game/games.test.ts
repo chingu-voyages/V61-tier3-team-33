@@ -137,7 +137,7 @@ describe("Games", () => {
       // The stale id should be gone now too, not just skipped.
       const queue = (
         store as unknown as { queue: Map<string, Set<string>> }
-      ).queue.get(`0:default`);
+      ).queue.get(`0:blitz`);
       expect(queue?.has("room-1")).toBe(false);
     });
   });

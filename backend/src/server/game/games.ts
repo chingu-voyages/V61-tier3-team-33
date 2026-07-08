@@ -2,11 +2,14 @@ import type { Publisher, Subscriber } from "../bus/bus";
 import { ok, type CommitError, type Result } from "../types";
 import { HUMAN_VS_HUMAN, type Mode } from "../types";
 import type { Clock } from "../clock/clock";
-import { type ClockFormat, DEFAULT } from "../types";
+import { type ClockFormat, BLITZ } from "../types";
 import { createClock } from "../clock/factory";
 import { ClockTimer } from "../clock/timer";
 import { Game } from "./game";
 import type { GameStore } from "./game-store";
+import { logger } from "../../logging/log";
+
+const log = logger.child({ module: "Games" });
 
 // How long a finished game stays in memory before being swept — long enough
 // for a slow client to fetch the final snapshot after the last move/undo.
@@ -41,7 +44,11 @@ export class Games implements GameStore {
   }
 
   /** {@inheritDoc} */
-  findWaiting(mode: Mode, format: ClockFormat = DEFAULT): Game | null {
+  // `DEFAULT` isn't a real clock format the factory knows how to build —
+  // createClock() falls back to BlitzClock (format BLITZ) whenever it's
+  // asked for DEFAULT or nothing at all. Search under BLITZ here too, or
+  // callers that omit `format` never find the games created the same way.
+  findWaiting(mode: Mode, format: ClockFormat = BLITZ): Game | null {
     const queue = this.queueFor(mode, format);
 
     for (const id of queue) {
@@ -73,6 +80,8 @@ export class Games implements GameStore {
     this.games.set(id, game);
     this.queueFor(mode, clock.format).add(id);
 
+    log.info("game created", { id, mode, format: clock.format });
+
     return game;
   }
 
@@ -92,6 +101,8 @@ export class Games implements GameStore {
 
     this.games.delete(id);
     this.queue.get(queueKey(game.mode, game.clock.format))?.delete(id);
+
+    log.info("game dropped", { id });
   }
 
   /** {@inheritDoc} */
@@ -102,6 +113,9 @@ export class Games implements GameStore {
         this.drop(id);
         count++;
       }
+    }
+    if (count > 0) {
+      log.debug("sweep completed", { count, remaining: this.games.size });
     }
     return count;
   }
@@ -118,6 +132,8 @@ export class Games implements GameStore {
     };
 
     this.sweeper = setTimeout(tick, intervalMs);
+
+    log.info("sweeper started", { intervalMs });
   }
 
   /** {@inheritDoc} */
@@ -126,6 +142,8 @@ export class Games implements GameStore {
 
     clearTimeout(this.sweeper);
     this.sweeper = null;
+
+    log.info("sweeper stopped");
   }
 
   /** The waiting-id queue for `(mode, format)`, creating an empty one on first use. */
