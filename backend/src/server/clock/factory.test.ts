@@ -1,19 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import { createClock } from "./factory";
-import { MOVE, DEFAULT } from "../types";
+import { MOVE, BLITZ } from "../types";
 
 describe("createClock", () => {
-  it("returns a default strategy with 30s when no config given", () => {
+  it("returns blitz (5 min) when no format given", () => {
     const c = createClock();
-    expect(c.initialMs).toBe(30_000);
+    expect(c.initialMs).toBe(300_000);
     expect(c.type).toBe(MOVE);
   });
 
-  it("returns default strategy when passed DEFAULT format", () => {
-    const c = createClock(DEFAULT);
-    expect(c.initialMs).toBe(30_000);
+  it("returns blitz when passed unknown format", () => {
+    const c = createClock(BLITZ);
+    expect(c.initialMs).toBe(300_000);
     expect(c.type).toBe(MOVE);
-    expect(c.onMove(50_000, 10_000)).toBe(30_000);
+    expect(c.onMove(50_000, 10_000)).toBe(300_000);
   });
 
   it("has no turn delay by default", () => {
@@ -21,8 +21,8 @@ describe("createClock", () => {
     expect(c.onTurn()).toBe(0);
   });
 
-  it("has format DEFAULT", () => {
+  it("has format blitz by default", () => {
     const c = createClock();
-    expect(c.format).toBe(DEFAULT);
+    expect(c.format).toBe(BLITZ);
   });
 });

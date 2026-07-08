@@ -1,31 +1,21 @@
 import type { Clock } from "./clock";
 import type { ClockFormat } from "../types";
-import { MOVE, DEFAULT } from "../types";
-
-function defaultClock(): Clock {
-  return new DefaultClock();
-}
+import { BULLET, RAPID_2, RAPID_3, RAPID_4, BLITZ, ASYNC } from "../types";
+import { BulletClock } from "./move/bullet";
+import { Rapid2Clock } from "./move/rapid_2";
+import { Rapid3Clock } from "./move/rapid_3";
+import { Rapid4Clock } from "./move/rapid_4";
+import { BlitzClock }  from "./move/blitz";
+import { AsyncClock }  from "./move/async";
 
 export function createClock(format?: ClockFormat): Clock {
-  if (!format) return defaultClock();
-
-  switch (format) {
-    // case YOUR_FORMAT: return new YourStrategy();
-    default:
-      // TODO: delete this default after implementing real strategies
-      return new DefaultClock();
-  }
-}
-
-// TODO: delete after implementing real strategies
-class DefaultClock implements Clock {
-  readonly type = MOVE;
-  readonly format = DEFAULT;
-  readonly initialMs = 30_000;
-  onMove(): number {
-    return this.initialMs;
-  }
-  onTurn(): number {
-    return 0;
-  }
+    switch (format) {
+        case BULLET:  return new BulletClock();
+        case RAPID_2: return new Rapid2Clock();
+        case RAPID_3: return new Rapid3Clock();
+        case RAPID_4: return new Rapid4Clock();
+        case BLITZ:   return new BlitzClock();
+        case ASYNC:   return new AsyncClock();
+        default:      return new BlitzClock();
+    }
 }
