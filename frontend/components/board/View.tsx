@@ -85,7 +85,7 @@ export function View({ onLeave }: ViewProps) {
 
   const resultText = useMemo(() => {
     if (!state.result || state.color === null) return ""
-    const { hasWinner, winner, status, reason, drawReason } = state.result
+    const { hasWinner, winner, status, drawReason } = state.result
     if (hasWinner) {
       const iWon = winner === state.color
       return iWon ? "You won!" : "Opponent won!"

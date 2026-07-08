@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardContent,
 } from "@/components/ui/card"
 
 const playModes = [
@@ -43,7 +42,7 @@ export function MainPage() {
           Welcome to Chingu Chess
         </h1>
         <p className="max-w-md text-muted-foreground">
-          Choose how you'd like to play
+          Choose how you&apos;d like to play
         </p>
       </div>
       <div className="flex w-full max-w-2xl flex-row flex-wrap justify-center gap-4">

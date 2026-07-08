@@ -12,10 +12,6 @@ import { Button } from "@/components/ui/button"
 import type { TimeControl } from "./types"
 import { KnightPulse } from "./KnightPulse"
 
-function formatClock(ms: number): string {
-  return ms >= 60000 ? `${ms / 60000}` : `${ms / 1000}`
-}
-
 interface RoomInviteProps {
   roomId: string
   timeControl: TimeControl

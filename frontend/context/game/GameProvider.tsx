@@ -157,7 +157,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: "CLOCK_TICK" })
     }, 1000)
     return () => clearInterval(interval)
-  }, [state.clock?.active, state.status])
+  }, [state.clock, state.status])
 
   const value = useMemo(() => ({ state, actions }), [state, actions])
 
