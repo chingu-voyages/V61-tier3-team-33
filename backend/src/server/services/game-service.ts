@@ -1,4 +1,4 @@
-import { ROOM_FULL } from "../domain/result";
+import { ROOM_FULL } from "../types";
 import {
   BLACK,
   WHITE,
@@ -7,10 +7,10 @@ import {
   type PieceColor,
   type Position,
   type WebSocket,
-} from "../domain/types";
+} from "../types";
 import type { Game } from "../game/game";
 import type { GameStore } from "../game/game-store";
-import { DEFAULT } from "../clock/types";
+import { DEFAULT } from "../types";
 import { createClock } from "../clock/factory";
 import { Human } from "../occupant/human";
 import {
@@ -20,13 +20,14 @@ import {
   NOT_IN_GAME,
   ROOM_NOT_FOUND,
 } from "../protocol/errors";
-import { Notifications } from "../protocol/events";
-import type { Protocol } from "../protocol/protocol";
+import { Notifications, GRACE_EXPIRED, CONNECTION_CLOSED } from "../protocol/events";
+import type { Codec } from "../codec/codec";
 import { Reply } from "../protocol/replies";
 import type { SessionStore } from "../session/session-store";
-import { logger as rootLogger } from "../../logging/logger";
+import { logger as rootLogger } from "../../logging/log";
 import type { GameFacade } from "./game-facade";
 import type { Session } from "../session/session";
+import type { Subscriber } from "../bus/bus";
 
 const log = rootLogger.child({ module: "GameService" });
 
@@ -44,8 +45,27 @@ export class GameService implements GameFacade {
   constructor(
     private sessions: SessionStore,
     private games: GameStore,
-    private protocol: Protocol,
-  ) {}
+    private protocol: Codec,
+    hub?: Subscriber,
+  ) {
+    if (hub) {
+      // Connections handles the grace timer lifecycle (start on close,
+      // cancel on resume). GameService just notifies the opponent.
+      hub.on(CONNECTION_CLOSED, (_rid, event) => {
+        if (event.type !== CONNECTION_CLOSED) return;
+        const session = this.sessions.byPlayerId(event.playerId);
+        // Guard: player may have already reconnected (DEFERRED race)
+        if (!session || session.disconnectedAt === null) return;
+        this.notifyGraceStarted(session);
+      });
+
+      hub.on(GRACE_EXPIRED, (_rid, event) => {
+        if (event.type === GRACE_EXPIRED) {
+          this.handleGraceExpired(event.roomId, event.color);
+        }
+      });
+    }
+  }
 
   /** {@inheritDoc} */
   async join(ws: WebSocket, input: JoinInput): Promise<void> {
@@ -58,22 +78,39 @@ export class GameService implements GameFacade {
     // Rejoin on reconnect.
     if (session.roomId && session.color !== null) {
       const existing = this.games.get(session.roomId);
-      if (existing && !existing.isFinished) {
-        const previous = existing.getOccupant(session.color);
-        const occupant =
-          previous instanceof Human
-            ? previous.replaceSocket(ws)
-            : new Human(session.playerId, ws, this.protocol);
-        existing.reseat(session.color, occupant);
+      if (existing) {
+        // Grace timer is cancelled by Connections.identify() on resume.
+        // Notify the opponent the player is back.
+        if (!existing.isFinished) {
+          const previous = existing.getOccupant(session.color);
+          const occupant =
+            previous instanceof Human
+              ? previous.replaceSocket(ws)
+              : new Human(session.playerId, ws, this.protocol);
+          existing.reseat(session.color, occupant);
 
-        // TODO: notify the opponent that this player reconnected. There's
-        // no player-facing Notification for this yet — CONNECTION_RESUMED
-        // exists in events.ts but is typed as a Signal (Hub-only, rejected
-        // by Occupant.notify's type signature on purpose). Needs: (1) a
-        // real Notification variant, and (2) Connections.identify to
-        // actually distinguish a resumed session from a freshly opened
-        // one — right now it always emits CONNECTION_OPENED regardless of
-        // which branch resumeOrOpen took.
+          existing.notify(
+            session.color,
+            Notifications.roomJoined(
+              existing.id,
+              session.color,
+              existing.snapshot(),
+            ),
+          );
+
+          const opponentColor = session.color === WHITE ? BLACK : WHITE;
+          existing.notify(
+            opponentColor,
+            Notifications.graceCancelled(existing.id, session.color),
+          );
+
+          return;
+        }
+
+        // Game is finished — still send the final snapshot so the
+        // reconnecting player can see the result.
+        const occupant = new Human(session.playerId, ws, this.protocol);
+        existing.reseat(session.color, occupant);
 
         existing.notify(
           session.color,
@@ -328,6 +365,27 @@ export class GameService implements GameFacade {
       color,
       Notifications.positionAccepted(game.id, position, result.value),
     );
+  }
+
+  /** Notifies the opponent that grace period started for the disconnected player. */
+  private notifyGraceStarted(session: Session): void {
+    if (!session.roomId || session.color === null) return;
+    const game = this.games.get(session.roomId);
+    if (!game || !game.isActive) return;
+
+    const opponentColor = session.color === WHITE ? BLACK : WHITE;
+    game.notify(
+      opponentColor,
+      Notifications.graceStarted(game.id, session.color, Date.now()),
+    );
+  }
+
+  /** Called when a grace timer expires — abandons the game on behalf of the disconnected player. */
+  private handleGraceExpired(roomId: string, disconnectedColor: PieceColor): void {
+    const game = this.games.get(roomId);
+    if (!game) return;
+
+    game.abandon(disconnectedColor);
   }
 
   private getSession(ws: WebSocket): Session | null {
