@@ -120,7 +120,7 @@ createGame(BLITZ)
 | `stop()` / `startNext()` | Each move |
 | `dispose()` | Game ends |
 
-Emits `CLOCK_STARTED`, `CLOCK_PAUSED`, `CLOCK_TICK`, `CLOCK_EXPIRED`.
+Emits `CLOCK_STARTED`, `CLOCK_PAUSED`, `CLOCK_EXPIRED`.
 
 ### Factory (`factory.ts`)
 
