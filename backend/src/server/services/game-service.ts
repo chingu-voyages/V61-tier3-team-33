@@ -130,12 +130,20 @@ export class GameService implements GameFacade {
     let game: Game;
     if (input.roomId) {
       const found = this.games.get(input.roomId);
-      if (!found) {
+      if (found) {
+        game = found;
+      } else if (input.clock === undefined) {
+        // Joining via an invite link must target an existing room —
+        // creating one here would silently strand the inviter.
         log.warn("join attempted on missing room", { roomId: input.roomId });
         Reply.send(ws, Reply.error(ROOM_NOT_FOUND, "Room not found."));
         return;
+      } else {
+        // First join with a client-supplied id and an explicit clock
+        // format: this is the room creator (e.g. "Play a Friend"), so
+        // create the room using that id.
+        game = this.games.create(input.roomId, input.mode, createClock(input.clock));
       }
-      game = found;
     } else {
       const format = input.clock ?? BLITZ;
       game =
