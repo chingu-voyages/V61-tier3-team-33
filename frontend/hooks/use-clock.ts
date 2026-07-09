@@ -9,7 +9,7 @@ export function useClock(clock: ClockState | null, receivedAt: number | null): C
 
   useEffect(() => {
     if (!clock || receivedAt === null || clock.active === null) return
-    const id = setInterval(() => setNow(performance.now()), 1000)
+    const id = setInterval(() => setNow(performance.now()), 100)
     return () => clearInterval(id)
   }, [clock, receivedAt])
 

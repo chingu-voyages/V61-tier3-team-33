@@ -13,6 +13,7 @@ import {
   STATE_SYNC,
   ROOM_LEAVE,
   POSITION_SELECT,
+  EMOTE_SEND,
 } from "../protocol/commands";
 import { JsonCodec } from "../codec/json";
 import { Sessions } from "../session/sessions";
@@ -154,6 +155,10 @@ export class Gateway {
       case POSITION_SELECT:
         log.info("[GATEWAY-select]", { wsId: ws.id, position: (cmd as any).position });
         this.gameService.selectPosition(ws, cmd.position);
+        break;
+
+      case EMOTE_SEND:
+        this.gameService.sendEmote(ws, cmd.emote);
         break;
 
       default:

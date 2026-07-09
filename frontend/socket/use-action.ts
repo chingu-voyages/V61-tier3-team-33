@@ -17,6 +17,7 @@ export interface GameActions {
   resign: () => void
   syncState: () => void
   selectPosition: (position: Position) => void
+  sendEmote: (emote: string) => void
 }
 
 /**
@@ -42,6 +43,7 @@ export function useGameActions(): GameActions {
       syncState: () => send(Commands.syncState()),
       selectPosition: (position: Position) =>
         send(Commands.selectPosition({ position })),
+      sendEmote: (emote: string) => send(Commands.sendEmote(emote)),
     }),
     [send]
   )

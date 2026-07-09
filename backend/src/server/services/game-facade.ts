@@ -28,4 +28,6 @@ export interface GameFacade {
    * @param position — the board square the player clicked
    */
   selectPosition(ws: WebSocket, position: Position): Promise<void>;
+  /** Sends an emoji reaction to the opponent. Rate-limited to 1 per 30 seconds. */
+  sendEmote(ws: WebSocket, emote: string): Promise<void>;
 }

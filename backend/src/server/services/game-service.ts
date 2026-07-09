@@ -33,6 +33,8 @@ const log = rootLogger.child({ module: "GameService" });
 
 /** How long an undo request stays valid; only seeds `expiresAt`, not enforced yet. */
 const UNDO_REQUEST_TTL_MS = 30 * 1000;
+const EMOTE_COOLDOWN_MS = 30 * 1000;
+const ALLOWED_EMOTES = new Set(["👍", "😅", "🤔", "🎉", "😤", "⚡"]);
 
 /** Orchestrates client actions against sessions and games; wire-level only, no game rules. */
 export class GameService implements GameFacade {
@@ -41,6 +43,7 @@ export class GameService implements GameFacade {
    * since it's a service-level handshake, not part of game rules.
    */
   private pendingUndos = new Map<string, PieceColor>();
+  private lastEmoteAt = new Map<string, number>(); // `${roomId}:${color}` -> timestamp
 
   constructor(
     private sessions: SessionStore,
@@ -466,6 +469,27 @@ export class GameService implements GameFacade {
       color,
       Notifications.positionAccepted(game.id, position, result.value),
     );
+  }
+
+  /** {@inheritDoc} */
+  async sendEmote(ws: WebSocket, emote: string): Promise<void> {
+    const session = this.getSession(ws);
+    if (!session) return;
+
+    const game = this.getGame(ws, session);
+    if (!game) return;
+
+    const color = session.color!;
+
+    if (!ALLOWED_EMOTES.has(emote)) return;
+
+    const key = `${game.id}:${color}`;
+    const last = this.lastEmoteAt.get(key) ?? 0;
+    if (Date.now() - last < EMOTE_COOLDOWN_MS) return;
+    this.lastEmoteAt.set(key, Date.now());
+
+    const opponentColor = color === WHITE ? BLACK : WHITE;
+    game.notify(opponentColor, Notifications.emoteReceived(game.id, color, emote));
   }
 
   /** Notifies the opponent that grace period started for the disconnected player. */

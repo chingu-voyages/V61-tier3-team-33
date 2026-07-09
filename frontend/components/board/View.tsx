@@ -26,10 +26,14 @@ import {
 } from "@tabler/icons-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ClockDisplay } from "@/components/board/ClockDisplay"
+import { EmoteTray } from "@/components/board/EmoteTray"
+import { EmoteOverlay } from "@/components/board/EmoteOverlay"
 import { getPieceIcon } from "../pieces"
 import { FINISHED } from "@/socket/types"
 import { DRAW } from "@/core/game"
 import { Reason } from "@/core/reason"
+import { useSocketEvent } from "@/socket/use-event"
+import { EMOTE_RECEIVED } from "@/socket/events"
 
 interface ViewProps {
   onLeave: () => void
@@ -40,6 +44,13 @@ export function View({ onLeave }: ViewProps) {
   const { state: chessState, makeMove, select, confirmPromotion, cancelPromotion } = useChess()
   const [flipped, setFlipped] = useState(false)
   const [showResign, setShowResign] = useState(false)
+  const [receivedEmote, setReceivedEmote] = useState<string | null>(null)
+  const [emoteKey, setEmoteKey] = useState(0)
+
+  useSocketEvent(EMOTE_RECEIVED, (e) => {
+    setReceivedEmote(e.emote)
+    setEmoteKey(k => k + 1)
+  })
 
   const onSquareClick = useCallback(
     (pos: Position) => {
@@ -115,6 +126,7 @@ export function View({ onLeave }: ViewProps) {
         <ClockDisplay color={flipped ? myColor : oppColor} label={flipped ? "You" : "Opponent"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
 
         <div className="relative">
+          <EmoteOverlay key={emoteKey} emote={receivedEmote} />
           <Board board={chessState.board} view={{ selected: chessState.selected, legalMoves: chessState.legalMoves, lastMove: chessState.lastMove, flipped: boardFlipped }} onSquareClick={onSquareClick} />
           {chessState.pendingPromotion && promotionColor !== null && promotionStyle && (
             <div
@@ -156,7 +168,12 @@ export function View({ onLeave }: ViewProps) {
           )}
         </div>
 
-        <ClockDisplay color={flipped ? oppColor : myColor} label={flipped ? "Opponent" : "You"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+        <div className="flex w-full items-center justify-between">
+          <ClockDisplay color={flipped ? oppColor : myColor} label={flipped ? "Opponent" : "You"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+          {state.status !== FINISHED && (
+            <EmoteTray onSend={(emote) => actions.sendEmote(emote)} />
+          )}
+        </div>
       </div>
 
       {!isFinished && (
