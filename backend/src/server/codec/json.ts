@@ -1,6 +1,9 @@
 import type { Codec } from "./codec";
 import type { Command } from "../protocol/commands";
 import type { Notification } from "../protocol/events";
+import { logger as rootLogger } from "../../logging/log";
+
+const log = rootLogger.child({ module: "JsonCodec" });
 import {
   SESSION_HANDSHAKE,
   SESSION_PONG,
@@ -121,13 +124,26 @@ const decoders: Record<Command["type"], Decoder> = {
 
 export class JsonCodec implements Codec {
   decode(raw: unknown): Command | null {
-    if (!isPlainObject(raw)) return null;
-    if (typeof raw.type !== "string") return null;
+    if (!isPlainObject(raw)) {
+      log.warn("[CODEC-decode-not-object]", { raw: typeof raw === 'string' ? raw.slice(0, 200) : typeof raw });
+      return null;
+    }
+    if (typeof raw.type !== "string") {
+      log.warn("[CODEC-decode-no-type]", { raw: JSON.stringify(raw).slice(0, 200) });
+      return null;
+    }
 
     const decode = decoders[raw.type as Command["type"]];
-    if (!decode) return null;
+    if (!decode) {
+      log.warn("[CODEC-decode-unknown-type]", { type: raw.type });
+      return null;
+    }
 
-    return decode(raw);
+    const result = decode(raw);
+    if (result === null) {
+      log.warn("[CODEC-decode-validation-fail]", { type: raw.type, raw: JSON.stringify(raw).slice(0, 200) });
+    }
+    return result;
   }
 
   encode(event: Notification): string {

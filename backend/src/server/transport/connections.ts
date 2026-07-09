@@ -39,14 +39,16 @@ export class Connections {
   identify(ws: WebSocket, token?: string): Session {
     const session = this.sessions.resumeOrOpen(ws, token);
 
-    // Cancel any grace timer if this is a reconnecting player
-    if (token) {
-      this.grace.cancel(session.playerId);
-    }
+    const graceCancelled = Boolean(token) && this.grace.cancel(session.playerId);
 
-    log.info("connection identified", {
+    log.info("[CONN-identify]", {
       playerId: session.playerId,
+      token: token ? token.slice(0, 8) : "fresh",
       resumed: Boolean(token),
+      roomId: session.roomId,
+      color: session.color,
+      mode: session.mode,
+      graceCancelled,
     });
 
     this.publisher.emit(Signals.connectionOpened(session.playerId, ws));
@@ -59,7 +61,10 @@ export class Connections {
   /** Drops the session bound to this socket and announces the disconnect. */
   close(ws: WebSocket): void {
     const session = this.sessions.bySocket(ws);
-    if (!session) return;
+    if (!session) {
+      log.warn("[CONN-close-miss]", { wsId: ws.id });
+      return;
+    }
 
     const capturedPlayerId = session.playerId;
     const capturedRoomId = session.roomId;
@@ -67,23 +72,27 @@ export class Connections {
 
     this.sessions.drop(ws);
 
-    log.info("connection closed", { playerId: capturedPlayerId });
+    const willGrace = capturedRoomId !== null && capturedColor !== null;
+
+    log.info("[CONN-close]", { playerId: capturedPlayerId, roomId: capturedRoomId, color: capturedColor, willGrace });
 
     this.publisher.emit(Signals.connectionClosed(capturedPlayerId, ws));
 
     // Start grace timer if the player was in a room — the Hub will
     // notify GameService on expiry so it can abandon the game.
     if (capturedRoomId !== null && capturedColor !== null) {
-      this.grace.start(
+      const deadline = this.grace.start(
         capturedPlayerId,
         capturedColor,
         this.graceTimeoutMs,
         () => {
+          log.info("[CONN-grace-expired-callback]", { playerId: capturedPlayerId, roomId: capturedRoomId, color: capturedColor });
           this.publisher.emit(
             Notifications.graceExpired(capturedRoomId, capturedColor),
           );
         },
       );
+      log.info("[CONN-grace-started]", { playerId: capturedPlayerId, roomId: capturedRoomId, color: capturedColor, deadlineMs: deadline, graceTimeoutMs: this.graceTimeoutMs });
     }
   }
 

@@ -2,6 +2,9 @@ import { SESSION_HANDSHAKE } from "./commands";
 import { SESSION_ERROR } from "./errors";
 import type { ErrorCode } from "./errors";
 import type { WebSocket } from "../types";
+import { logger as rootLogger } from "../../logging/log";
+
+const log = rootLogger.child({ module: "Replies" });
 
 export type { ErrorCode };
 
@@ -34,6 +37,12 @@ export const Reply = {
    * game events, so there's no need to route them through a swappable
    * wire format. */
   send(ws: WebSocket, reply: Reply): void {
-    ws.send(JSON.stringify(reply));
+    const msg = JSON.stringify(reply);
+    if (reply.type === SESSION_ERROR) {
+      log.warn("[REPLY-error]", { code: reply.code, message: reply.message, wsId: (ws as any).id });
+    } else {
+      log.info("[REPLY-send]", { type: reply.type, wsId: (ws as any).id });
+    }
+    ws.send(msg);
   },
 };

@@ -46,6 +46,11 @@ export interface SessionWriter {
    * Merges the given fields into the session bound to this socket.
    */
   bind(ws: WebSocket, patch: Partial<Session>): void;
+  /**
+   * Clears session's roomId, color, and mode — used when stale session
+   * state is detected (e.g. game was swept, or room doesn't exist on join).
+   */
+  clearSession(ws: WebSocket): void;
   /** Removes all expired sessions immediately. */
   prune(): void;
   /**
