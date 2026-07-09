@@ -14,7 +14,7 @@ import { GAME_STARTED, ROOM_JOINED } from "@/socket/events"
 import { SESSION_ERROR } from "@/socket/errors"
 import { ClockFormat, HUMAN_VS_HUMAN, ACTIVE } from "@/socket/types"
 import { SessionContext } from "@/context/session/session-context"
-import { useGame } from "@/context/game/game-context"
+import { useRoom } from "@/context/room/context"
 import { gooeyToast } from "@/components/ui/goey-toaster"
 import { KnightPulse } from "./KnightPulse"
 
@@ -29,14 +29,13 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
   const actions = useGameActions()
   const session = use(SessionContext)
   const joinSentRef = useRef(false)
-  const game = useGame()
+  const room = useRoom()
 
-  // If already in a game on mount (reconnect), show the board
   useEffect(() => {
-    if (game.state.roomId && game.state.status !== null && game.state.status >= ACTIVE && phase.phase !== "play") {
+    if (room.state.roomId && room.state.status !== null && room.state.status >= ACTIVE && phase.phase !== "play") {
       dispatch({ type: "OPPONENT_JOINED" })
     }
-  }, [game.state.roomId, game.state.status, phase.phase])
+  }, [room.state.roomId, room.state.status, phase.phase])
 
   const goHome = useCallback(() => {
     if (phase.phase !== "pick-time") {
