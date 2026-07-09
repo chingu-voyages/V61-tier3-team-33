@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+.env.example
+debug.log
+.git
+.vercel
+docs
+README.md
