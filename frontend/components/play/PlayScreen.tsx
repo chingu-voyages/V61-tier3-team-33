@@ -29,6 +29,7 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
   const actions = useGameActions()
   const session = use(SessionContext)
   const joinSentRef = useRef(false)
+  const connectionGenRef = useRef(0)
   const room = useRoom()
 
   useEffect(() => {
@@ -80,16 +81,20 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
     [actions, session]
   )
 
-  // Auto-join when entering via invite link (roomId from URL, phase is "joining")
+  // Auto-join when entering via invite link (roomId from URL, phase is "joining").
+  // Also re-fires on reconnect: each time session flips to non-null on a new
+  // connection generation (socket.status → open), we allow another join attempt.
   useEffect(() => {
     if (session && phase.phase === "joining" && !joinSentRef.current) {
       joinSentRef.current = true
+      connectionGenRef.current++
       actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: phase.roomId })
     }
   }, [session, phase, actions])
 
   useSocketEvent(SESSION_ERROR, (msg) => {
     if (phase.phase !== "joining") return
+    joinSentRef.current = false
     gooeyToast.error("Couldn't join game", { description: msg.message })
     dispatch({ type: "JOIN_FAILED", mode: "friend" })
   })
