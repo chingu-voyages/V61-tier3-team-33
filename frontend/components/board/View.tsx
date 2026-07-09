@@ -1,17 +1,13 @@
 "use client"
 
-import { useReducer, useCallback, useState, useMemo } from "react"
-import { useGame } from "@/context/game/game-context"
-import { useSocketEvent } from "@/socket/use-event"
-import {
-  POSITION_ACCEPTED,
-  POSITION_REJECTED,
-  MOVE_MADE,
-  MOVE_REJECTED,
-} from "@/socket/events"
+import { useCallback, useState, useMemo } from "react"
+import { useRoom } from "@/context/room/context"
+import { useChess } from "@/chess/context"
 import { Board } from "@/components/board/Board"
-import { WHITE, BLACK } from "@/core/piece"
+import { WHITE, BLACK, QUEEN, ROOK, BISHOP, KNIGHT } from "@/core/piece"
+import type { PieceType, PieceColor } from "@/core/piece"
 import { Position } from "@/core/position"
+import { Board as ChessBoard, Square } from "@/core/board"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -29,8 +25,8 @@ import {
   IconX,
 } from "@tabler/icons-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { PlayerInfo } from "@/components/board/PlayerInfo"
-import { viewReducer, INITIAL_VIEW } from "@/components/board/view-reducer"
+import { ClockDisplay } from "@/components/board/ClockDisplay"
+import { getPieceIcon } from "../pieces"
 import { FINISHED } from "@/socket/types"
 import { DRAW } from "@/core/game"
 import { Reason } from "@/core/reason"
@@ -40,41 +36,32 @@ interface ViewProps {
 }
 
 export function View({ onLeave }: ViewProps) {
-  const { state, actions } = useGame()
-  const [view, dispatch] = useReducer(viewReducer, INITIAL_VIEW)
+  const { state, actions } = useRoom()
+  const { state: chessState, makeMove, select, confirmPromotion, cancelPromotion } = useChess()
+  const [flipped, setFlipped] = useState(false)
   const [showResign, setShowResign] = useState(false)
-
-  useSocketEvent(POSITION_ACCEPTED, (msg) => {
-    dispatch({
-      type: "ACCEPT_SELECTION",
-      position: msg.position,
-      moves: msg.moves,
-    })
-  })
-
-  useSocketEvent(POSITION_REJECTED, () => {
-    dispatch({ type: "CLEAR_SELECTION" })
-  })
-
-  useSocketEvent(MOVE_MADE, (msg) => {
-    dispatch({ type: "MOVE_MADE", from: msg.move.from, to: msg.move.to })
-  })
-
-  useSocketEvent(MOVE_REJECTED, () => {
-    dispatch({ type: "CLEAR_SELECTION" })
-  })
 
   const onSquareClick = useCallback(
     (pos: Position) => {
       if (state.status === FINISHED) return
-      if (view.selected !== null && view.legalMoves.includes(pos)) {
-        actions.makeMove({ from: view.selected, to: pos })
+      if (chessState.pendingPromotion) {
+        cancelPromotion()
         return
       }
-      actions.selectPosition(pos)
+      if (chessState.selected !== null && chessState.legalMoves.includes(pos)) {
+        makeMove(chessState.selected, pos)
+        return
+      }
+      select(pos)
     },
-    [view.selected, view.legalMoves, actions, state.status]
+    [chessState.selected, chessState.legalMoves, chessState.pendingPromotion, makeMove, select, cancelPromotion, state.status],
   )
+
+  const promotionColor: PieceColor | null = chessState.pendingPromotion
+    ? Square.pieceColor(ChessBoard.at(chessState.board, chessState.pendingPromotion.from))
+    : null
+
+  const PROMOTION_PIECES: PieceType[] = [QUEEN, ROOK, BISHOP, KNIGHT]
 
   const confirmResign = useCallback(() => {
     setShowResign(false)
@@ -101,15 +88,59 @@ export function View({ onLeave }: ViewProps) {
   const myColor = state.color
   const oppColor = myColor === WHITE ? BLACK : WHITE
   const baseFlipped = state.color === BLACK
-  const boardFlipped = baseFlipped !== view.flipped
+  const boardFlipped = baseFlipped !== flipped
+
+  const promotionColumn = chessState.pendingPromotion
+    ? (boardFlipped ? 8 - Position.file(chessState.pendingPromotion.to) : Position.file(chessState.pendingPromotion.to) + 1)
+    : undefined
+
+  const promotionTargetRow = chessState.pendingPromotion
+    ? (boardFlipped ? Position.rank(chessState.pendingPromotion.to) + 1 : 8 - Position.rank(chessState.pendingPromotion.to))
+    : undefined
+
+  // The picker always anchors on the promotion square (an edge row) and extends
+  // 4 squares in toward the center of the board, flush against the board itself
+  // - matching how chess.com renders its promotion picker.
+  const promotionAnchoredAtTop = promotionTargetRow === 1
+  const promotionStyle = promotionColumn !== undefined
+    ? {
+        gridColumn: promotionColumn,
+        gridRow: promotionAnchoredAtTop ? "1 / 5" : "5 / 9",
+      }
+    : undefined
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6 lg:p-6">
       <div className="flex flex-col items-center gap-3">
-        <PlayerInfo color={view.flipped ? myColor : oppColor} label={view.flipped ? "You" : "Opponent"} clock={state.clock} />
+        <ClockDisplay color={flipped ? myColor : oppColor} label={flipped ? "You" : "Opponent"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
 
         <div className="relative">
-          <Board board={state.board} view={{ ...view, flipped: boardFlipped }} onSquareClick={onSquareClick} />
+          <Board board={chessState.board} view={{ selected: chessState.selected, legalMoves: chessState.legalMoves, lastMove: chessState.lastMove, flipped: boardFlipped }} onSquareClick={onSquareClick} />
+          {chessState.pendingPromotion && promotionColor !== null && promotionStyle && (
+            <div
+              className="absolute inset-0 z-10 grid"
+              style={{ gridTemplateColumns: "repeat(8, 1fr)", gridTemplateRows: "repeat(8, 1fr)" }}
+            >
+              <div
+                className="col-span-full row-span-full bg-black/40"
+                onClick={cancelPromotion}
+              />
+              <div
+                className={`z-20 flex overflow-hidden rounded-md bg-card shadow-2xl ring-1 ring-black/10 ${promotionAnchoredAtTop ? "flex-col" : "flex-col-reverse"}`}
+                style={promotionStyle}
+              >
+                {PROMOTION_PIECES.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => confirmPromotion(type)}
+                    className="flex flex-1 cursor-pointer items-center justify-center border-b p-1.5 transition-colors last:border-b-0 hover:bg-accent"
+                  >
+                    {getPieceIcon({ type, color: promotionColor }, { className: "size-full" })}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {isFinished && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/60 backdrop-blur-sm">
               {state.result!.hasWinner ? (
@@ -125,8 +156,7 @@ export function View({ onLeave }: ViewProps) {
           )}
         </div>
 
-        <PlayerInfo color={view.flipped ? oppColor : myColor} label={view.flipped ? "Opponent" : "You"} clock={state.clock} />
-
+        <ClockDisplay color={flipped ? oppColor : myColor} label={flipped ? "Opponent" : "You"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
       </div>
 
       {!isFinished && (
@@ -134,11 +164,7 @@ export function View({ onLeave }: ViewProps) {
           <Tooltip>
             <TooltipTrigger
               render={
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => dispatch({ type: "FLIP" })}
-                >
+                <Button variant="outline" size="icon" onClick={() => setFlipped((f) => !f)}>
                   <IconFlipHorizontal className="size-4" />
                 </Button>
               }
@@ -183,6 +209,7 @@ export function View({ onLeave }: ViewProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }

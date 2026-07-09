@@ -6,7 +6,8 @@ import { ChessThemeProvider } from "@/context/theme/ChessThemeProvider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SocketProvider } from "@/socket/provider"
 import { SessionProvider } from "@/context/session/SessionProvider"
-import { GameProvider } from "@/context/game/GameProvider"
+import { RoomProvider } from "@/context/room/provider"
+import { ChessProvider } from "@/chess/provider"
 import { DebugPanel } from "@/components/debug/DebugPanel"
 import { env } from "@/config/env"
 
@@ -15,13 +16,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <ChessThemeProvider>
         <TooltipProvider>
-          <GooeyToaster position="top-right" closeButton showProgress />
+          <GooeyToaster position="top-center" closeButton="top-right" showProgress />
           <SocketProvider url={env.socketUrl}>
             <SessionProvider>
-              <GameProvider>
-                {children}
-                <DebugPanel />
-              </GameProvider>
+              <RoomProvider>
+                <ChessProvider>
+                  {children}
+                  <DebugPanel />
+                </ChessProvider>
+              </RoomProvider>
             </SessionProvider>
           </SocketProvider>
         </TooltipProvider>

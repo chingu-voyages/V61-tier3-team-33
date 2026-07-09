@@ -37,7 +37,7 @@ export const squareVariants = cva("relative h-full w-full", {
     state: {
       none: "",
       selected: "border-2 bg-chess-selected-fill",
-      lastMove: "border-2 bg-chess-last-move-fill",
+      lastMove: "bg-chess-last-move-fill",
       legalMove: "", // dot rendered separately, piece-color-aware
       legalCapture: "border-2 bg-chess-capture-fill",
       check: "border-2 bg-chess-check-fill",
@@ -54,12 +54,8 @@ export const squareVariants = cva("relative h-full w-full", {
 
 export type SquareVariants = VariantProps<typeof squareVariants>
 
-// hover has no `state` slot since it depends on `tone`, not game state,
-// and must combine with any active state class above.
-export function squareHoverClass(tone: "light" | "dark"): string {
-  return tone === "light"
-    ? "hover:bg-[color-mix(in_srgb,var(--chess-light-square)_85%,black)]"
-    : "hover:bg-[color-mix(in_srgb,var(--chess-dark-square)_85%,white)]"
+export function squareHoverClass(): string {
+  return "hover:bg-chess-hover-fill"
 }
 
 interface BoardSquareProps {
@@ -85,7 +81,7 @@ export function BoardSquare({
     <div
       className={cn(
         squareVariants({ tone, state }),
-        squareHoverClass(tone),
+        squareHoverClass(),
         "aspect-square"
       )}
       onClick={onClick}

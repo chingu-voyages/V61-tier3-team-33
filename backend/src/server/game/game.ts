@@ -292,6 +292,10 @@ export class Game {
     this.status = FINISHED;
     this.endReason = TIMEOUT;
     this.finishedAt = Date.now();
+
+    const expiredColor = this.chess.sideToMove();
+    this.broadcast(Notifications.clockExpired(this.id, expiredColor));
+
     const result = this.outcome();
     this.broadcast(Notifications.gameEnded(this.id, result, result.winner));
   }
