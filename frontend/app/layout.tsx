@@ -1,8 +1,8 @@
 import { Inter, Outfit } from "next/font/google"
 
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
+import { AppProvider } from "@/context/app/AppProvider"
 
 const outfitHeading = Outfit({ subsets: ["latin"], variable: "--font-heading" })
 
@@ -25,7 +25,7 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <AppProvider>{children}</AppProvider>
       </body>
     </html>
   )

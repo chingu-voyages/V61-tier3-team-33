@@ -58,7 +58,7 @@ import { PROMOTION } from "./core/move";
 describe("Chess", () => {
   /** Plays a sequence of from→to moves on the given game and returns it. */
   function play(game: Chess, ...moves: [Position, Position][]): Chess {
-    for (const [from, to] of moves) game.moveTo(from, to);
+    for (const [from, to] of moves) game.move(from, to);
     return game;
   }
 
@@ -81,13 +81,15 @@ describe("Chess", () => {
     });
   });
 
-  describe("Chess.isValidSquare", () => {
-    test.each(["e4", "a1", "h8", "E4", "A1", "H8", "d5"])("'%s' → true", (sq) =>
-      expect(Chess.isValidSquare(sq)).toBe(true),
+  describe("Position.parse (square validation)", () => {
+    test.each(["e4", "a1", "h8", "E4", "A1", "H8", "d5"])(
+      "'%s' → valid",
+      (sq) => expect(Position.parse(sq)).not.toBeNull(),
     );
 
-    test.each(["", "e", "e9", "i4", "e44", "11", "zz"])("'%s' → false", (sq) =>
-      expect(Chess.isValidSquare(sq)).toBe(false),
+    test.each(["", "e", "e9", "i4", "e44", "11", "zz"])(
+      "'%s' → invalid",
+      (sq) => expect(Position.parse(sq)).toBeNull(),
     );
   });
 
@@ -114,7 +116,7 @@ describe("Chess", () => {
 
     test("piece is updated after a move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.pieceAt(E2)).toBeNull();
       expect(game.pieceAt(E4)).toEqual({ type: PAWN, color: WHITE });
     });
@@ -127,7 +129,7 @@ describe("Chess", () => {
 
     test("switches to BLACK after white's first move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.sideToMove()).toBe(BLACK);
     });
 
@@ -269,13 +271,13 @@ describe("Chess", () => {
 
     test("true after one move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.canUndo()).toBe(true);
     });
 
     test("false again after undoing the only move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       game.undoMove();
       expect(game.canUndo()).toBe(false);
     });
@@ -288,15 +290,15 @@ describe("Chess", () => {
 
     test("increments by 1 per half-move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.plyCount()).toBe(1);
-      game.moveTo(E7, E5);
+      game.move(E7, E5);
       expect(game.plyCount()).toBe(2);
     });
 
     test("decrements after undoMove", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       game.undoMove();
       expect(game.plyCount()).toBe(0);
     });
@@ -309,8 +311,8 @@ describe("Chess", () => {
 
     test("returns moves in order, oldest first", () => {
       const game = new Chess();
-      const m1 = game.moveTo(E2, E4);
-      const m2 = game.moveTo(E7, E5);
+      const m1 = game.move(E2, E4);
+      const m2 = game.move(E7, E5);
       const history = game.moveHistory();
       expect(history).toHaveLength(2);
       expect(history[0]).toEqual(m1);
@@ -319,7 +321,7 @@ describe("Chess", () => {
 
     test("shrinks after undoMove", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       game.undoMove();
       expect(game.moveHistory()).toHaveLength(0);
     });
@@ -332,13 +334,13 @@ describe("Chess", () => {
 
     test("FEN changes after a move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.toFen()).not.toBe(STARTING_FEN);
     });
 
     test("FEN is restored after undoing the move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       game.undoMove();
       expect(game.toFen()).toBe(STARTING_FEN);
     });
@@ -356,7 +358,7 @@ describe("Chess", () => {
     test("hash changes after a move", () => {
       const game = new Chess();
       const before = game.state().hash;
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.state().hash).not.toBe(before);
     });
   });
@@ -387,14 +389,14 @@ describe("Chess", () => {
     test("hash changes after a move", () => {
       const game = new Chess();
       const before = game.getHash();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.getHash()).not.toBe(before);
     });
 
     test("hash is restored after undo", () => {
       const game = new Chess();
       const before = game.getHash();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       game.undoMove();
       expect(game.getHash()).toBe(before);
     });
@@ -405,8 +407,8 @@ describe("Chess", () => {
       // Simple check: two identical games share the same hash at each step.
       const a = new Chess();
       const b = new Chess();
-      a.moveTo(E2, E4);
-      b.moveTo(E2, E4);
+      a.move(E2, E4);
+      b.move(E2, E4);
       expect(a.getHash()).toBe(b.getHash());
     });
   });
@@ -447,7 +449,7 @@ describe("Chess", () => {
     test("updates after a king move", () => {
       // White king e1, black king h1 – king can step to f1.
       const game = new Chess({ fen: "8/8/8/8/8/8/8/4K2k w - - 0 1" });
-      game.moveTo(E1, F1);
+      game.move(E1, F1);
       expect(game.kingPosition(WHITE)).toBe(F1);
     });
   });
@@ -459,20 +461,20 @@ describe("Chess", () => {
 
     test("returns the most recently played move", () => {
       const game = new Chess();
-      const move = game.moveTo(E2, E4);
+      const move = game.move(E2, E4);
       expect(game.lastMove()).toEqual(move);
     });
 
     test("updates after each new move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
-      const m2 = game.moveTo(E7, E5);
+      game.move(E2, E4);
+      const m2 = game.move(E7, E5);
       expect(game.lastMove()).toEqual(m2);
     });
 
     test("becomes null again after undoing the only move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       game.undoMove();
       expect(game.lastMove()).toBeNull();
     });
@@ -485,14 +487,14 @@ describe("Chess", () => {
 
     test("resets to 0 after a pawn move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       expect(game.halfMoveClock()).toBe(0);
     });
 
     test("increments after a non-pawn non-capture move", () => {
       // Knight at a1, kings well apart; halfMoveClock pre-set to 5.
       const game = new Chess({ fen: "8/8/8/8/8/8/8/N3K2k w - - 5 1" });
-      game.moveTo(A1, Position.parse("b3")!);
+      game.move(A1, Position.parse("b3")!);
       expect(game.halfMoveClock()).toBe(6);
     });
   });
@@ -518,35 +520,35 @@ describe("Chess", () => {
     });
   });
 
-  describe("moveTo", () => {
+  describe("move", () => {
     test("returns the applied move with correct from/to", () => {
-      const move = new Chess().moveTo(E2, E4);
+      const move = new Chess().move(E2, E4);
       expect(move.from).toBe(E2);
       expect(move.to).toBe(E4);
     });
 
     test("throws IllegalMoveError for an illegal destination", () => {
-      expect(() => new Chess().moveTo(E2, E5)).toThrow(IllegalMoveError);
+      expect(() => new Chess().move(E2, E5)).toThrow(IllegalMoveError);
     });
 
     test("throws IllegalMoveError when moving an opponent's piece", () => {
-      expect(() => new Chess().moveTo(E7, E5)).toThrow(IllegalMoveError);
+      expect(() => new Chess().move(E7, E5)).toThrow(IllegalMoveError);
     });
 
     test("throws IllegalMoveError when moving from an empty square", () => {
-      expect(() => new Chess().moveTo(E4, E5)).toThrow(IllegalMoveError);
+      expect(() => new Chess().move(E4, E5)).toThrow(IllegalMoveError);
     });
 
     test("promotion defaults to QUEEN", () => {
       const game = new Chess({ fen: "8/P7/8/8/8/8/8/K6k w - - 0 1" });
-      const move = game.moveTo(A7, A8);
+      const move = game.move(A7, A8);
       expect(move.type).toBe(PROMOTION);
       expect(move.promoteTo).toBe(QUEEN);
     });
 
     test("promotion to a specified piece type is honoured", () => {
       const game = new Chess({ fen: "8/P7/8/8/8/8/8/K6k w - - 0 1" });
-      const move = game.moveTo(A7, A8, KNIGHT);
+      const move = game.move(A7, A8, KNIGHT);
       expect(move.promoteTo).toBe(KNIGHT);
     });
   });
@@ -572,14 +574,14 @@ describe("Chess", () => {
   describe("undoMove", () => {
     test("reverts the position to the state before the last move", () => {
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       game.undoMove();
       expect(game.toFen()).toBe(STARTING_FEN);
     });
 
     test("returns the reverted move", () => {
       const game = new Chess();
-      const move = game.moveTo(E2, E4);
+      const move = game.move(E2, E4);
       expect(game.undoMove()).toEqual(move);
     });
 
@@ -609,7 +611,7 @@ describe("Chess", () => {
     test("en passant – captured pawn is removed from d5", () => {
       // White pawn e5, black pawn d5 (just pushed), en passant target d6.
       const game = new Chess({ fen: "8/8/8/3pP3/8/8/8/K6k w - d6 0 1" });
-      game.moveTo(E5, D6);
+      game.move(E5, D6);
       expect(game.pieceAt(D5)).toBeNull(); // captured pawn gone
       expect(game.pieceAt(D6)).toEqual({ type: PAWN, color: WHITE });
       expect(game.pieceAt(E5)).toBeNull(); // original square vacated
@@ -619,7 +621,7 @@ describe("Chess", () => {
       const game = new Chess({ fen: "k7/8/8/8/8/8/8/R3K2R w KQ - 0 1" });
       const g1 = Position.parse("g1")!;
       const f1 = Position.parse("f1")!;
-      game.moveTo(E1, g1);
+      game.move(E1, g1);
       expect(game.pieceAt(g1)).toEqual({ type: KING, color: WHITE });
       expect(game.pieceAt(f1)).toEqual({ type: ROOK, color: WHITE });
       expect(game.pieceAt(E1)).toBeNull();
@@ -628,7 +630,7 @@ describe("Chess", () => {
 
     test("queen-side castling moves both king and rook", () => {
       const game = new Chess({ fen: "k7/8/8/8/8/8/8/R3K2R w KQ - 0 1" });
-      game.moveTo(E1, C1);
+      game.move(E1, C1);
       expect(game.pieceAt(C1)).toEqual({ type: KING, color: WHITE });
       expect(game.pieceAt(D1)).toEqual({ type: ROOK, color: WHITE });
       expect(game.pieceAt(E1)).toBeNull();
@@ -669,7 +671,7 @@ describe("Chess", () => {
 
     test("pawn promotion changes piece on the board", () => {
       const game = new Chess({ fen: "8/P7/8/8/8/8/8/K6k w - - 0 1" });
-      game.moveTo(A7, A8, ROOK);
+      game.move(A7, A8, ROOK);
       expect(game.pieceAt(A8)).toEqual({ type: ROOK, color: WHITE });
       expect(game.pieceAt(A7)).toBeNull();
     });
@@ -677,10 +679,10 @@ describe("Chess", () => {
     test("making a move after undo branches correctly", () => {
       // Play e4, undo, then play d4 – the final position must differ from e4.
       const game = new Chess();
-      game.moveTo(E2, E4);
+      game.move(E2, E4);
       const fenE4 = game.toFen();
       game.undoMove();
-      game.moveTo(Position.parse("d2")!, Position.parse("d4")!);
+      game.move(Position.parse("d2")!, Position.parse("d4")!);
       expect(game.toFen()).not.toBe(fenE4);
     });
   });

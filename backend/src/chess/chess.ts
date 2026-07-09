@@ -10,6 +10,7 @@ import { PieceColor, PieceType, QUEEN } from "./core/piece";
 import { PROMOTION } from "./core/move";
 import { Position } from "./core/position";
 import { TurnContext as TC, MoveContext } from "./core/state";
+import { SAN } from "./parser/san";
 import {
   FENError,
   IllegalMoveError,
@@ -46,15 +47,6 @@ export class Chess {
   private readonly rules;
   private readonly tracker;
   private readonly history;
-
-  /**
-   * Returns true if `square` is a valid algebraic notation string.
-   * Accepts both lowercase and uppercase (e.g. `"e4"` and `"E4"`).
-   * Use this to validate a square from the client before calling other methods.
-   */
-  static isValidSquare(square: string): boolean {
-    return Position.parse(square) !== null;
-  }
 
   constructor(config: ChessConfig = {}) {
     const { fen, engine, hasher, rules, parser, tracker, history } =
@@ -233,25 +225,44 @@ export class Chess {
   }
 
   /**
-   * Finds and applies the legal move from `from` to `to` in one call.
-   * For promotions, pass the desired piece type as `promoteTo` (defaults to QUEEN).
-   * Returns the move that was applied, so callers can inspect it (e.g. to broadcast).
-   * Throws IllegalMoveError if no legal move exists for the given squares.
+   * Finds, applies, and encodes a move in one call.
    *
-   * Prefer this over legalMovesFrom + find + makeMove for straightforward moves.
+   * Captures the pre-move context (for SAN disambiguation), finds the legal
+   * move, applies it via `makeMove`, then generates SAN from the post-move
+   * position (for check/checkmate). The returned `Move` has `san` populated;
+   * the history snapshot carries it too (same object reference), so
+   * `undoMove()` returns moves with SAN.
+   *
+   * For promotions, pass the desired piece type as `promoteTo` (defaults to QUEEN).
+   * Throws `IllegalMoveError` if no legal move exists for the given squares.
    */
-  moveTo(from: Position, to: Position, promoteTo: PieceType = QUEEN): Move {
-    const move =
+  move(from: Position, to: Position, promoteTo: PieceType = QUEEN): Move {
+    const preMoveCtx = TC.copy(this.ctx);
+
+    const legalMove =
       this.legalMovesFrom(from).find(
         (m) =>
           m.to === to && (m.type !== PROMOTION || m.promoteTo === promoteTo),
       ) ?? null;
 
-    if (move === null) {
+    if (legalMove === null) {
       throw new IllegalMoveError();
     }
 
-    return this.makeMove(move);
+    this.makeMove(legalMove);
+
+    // Generate SAN from the post-move position.
+    const opponentColor = PieceColor.opponent(legalMove.piece.color);
+    const isCheck = this.engine.isSquareAttacked(
+      MoveContext.sideOf(this.ctx, opponentColor).kingPosition,
+      legalMove.piece.color,
+      this.ctx,
+    );
+
+    const isCheckmate = isCheck && this.gameResult().status !== IN_PROGRESS;
+    legalMove.san = SAN.encode(legalMove, preMoveCtx, isCheck, isCheckmate);
+
+    return legalMove;
   }
 
   /**
