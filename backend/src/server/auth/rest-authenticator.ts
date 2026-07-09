@@ -91,11 +91,86 @@ export class DefaultRestAuthenticator implements RestAuthenticator {
 
   async login(input: { email: string; password: string }): Promise<{ playerId: string; authToken: string }> {
     // To be implemented next
-    throw new Error("Method not implemented.");
+    const normalizedEmail=input.email.trim().toLowerCase();
+    const verifiedEmail=await this.credentials.findByEmail(normalizedEmail)
+
+    if(!verifiedEmail){
+      throw new AuthError("INVALID_CREDENTIALS","Email doesn't exists")
+    }
+    const verifiedPassword=await Bun.password.verify(input.password,verifiedEmail.passwordHash )
+    if(!verifiedPassword){
+      throw new AuthError("INVALID_CREDENTIALS")
+    }
+    const player=await this.players.findById(verifiedEmail.playerId)
+    if(!player){
+      console.warn("Credential exists but player is missing");
+      throw new AuthError("INTERNAL_ERROR")
+    }
+
+    const authToken=await this.authTokens.issue(player.id);
+    
+    return {
+      playerId:player.id,
+      authToken:authToken.token
+
+    }
   }
 
-  async loginWithGoogle(idToken: string): Promise<{ playerId: string; authToken: string }> {
-    // To be implemented next
-    throw new Error("Method not implemented.");
+  async loginWithGoogle(
+    idToken: string
+  ): Promise<{ playerId: string; authToken: string }> {
+
+    const profile = await this.verifier.verify(idToken);
+
+    if (!profile || !profile.emailVerified) {
+        throw new AuthError("INVALID_GOOGLE_TOKEN");
+    }
+
+    const identity = await this.identities.findBySubject(
+        "google",
+        profile.sub
+    );
+
+    if (identity) {
+        const authToken = await this.authTokens.issue(identity.playerId);
+
+        return {
+            playerId: identity.playerId,
+            authToken: authToken.token,
+        };
+    }
+
+    if (!profile.email) {
+        throw new AuthError("INVALID_GOOGLE_TOKEN");
+    }
+
+    // Fix TS error by ensuring baseUsername is guaranteed to be a string
+    const baseUsername = profile.email.split("@")[0] || "google-user";
+    let username = baseUsername;
+
+    // C27: Loop and auto-append a short suffix if the username collides
+    while (await this.players.findByUsername(username)) {
+        // Bun ships with crypto built-in
+        const suffix = crypto.randomUUID().slice(0, 4);
+        username = `${baseUsername}-${suffix}`;
+    }
+
+    const player = createPlayer(username, "google");
+    await this.players.save(player);
+
+    await this.identities.save({
+        playerId: player.id,
+        provider: "google",
+        providerSub: profile.sub,
+        email: profile.email,
+        createdAt: Date.now(),
+    });
+
+    const authToken = await this.authTokens.issue(player.id);
+
+    return {
+        playerId: player.id,
+        authToken: authToken.token,
+    };
   }
 }
