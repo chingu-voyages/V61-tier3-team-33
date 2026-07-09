@@ -170,7 +170,7 @@ describe("ChessStore", () => {
     expect(store.snapshot().pendingPromotion).toEqual({ from: A7, to: A8 })
     expect(store.snapshot().pendingMove).toBeNull()
     expect(store.snapshot().fen).toBe(fenBefore)
-    expect(sent.filter((c: any) => (c as { type: string }).type === "move:make").length).toBe(0)
+    expect(sent.filter((c) => (c as { type: string }).type === "move:make").length).toBe(0)
 
     store.confirmPromotion(QUEEN)
     const state = store.snapshot()
