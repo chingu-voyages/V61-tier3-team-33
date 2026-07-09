@@ -611,28 +611,68 @@ describe("GameService", () => {
   });
 
   describe("join — edge cases", () => {
-    it("falls through to create when rejoin game is gone (EC3)", async () => {
+    it("clears session roomId when rejoin game is gone, then creates new game (EC3)", async () => {
       const { service, sessions, games } = makeService();
       const { white, roomId } = await seatTwoPlayers(service, sessions);
 
-      // Manually remove the game from the store
-      games.sweep(); // not enough — need to wait for TTL or directly clear
-      // Instead, manually set session to a stale roomId
       const session = sessions.bySocket(white)!;
       sessions.bind(white, { roomId: "ghost-room" });
 
-      // Join without roomId should fall through to findWaiting/create
+      // Join without roomId — should clear stale session then fall through
       const ws2 = makeSocket("rejoin");
       sessions.open(ws2, "player-rejoin");
-      // This session is in "ghost-room" but no such game exists
       sessions.bind(ws2, { roomId: "ghost-room", color: WHITE });
       await service.join(ws2, { mode: HUMAN_VS_HUMAN });
+
+      // Session's stale roomId should have been cleared
+      const updated = sessions.bySocket(ws2)!;
+      expect(updated.roomId).not.toBe("ghost-room");
 
       // Should have started a new game (fall-through to findWaiting/create)
       const msgs = sent(ws2);
       const joined = msgs.find((m) => m.type === ROOM_JOINED);
       expect(joined).toBeDefined();
-      expect(joined!.roomId).not.toBe(roomId); // new game, not the old one
+      expect(joined!.roomId).not.toBe(roomId);
+    });
+
+    it("clears session roomId when rejoin game is gone and invitee sends roomId (regression)", async () => {
+      const { service, sessions } = makeService();
+      const ws = makeSocket("invitee");
+      connect(sessions, ws);
+
+      // Session has a stale roomId from a previous session
+      sessions.bind(ws, { roomId: "stale-room", color: BLACK });
+
+      // Try to join a different missing room (as invitee would)
+      await service.join(ws, { mode: HUMAN_VS_HUMAN, roomId: "missing-room" });
+
+      // Should get ROOM_NOT_FOUND
+      expect(lastSent(ws)).toEqual(
+        expect.objectContaining({ type: SESSION_ERROR, code: ROOM_NOT_FOUND }),
+      );
+
+      // Session should have stale roomId cleared
+      const session = sessions.bySocket(ws)!;
+      expect(session.roomId).toBeNull();
+      expect(session.color).toBeNull();
+    });
+
+    it("clears session roomId when invite link room is missing (regression)", async () => {
+      const { service, sessions } = makeService();
+      const ws = makeSocket("invitee");
+      connect(sessions, ws);
+
+      await service.join(ws, { mode: HUMAN_VS_HUMAN, roomId: "nope" });
+
+      // Should get ROOM_NOT_FOUND
+      expect(lastSent(ws)).toEqual(
+        expect.objectContaining({ type: SESSION_ERROR, code: ROOM_NOT_FOUND }),
+      );
+
+      // Session should be cleared for retry
+      const session = sessions.bySocket(ws)!;
+      expect(session.roomId).toBeNull();
+      expect(session.color).toBeNull();
     });
 
     it("replies GAME_FINISHED when joining a finished game by roomId (EC5)", async () => {

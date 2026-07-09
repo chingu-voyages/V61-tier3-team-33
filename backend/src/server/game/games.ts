@@ -51,18 +51,25 @@ export class Games implements GameStore {
   findWaiting(mode: Mode, format: ClockFormat = BLITZ): Game | null {
     const queue = this.queueFor(mode, format);
 
+    log.info("[GAMES-findWaiting-start]", { mode: mode.toString(), format, queueSize: queue.size });
+
     for (const id of queue) {
       const game = this.games.get(id);
       if (!game) {
+        log.warn("[GAMES-findWaiting-stale]", { id, mode: mode.toString(), format });
         queue.delete(id);
         continue;
       }
 
       if (game.isWaiting) {
+        log.info("[GAMES-findWaiting-hit]", { id, mode: mode.toString(), format, slots: game['slots']?.size ?? 0 });
         return game;
+      } else {
+        log.info("[GAMES-findWaiting-skip-not-waiting]", { id, mode: mode.toString(), format, status: game.status });
       }
     }
 
+    log.info("[GAMES-findWaiting-miss]", { mode: mode.toString(), format, queueSize: queue.size });
     return null;
   }
 
@@ -74,13 +81,14 @@ export class Games implements GameStore {
   ): Game {
     const timer = new ClockTimer(clock, id, this.publisher);
     const game = new Game(id, mode, clock, this.publisher, timer, () => {
+      log.info("[GAMES-activation-callback]", { id });
       this.queueFor(mode, clock.format).delete(id);
     });
 
     this.games.set(id, game);
     this.queueFor(mode, clock.format).add(id);
 
-    log.info("game created", { id, mode, format: clock.format });
+    log.info("[GAMES-created]", { id, mode: mode.toString(), format: clock.format, totalGames: this.games.size, queueSizes: [...this.queue.entries()].map(([k, v]) => `${k}:${v.size}`).join(',') });
 
     return game;
   }
@@ -90,6 +98,7 @@ export class Games implements GameStore {
   // real optimistic-concurrency check here — compare against the currently
   // stored game and return err(CONFLICT) on divergence.
   commit(id: string, game: Game): Result<void, CommitError> {
+    log.info("[GAMES-commit]", { id, status: game.status, slots: game['slots']?.size ?? 0 });
     this.games.set(id, game);
     return ok();
   }
@@ -97,12 +106,15 @@ export class Games implements GameStore {
   /** {@inheritDoc} */
   drop(id: string): void {
     const game = this.games.get(id);
-    if (!game) return;
+    if (!game) {
+      log.warn("[GAMES-drop-miss]", { id });
+      return;
+    }
 
     this.games.delete(id);
     this.queue.get(queueKey(game.mode, game.clock.format))?.delete(id);
 
-    log.info("game dropped", { id });
+    log.info("[GAMES-drop]", { id, status: game.status, mode: game.mode.toString(), remaining: this.games.size });
   }
 
   /** {@inheritDoc} */

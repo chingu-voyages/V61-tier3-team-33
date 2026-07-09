@@ -69,26 +69,35 @@ export class GameService implements GameFacade {
 
   /** {@inheritDoc} */
   async join(ws: WebSocket, input: JoinInput): Promise<void> {
-    log.info("join: input", { input });
+    log.info("[GS-join-start]", { wsId: ws.id, input });
     const session = this.sessions.bySocket(ws);
     if (!session) {
+      log.warn("[GS-join-no-session]", { wsId: ws.id });
       Reply.send(ws, Reply.error(NOT_AUTHENTICATED, "Session not found."));
       return;
     }
 
+    log.info("[GS-join-session]", { playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode, disconnectedAt: session.disconnectedAt });
+
     // Rejoin on reconnect.
     if (session.roomId && session.color !== null) {
+      log.info("[GS-join-reconnect-branch]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
       const existing = this.games.get(session.roomId);
       if (existing) {
-        // Grace timer is cancelled by Connections.identify() on resume.
+        log.info("[GS-join-reconnect-game-found]", { roomId: session.roomId, isFinished: existing.isFinished });
+
+        // Reconnect timer is cancelled by Connections.identify() on resume.
         // Notify the opponent the player is back.
         if (!existing.isFinished) {
-          const previous = existing.getOccupant(session.color);
+          log.info("[GS-join-reconnect-active]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
+          const occupied = existing.getOccupant(session.color);
           const occupant =
-            previous instanceof Human
-              ? previous.replaceSocket(ws)
+            occupied instanceof Human
+              ? occupied.replaceSocket(ws)
               : new Human(session.playerId, ws, this.protocol);
           existing.reseat(session.color, occupant);
+
+          log.info("[GS-join-reconnect-sending-snapshot]", { playerId: session.playerId, roomId: existing.id, color: session.color });
 
           existing.notify(
             session.color,
@@ -105,11 +114,14 @@ export class GameService implements GameFacade {
             Notifications.graceCancelled(existing.id, session.color),
           );
 
+          log.info("[GS-join-reconnect-done]", { playerId: session.playerId, roomId: existing.id, color: session.color });
+
           return;
         }
 
         // Game is finished — still send the final snapshot so the
         // reconnecting player can see the result.
+        log.info("[GS-join-reconnect-finished]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
         const occupant = new Human(session.playerId, ws, this.protocol);
         existing.reseat(session.color, occupant);
 
@@ -124,6 +136,13 @@ export class GameService implements GameFacade {
 
         return;
       }
+
+      // Game was swept or never created — clear stale session state so the
+      // player can join a new room (or be told the room doesn't exist)
+      // instead of silently falling through into matchmaking.
+      log.warn("[GS-join-stale-session]", { playerId: session.playerId, staleRoomId: session.roomId, color: session.color, mode: session.mode });
+      this.sessions.clearSession(ws);
+      log.info("[GS-join-stale-cleared]", { playerId: session.playerId });
     }
 
     // Create or join a game.
@@ -132,38 +151,50 @@ export class GameService implements GameFacade {
       const found = this.games.get(input.roomId);
       if (found) {
         game = found;
+        log.info("[GS-join-invite-found]", { roomId: input.roomId, status: game.status });
       } else if (input.clock === undefined) {
         // Joining via an invite link must target an existing room —
         // creating one here would silently strand the inviter.
-        log.warn("join attempted on missing room", { roomId: input.roomId });
+        log.warn("[GS-join-missing-room]", { playerId: session.playerId, roomId: input.roomId });
+        this.sessions.clearSession(ws);
         Reply.send(ws, Reply.error(ROOM_NOT_FOUND, "Room not found."));
         return;
       } else {
         // First join with a client-supplied id and an explicit clock
         // format: this is the room creator (e.g. "Play a Friend"), so
         // create the room using that id.
+        log.info("[GS-join-creator]", { playerId: session.playerId, roomId: input.roomId, mode: input.mode, clock: input.clock });
         game = this.games.create(input.roomId, input.mode, createClock(input.clock));
       }
     } else {
       const format = input.clock ?? BLITZ;
-      game =
-        this.games.findWaiting(input.mode, format) ??
-        this.games.create(undefined, input.mode, createClock(format));
+      const waiting = this.games.findWaiting(input.mode, format);
+      if (waiting) {
+        log.info("[GS-join-matchmaking-hit]", { playerId: session.playerId, roomId: waiting.id, mode: input.mode, format });
+        game = waiting;
+      } else {
+        log.info("[GS-join-matchmaking-create]", { playerId: session.playerId, mode: input.mode, format });
+        game = this.games.create(undefined, input.mode, createClock(format));
+      }
     }
 
     const color = input.color ?? game.nextColor();
     if (color === null) {
-      log.warn("join rejected: game full", { roomId: game.id, input });
+      log.warn("[GS-join-color-null]", { playerId: session.playerId, roomId: game.id, input });
       Reply.send(ws, Reply.error(GAME_FULL, "Game is full."));
       return;
     }
+
+    log.info("[GS-join-occupant]", { playerId: session.playerId, roomId: game.id, color });
 
     const occupant = new Human(session.playerId, ws, this.protocol);
     const result = game.join(color, occupant);
     if (!result.ok) {
       if (result.error === ROOM_FULL) {
+        log.warn("[GS-join-color-taken]", { playerId: session.playerId, roomId: game.id, color });
         Reply.send(ws, Reply.error(GAME_FULL, "That color is already taken."));
       } else {
+        log.warn("[GS-join-game-finished]", { playerId: session.playerId, roomId: game.id, color });
         Reply.send(
           ws,
           Reply.error(GAME_FINISHED, "This game has already finished."),
@@ -177,11 +208,12 @@ export class GameService implements GameFacade {
 
     const state = game.snapshot();
 
-    log.info("join: output", { roomId: game.id, color, fen: state.fen, turn: state.turn });
+    log.info("[GS-join-success]", { playerId: session.playerId, roomId: game.id, color, fen: state.fen, turn: state.turn, isActive: game.isActive });
 
     game.notify(color, Notifications.roomJoined(game.id, color, state));
 
     if (game.isActive) {
+      log.info("[GS-join-game-started]", { playerId: session.playerId, roomId: game.id, white: state.fen });
       game.broadcast(Notifications.gameStarted(game.id, state.fen, state.turn, game.timer.state));
     }
   }
@@ -377,9 +409,9 @@ export class GameService implements GameFacade {
     game.leave(color);
     this.pendingUndos.delete(game.id);
 
-    this.sessions.bind(ws, { roomId: null, color: null, mode: null });
+    this.sessions.clearSession(ws);
 
-    log.info("leave: output", { roomId: game.id, color });
+    log.info("[GS-leave-done]", { roomId: game.id, color });
   }
 
   /** {@inheritDoc} */
@@ -438,11 +470,18 @@ export class GameService implements GameFacade {
 
   /** Notifies the opponent that grace period started for the disconnected player. */
   private notifyGraceStarted(session: Session): void {
-    if (!session.roomId || session.color === null) return;
+    if (!session.roomId || session.color === null) {
+      log.info("[GS-grace-started-skip-no-room]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
+      return;
+    }
     const game = this.games.get(session.roomId);
-    if (!game || !game.isActive) return;
+    if (!game || !game.isActive) {
+      log.info("[GS-grace-started-skip-no-game]", { playerId: session.playerId, roomId: session.roomId, color: session.color, gameFound: !!game, gameActive: game?.isActive });
+      return;
+    }
 
     const opponentColor = session.color === WHITE ? BLACK : WHITE;
+    log.info("[GS-grace-started]", { roomId: session.roomId, disconnectedColor: session.color, opponentColor });
     game.notify(
       opponentColor,
       Notifications.graceStarted(game.id, session.color, Date.now()),
@@ -452,15 +491,19 @@ export class GameService implements GameFacade {
   /** Called when a grace timer expires — abandons the game on behalf of the disconnected player. */
   private handleGraceExpired(roomId: string, disconnectedColor: PieceColor): void {
     const game = this.games.get(roomId);
-    if (!game) return;
+    if (!game) {
+      log.warn("[GS-grace-expired-no-game]", { roomId, disconnectedColor });
+      return;
+    }
 
+    log.info("[GS-grace-expired]", { roomId, disconnectedColor, gameActive: game.isActive, gameFinished: game.isFinished });
     game.abandon(disconnectedColor);
   }
 
   private getSession(ws: WebSocket): Session | null {
     const session = this.sessions.bySocket(ws);
     if (!session) {
-      log.warn("action from unauthenticated socket");
+      log.warn("[GS-getSession-fail]", { wsId: ws.id });
       Reply.send(ws, Reply.error(NOT_AUTHENTICATED, "Session not found."));
       return null;
     }
@@ -469,19 +512,14 @@ export class GameService implements GameFacade {
 
   private getGame(ws: WebSocket, session: Session): Game | null {
     if (!session.roomId || session.color === null) {
-      log.warn("action from socket not in a game", {
-        playerId: session.playerId,
-      });
+      log.warn("[GS-getGame-fail-no-room]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
       Reply.send(ws, Reply.error(NOT_IN_GAME, "You are not in a game."));
       return null;
     }
 
     const game = this.games.get(session.roomId);
     if (!game) {
-      log.warn("session referenced a missing room", {
-        playerId: session.playerId,
-        roomId: session.roomId,
-      });
+      log.warn("[GS-getGame-fail-missing]", { playerId: session.playerId, roomId: session.roomId });
       Reply.send(ws, Reply.error(ROOM_NOT_FOUND, "Room not found."));
       return null;
     }
