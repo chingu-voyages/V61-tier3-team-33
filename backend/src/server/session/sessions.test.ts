@@ -374,4 +374,53 @@ describe("Sessions", () => {
       expect(() => store.stopPruning()).not.toThrow();
     });
   });
+
+  describe("prune with playerId cleanup", () => {
+    it("removes the old byPlayerId entry when a fresh session is opened with same token resume failure", () => {
+      const store = makeStore(1000);
+      const ws1 = makeSocket();
+      const s1 = store.open(ws1, "player-1");
+      const token = s1.token;
+      store.drop(ws1);
+
+      // Simulate time passing past TTL
+      const original = Date.now;
+      Date.now = () => s1.disconnectedAt! + 1001;
+      store.prune();
+      Date.now = original;
+
+      // Old playerId is gone
+      expect(store.byPlayerId("player-1")).toBeNull();
+
+      // New session with old token — resumeOrOpen should open fresh,
+      // and the old playerId must not reappear
+      const ws2 = makeSocket();
+      const s2 = store.resumeOrOpen(ws2, token);
+
+      expect(s2.playerId).not.toBe("player-1");
+      expect(store.byPlayerId("player-1")).toBeNull();
+      expect(store.bySocket(ws2)).toBe(s2);
+    });
+  });
+
+  describe("session stability on resume with stale roomId", () => {
+    it("clearSession clears roomId, color, and mode", () => {
+      const store = makeStore();
+      const ws = makeSocket();
+      const session = store.open(ws, "player-1");
+      store.bind(ws, { roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN });
+
+      store.clearSession(ws);
+
+      expect(session.roomId).toBeNull();
+      expect(session.color).toBeNull();
+      expect(session.mode).toBeNull();
+    });
+
+    it("clearSession is a no-op for unknown socket", () => {
+      const store = makeStore();
+
+      expect(() => store.clearSession(makeSocket())).not.toThrow();
+    });
+  });
 });

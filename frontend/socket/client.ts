@@ -22,6 +22,11 @@ export default class SocketClient {
   // Flag indicating whether the socket is destroyed.
   private destroyed = false
 
+  /** Public read-only access for downstream guard code (e.g. getSocketClient). */
+  get isDestroyed(): boolean {
+    return this.destroyed
+  }
+
   // state of the current socket
   private state: SocketState = initialSocketState
 
@@ -212,7 +217,10 @@ export function getSocketClient(
     resetSocketClient()
   }
 
-  if (!globalThis._chessSocketClient) {
+  // If the singleton was destroyed (e.g. during test teardown or hot reload),
+  // recreate it rather than returning a dead client.
+  if (!globalThis._chessSocketClient || globalThis._chessSocketClient.isDestroyed) {
+    resetSocketClient()
     globalThis._chessSocketClient = new SocketClient(url, options)
   }
 

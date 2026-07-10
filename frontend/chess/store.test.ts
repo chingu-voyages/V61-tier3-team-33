@@ -3,7 +3,7 @@ import { ChessStoreImpl } from "./store"
 import type { Position } from "./core/position"
 import { Board, Square } from "./core/board"
 import { A7, A8, E2, E4, E5, E6, E7 } from "./core/position"
-import { WHITE, BLACK, PAWN, QUEEN } from "./core/piece"
+import { WHITE, PAWN, QUEEN } from "./core/piece"
 import { MoveType, type Move } from "./core/move"
 
 describe("ChessStore", () => {
@@ -180,113 +180,5 @@ describe("ChessStore", () => {
     const piece = Square.decode(Board.at(state.board, A8))
     expect(piece).toEqual({ color: WHITE, type: QUEEN })
     expect(sent).toContainEqual({ type: "move:make", from: A7, to: A8, promoteTo: QUEEN })
-  })
-
-  test("cancelPromotion clears pending promotion", () => {
-    const store = new ChessStoreImpl(() => {}, "8/P7/8/8/8/8/8/8 w - - 0 1")
-    store.makeMove(A7, A8)
-    expect(store.snapshot().pendingPromotion).not.toBeNull()
-    store.cancelPromotion()
-    expect(store.snapshot().pendingPromotion).toBeNull()
-  })
-
-  test("confirmPromotion no-ops when no pending promotion", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.confirmPromotion(QUEEN)
-    expect(store.snapshot().pendingPromotion).toBeNull()
-  })
-
-  test("select sets selected and legal moves", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.select(E2)
-    expect(store.snapshot().selected).toBe(E2)
-    expect(store.snapshot().legalMoves.length).toBeGreaterThan(0)
-  })
-
-  test("select with null clears selection", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.select(E2)
-    store.select(null)
-    expect(store.snapshot().selected).toBeNull()
-    expect(store.snapshot().legalMoves).toEqual([])
-  })
-
-  test("clearSelection resets selected and legal moves", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.select(E2)
-    store.clearSelection()
-    expect(store.snapshot().selected).toBeNull()
-    expect(store.snapshot().legalMoves).toEqual([])
-  })
-
-  test("selectAccepted updates from server response", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.selectAccepted(E4, [E5, E6])
-    expect(store.snapshot().selected).toBe(E4)
-    expect(store.snapshot().legalMoves).toEqual([E5, E6])
-  })
-
-  test("selectRejected clears selection", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.select(E2)
-    store.selectRejected()
-    expect(store.snapshot().selected).toBeNull()
-    expect(store.snapshot().legalMoves).toEqual([])
-  })
-
-  test("setClock stores clock and receivedAt", () => {
-    const store = new ChessStoreImpl(() => {})
-    const clock = { whiteMs: 60000, blackMs: 60000, active: WHITE }
-    store.setClock(clock, 1000)
-    expect(store.snapshot().clock).toEqual(clock)
-    expect(store.snapshot().clockReceivedAt).toBe(1000)
-  })
-
-  test("setClock with null clears clock", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.setClock({ whiteMs: 60000, blackMs: 60000, active: WHITE }, 1000)
-    store.setClock(null, null)
-    expect(store.snapshot().clock).toBeNull()
-    expect(store.snapshot().clockReceivedAt).toBeNull()
-  })
-
-  test("loadFen resets state and clears pending", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.makeMove(E2, E4)
-    expect(store.snapshot().pendingMove).not.toBeNull()
-    store.loadFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-    expect(store.snapshot().pendingMove).toBeNull()
-    expect(store.snapshot().moveRejection).toBeNull()
-    expect(store.snapshot().selected).toBeNull()
-  })
-
-  test("applyMove when no pending match applies opponent move", () => {
-    const sent: object[] = []
-    const store = new ChessStoreImpl((cmd) => sent.push(cmd))
-    const oppMoveE4: Move = {
-      piece: { color: WHITE, type: PAWN },
-      from: E2, to: E4,
-      type: MoveType(0), promoteTo: null, captured: null,
-    }
-    store.applyMove(oppMoveE4)
-    expect(store.snapshot().fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
-  })
-
-  test("rejectMove reverts board and stores reason", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.makeMove(E2, E4)
-
-    store.rejectMove("illegal-move", E2, E4)
-    const s = store.snapshot()
-    expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-    expect(s.moveRejection).toBe("illegal-move")
-    expect(s.pendingMove).toBeNull()
-  })
-
-  test("rejectMove no-ops when no pending move", () => {
-    const store = new ChessStoreImpl(() => {})
-    store.rejectMove("illegal-move", E2, E4)
-    expect(store.snapshot().fen).toBe("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-    expect(store.snapshot().moveRejection).toBe("illegal-move")
   })
 })

@@ -52,6 +52,7 @@ export class Gateway {
   }
 
   private setup(): void {
+    this.app.get("/health", () => ({ status: "ok" }));
     this.app.ws("/ws", {
       open: this.handleOpen,
       message: this.handleMessage,
@@ -59,11 +60,12 @@ export class Gateway {
     });
   }
 
-  private handleOpen = (): void => {
-    // Nothing yet — the client must send session:handshake first.
+  private handleOpen = (ws: WebSocket): void => {
+    log.info("[GATEWAY-open]", { wsId: ws.id });
   };
 
   private handleClose = (ws: WebSocket): void => {
+    log.info("[GATEWAY-close]", { wsId: ws.id });
     this.connections.close(ws);
   };
 
@@ -71,7 +73,7 @@ export class Gateway {
     const cmd = this.protocol.decode(raw);
 
     if (cmd === null) {
-      log.warn("unparseable or unknown command received");
+      log.warn("[GATEWAY-decode-fail]", { wsId: ws.id, raw: typeof raw === 'string' ? raw.slice(0, 200) : typeof raw });
       Reply.send(
         ws,
         Reply.error(INVALID_PAYLOAD, "Unparseable or unknown command."),
@@ -79,9 +81,13 @@ export class Gateway {
       return;
     }
 
+    log.info("[GATEWAY-msg]", { wsId: ws.id, cmdType: cmd.type, roomId: (cmd as any).roomId });
+
     switch (cmd.type) {
       case SESSION_HANDSHAKE: {
         const session = this.connections.identify(ws, cmd.token);
+
+        log.info("[GATEWAY-handshake]", { wsId: ws.id, playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode });
 
         // A reload/reconnect resumes a session that may already be seated
         // in an active room. The client has no way to know that on its
@@ -92,7 +98,10 @@ export class Gateway {
         // the input payload, so the mode passed here is a required-but-
         // unused placeholder.
         if (session.roomId && session.color !== null) {
+          log.info("[GATEWAY-auto-rejoin]", { playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode });
           this.gameService.join(ws, { mode: session.mode ?? HUMAN_VS_HUMAN });
+        } else {
+          log.info("[GATEWAY-no-auto-rejoin]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
         }
         break;
       }
@@ -101,40 +110,58 @@ export class Gateway {
         this.connections.pong(ws);
         break;
 
-      case ROOM_JOIN:
+      case ROOM_JOIN: {
+        log.info("[GATEWAY-room-join]", { wsId: ws.id, roomId: (cmd as any).roomId, mode: (cmd as any).mode, color: (cmd as any).color, clock: (cmd as any).clock });
         this.gameService.join(ws, cmd);
         break;
+      }
 
       case ROOM_LEAVE:
+        log.info("[GATEWAY-room-leave]", { wsId: ws.id });
         this.gameService.leave(ws);
         break;
 
       case MOVE_MAKE:
+        log.info("[GATEWAY-move]", { wsId: ws.id, from: (cmd as any).from, to: (cmd as any).to });
         this.gameService.move(ws, cmd);
         break;
 
       case UNDO_REQUEST:
+        log.info("[GATEWAY-undo-request]", { wsId: ws.id });
         this.gameService.requestUndo(ws);
         break;
 
       case UNDO_ACCEPT:
+        log.info("[GATEWAY-undo-accept]", { wsId: ws.id });
         this.gameService.acceptUndo(ws);
         break;
 
       case UNDO_DECLINE:
+        log.info("[GATEWAY-undo-decline]", { wsId: ws.id });
         this.gameService.declineUndo(ws);
         break;
 
       case GAME_RESIGN:
+        log.info("[GATEWAY-resign]", { wsId: ws.id });
         this.gameService.resign(ws);
         break;
 
       case STATE_SYNC:
+        log.info("[GATEWAY-sync]", { wsId: ws.id });
         this.gameService.sync(ws);
         break;
 
       case POSITION_SELECT:
+        log.info("[GATEWAY-select]", { wsId: ws.id, position: (cmd as any).position });
         this.gameService.selectPosition(ws, cmd.position);
+        break;
+
+      default:
+        log.warn("[GATEWAY-unknown-cmd]", { wsId: ws.id, cmdType: (cmd as any).type });
+        Reply.send(
+          ws,
+          Reply.error(NOT_IMPLEMENTED, "Command type not implemented."),
+        );
         break;
     }
   };

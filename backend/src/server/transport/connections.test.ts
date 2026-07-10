@@ -47,6 +47,7 @@ describe("Connections", () => {
       resumeOrOpen: mock(() => makeSession()),
       drop: mock(() => {}),
       bind: mock(() => {}),
+      clearSession: mock(() => {}),
       prune: mock(() => {}),
       startPruning: mock(() => {}),
       stopPruning: mock(() => {}),

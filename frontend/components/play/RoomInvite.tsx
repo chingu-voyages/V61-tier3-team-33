@@ -12,10 +12,6 @@ import { Button } from "@/components/ui/button"
 import type { TimeControl } from "./types"
 import { KnightPulse } from "./KnightPulse"
 
-function formatClock(ms: number): string {
-  return ms >= 60000 ? `${ms / 60000}` : `${ms / 1000}`
-}
-
 interface RoomInviteProps {
   roomId: string
   timeControl: TimeControl
@@ -24,7 +20,10 @@ interface RoomInviteProps {
 
 export function RoomInvite({ roomId, timeControl, onCancel }: RoomInviteProps) {
   const [copied, setCopied] = useState(false)
-  const url = `${window.location.origin}/play?mode=friend&room=${roomId}`
+  const url =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/play?mode=friend&room=${roomId}`
+      : ""
 
   const copyLink = async () => {
     try {

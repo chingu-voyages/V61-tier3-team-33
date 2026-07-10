@@ -23,23 +23,30 @@ const TOKEN_INVALID_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const socket = useSocketContext()
   const [session, setSession] = useState<SessionInfo | null>(null)
-  // Bumped to force the handshake effect to re-run after a failed attempt —
-  // `session` alone can't do this since it stays null across retries.
   const [handshakeAttempt, setHandshakeAttempt] = useState(0)
   const inFlightRef = useRef(false)
+  // Tracks which connection generation the handshake was sent on.
+  // Each time the socket transitions to "open" (i.e. a new or reconnected
+  // connection), this increments so the effect re-sends the handshake even
+  // when `session` is already set from a previous connection.
+  const connectionGenRef = useRef(0)
 
   useEffect(() => {
-    if (socket.status === "open" && !session && !inFlightRef.current) {
+    if (socket.status === "open" && !inFlightRef.current) {
+      // If the socket transitioned to "open" on a new connection generation,
+      // send the handshake (even if session is already set for reconnect).
+      // After sending, bump the generation so the same open stays silent
+      // until the next reconnect.
+      const gen = connectionGenRef.current
+      connectionGenRef.current = gen + 1
       inFlightRef.current = true
       const savedToken = localStorage.getItem(STORAGE_KEY)
       socket.send(Commands.handshake(savedToken ?? undefined))
     }
-    // Reset so a fresh connection (new socket.status "open" transition)
-    // is allowed to send its own handshake.
     if (socket.status !== "open") {
       inFlightRef.current = false
     }
-  }, [socket.status, socket, session, handshakeAttempt])
+  }, [socket.status, socket, handshakeAttempt])
 
   useSocketEvent(SESSION_HANDSHAKE, (msg) => {
     inFlightRef.current = false

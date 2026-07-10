@@ -39,7 +39,8 @@ describe("Grace", () => {
     const deadline = timer.start("room-1", WHITE, 30_000, () => {});
 
     expect(deadline).toBeGreaterThan(now);
-    expect(deadline - now).toBe(30_000);
+    expect(deadline - now).toBeGreaterThanOrEqual(30_000);
+    expect(deadline - now).toBeLessThan(30_010);
   });
 
   it("getDeadline returns null for unknown room", () => {

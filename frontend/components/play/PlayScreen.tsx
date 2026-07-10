@@ -11,10 +11,12 @@ import type { PlayMode, TimeControl } from "./types"
 import { useGameActions } from "@/socket/use-action"
 import { useSocketEvent } from "@/socket/use-event"
 import { GAME_STARTED, ROOM_JOINED } from "@/socket/events"
+import { SESSION_ERROR } from "@/socket/errors"
 import { ClockFormat, HUMAN_VS_HUMAN, ACTIVE } from "@/socket/types"
 import { SessionContext } from "@/context/session/session-context"
-import { useGame } from "@/context/game/game-context"
+import { useRoom } from "@/context/room/context"
 import { gooeyToast } from "@/components/ui/goey-toaster"
+import { KnightPulse } from "./KnightPulse"
 
 interface PlayScreenProps {
   mode: PlayMode
@@ -27,14 +29,14 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
   const actions = useGameActions()
   const session = use(SessionContext)
   const joinSentRef = useRef(false)
-  const game = useGame()
+  const connectionGenRef = useRef(0)
+  const room = useRoom()
 
-  // If already in a game on mount (reconnect), show the board
   useEffect(() => {
-    if (game.state.roomId && game.state.status !== null && game.state.status >= ACTIVE && phase.phase !== "play") {
+    if (room.state.roomId && room.state.status !== null && room.state.status >= ACTIVE && phase.phase !== "play") {
       dispatch({ type: "OPPONENT_JOINED" })
     }
-  }, [game.state.roomId, game.state.status, phase.phase])
+  }, [room.state.roomId, room.state.status, phase.phase])
 
   const goHome = useCallback(() => {
     if (phase.phase !== "pick-time") {
@@ -79,13 +81,23 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
     [actions, session]
   )
 
-  // Auto-join when entering via invite link (roomId from URL, phase is "invite")
+  // Auto-join when entering via invite link (roomId from URL, phase is "joining").
+  // Also re-fires on reconnect: each time session flips to non-null on a new
+  // connection generation (socket.status → open), we allow another join attempt.
   useEffect(() => {
-    if (session && phase.phase === "invite" && !joinSentRef.current) {
+    if (session && phase.phase === "joining" && !joinSentRef.current) {
       joinSentRef.current = true
+      connectionGenRef.current++
       actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: phase.roomId })
     }
   }, [session, phase, actions])
+
+  useSocketEvent(SESSION_ERROR, (msg) => {
+    if (phase.phase !== "joining") return
+    joinSentRef.current = false
+    gooeyToast.error("Couldn't join game", { description: msg.message })
+    dispatch({ type: "JOIN_FAILED", mode: "friend" })
+  })
 
   useSocketEvent(GAME_STARTED, () => {
     dispatch({ type: "OPPONENT_JOINED" })
@@ -96,6 +108,15 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
       dispatch({ type: "OPPONENT_JOINED" })
     }
   })
+
+  if (phase.phase === "joining") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
+        <KnightPulse />
+        <p className="text-sm text-muted-foreground">Joining game…</p>
+      </div>
+    )
+  }
 
   if (phase.phase === "pick-time") {
     return (

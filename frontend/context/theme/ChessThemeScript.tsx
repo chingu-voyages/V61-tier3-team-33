@@ -8,7 +8,7 @@ function applyStoredTheme(storageKey: string, defaultTheme: string) {
   try {
     const stored = localStorage.getItem(storageKey) || defaultTheme
     document.documentElement.setAttribute("data-chess-theme", stored)
-  } catch (e) {}
+  } catch {}
 }
 
 export const ChessThemeScript = memo(function ChessThemeScript({

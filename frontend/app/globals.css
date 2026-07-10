@@ -47,24 +47,25 @@
   --chess-b-stroke: #08060a;
   --chess-coord-on-light: #5a3a14;
   --chess-coord-on-dark: #ffffff;
-  --chess-selected-fill: rgba(255, 196, 0, 0.5);
+  --chess-selected-fill: #ffc40080;
   --chess-selected-border-on-light: #1a0f00;
   --chess-selected-border-on-dark: #ffe082;
-  --chess-last-move-fill: rgba(255, 196, 0, 0.16);
+  --chess-last-move-fill: #ffc4003b;
   --chess-last-move-border-on-light: #1a0f00;
   --chess-last-move-border-on-dark: #ffe082;
-  --chess-capture-fill: rgba(255, 107, 0, 0.5);
+  --chess-capture-fill: #ff6b0080;
   --chess-capture-border-on-light: #1a0a00;
   --chess-capture-border-on-dark: #ffd9b3;
-  --chess-check-fill: rgba(211, 47, 47, 0.5);
+  --chess-check-fill: #d32f2f80;
   --chess-check-border-on-light: #2a0000;
   --chess-check-border-on-dark: #ffcfcf;
-  --chess-illegal-fill: rgba(211, 47, 47, 0.55);
+  --chess-illegal-fill: #d32f2f8c;
   --chess-illegal-border-on-light: #2a0000;
   --chess-illegal-border-on-dark: #ffcfcf;
-  --chess-premove-fill: rgba(33, 150, 243, 0.35);
+  --chess-premove-fill: #2196f359;
   --chess-premove-border-on-light: #050f2a;
   --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #ffc40026;
 }
 
 /* Chess board — theme overrides (light mode) */
@@ -77,24 +78,25 @@
   --chess-b-stroke: #08060a;
   --chess-coord-on-light: #5a3a14;
   --chess-coord-on-dark: #ffffff;
-  --chess-selected-fill: rgba(255, 196, 0, 0.5);
+  --chess-selected-fill: #ffc40080;
   --chess-selected-border-on-light: #1a0f00;
   --chess-selected-border-on-dark: #ffe082;
-  --chess-last-move-fill: rgba(255, 196, 0, 0.16);
+  --chess-last-move-fill: #ffc4003b;
   --chess-last-move-border-on-light: #1a0f00;
   --chess-last-move-border-on-dark: #ffe082;
-  --chess-capture-fill: rgba(255, 107, 0, 0.5);
+  --chess-capture-fill: #ff6b0080;
   --chess-capture-border-on-light: #1a0a00;
   --chess-capture-border-on-dark: #ffd9b3;
-  --chess-check-fill: rgba(211, 47, 47, 0.5);
+  --chess-check-fill: #d32f2f80;
   --chess-check-border-on-light: #2a0000;
   --chess-check-border-on-dark: #ffcfcf;
-  --chess-illegal-fill: rgba(211, 47, 47, 0.55);
+  --chess-illegal-fill: #d32f2f8c;
   --chess-illegal-border-on-light: #2a0000;
   --chess-illegal-border-on-dark: #ffcfcf;
-  --chess-premove-fill: rgba(33, 150, 243, 0.35);
+  --chess-premove-fill: #2196f359;
   --chess-premove-border-on-light: #050f2a;
   --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #ffc40026;
 }
 [data-chess-theme="forest"] {
   --chess-light-square: #e0e8c2;
@@ -105,8 +107,25 @@
   --chess-b-stroke: #050802;
   --chess-coord-on-light: #3a4a0a;
   --chess-coord-on-dark: #ffffff;
-  --chess-check-fill: rgba(198, 40, 40, 0.5);
-  --chess-illegal-fill: rgba(198, 40, 40, 0.55);
+  --chess-selected-fill: #ffb30073;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffb3003b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #c6282880;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #c628288c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #1e88e559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #9ccc652e;
 }
 [data-chess-theme="ocean"] {
   --chess-light-square: #d5e0e4;
@@ -117,10 +136,25 @@
   --chess-b-stroke: #03080b;
   --chess-coord-on-light: #1f3845;
   --chess-coord-on-dark: #ffffff;
-  --chess-selected-fill: rgba(255, 179, 0, 0.5);
-  --chess-last-move-fill: rgba(255, 179, 0, 0.16);
-  --chess-check-fill: rgba(198, 40, 40, 0.5);
-  --chess-illegal-fill: rgba(198, 40, 40, 0.55);
+  --chess-selected-fill: #ffb30080;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffb3003b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #c6282880;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #c628288c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #1e88e559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #64b5f62e;
 }
 [data-chess-theme="rose"] {
   --chess-light-square: #f0d3d3;
@@ -131,11 +165,25 @@
   --chess-b-stroke: #0c0404;
   --chess-coord-on-light: #5a1f1f;
   --chess-coord-on-dark: #ffffff;
-  --chess-selected-fill: rgba(233, 30, 99, 0.35);
-  --chess-last-move-fill: rgba(233, 30, 99, 0.12);
-  --chess-check-fill: rgba(183, 28, 28, 0.5);
-  --chess-illegal-fill: rgba(183, 28, 28, 0.55);
-  --chess-premove-fill: rgba(123, 31, 162, 0.35);
+  --chess-selected-fill: #e91e6359;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #e91e633b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #c6282880;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #b71c1c80;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #b71c1c8c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #7b1fa259;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #e91e631f;
 }
 [data-chess-theme="slate"] {
   --chess-light-square: #cdd4d9;
@@ -146,10 +194,25 @@
   --chess-b-stroke: #05080b;
   --chess-coord-on-light: #1f272e;
   --chess-coord-on-dark: #ffffff;
-  --chess-selected-fill: rgba(255, 179, 0, 0.5);
-  --chess-last-move-fill: rgba(255, 179, 0, 0.16);
-  --chess-check-fill: rgba(198, 40, 40, 0.5);
-  --chess-illegal-fill: rgba(198, 40, 40, 0.55);
+  --chess-selected-fill: #ffb30080;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffb3003b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #c6282880;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #c628288c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #1e88e559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #90a4ae38;
 }
 [data-chess-theme="midnight"] {
   --chess-light-square: #a8b2c4;
@@ -160,11 +223,25 @@
   --chess-b-stroke: #05080e;
   --chess-coord-on-light: #0a0f1a;
   --chess-coord-on-dark: #f0f3f8;
-  --chess-selected-fill: rgba(255, 196, 0, 0.45);
-  --chess-last-move-fill: rgba(255, 196, 0, 0.14);
-  --chess-check-fill: rgba(239, 83, 80, 0.45);
-  --chess-illegal-fill: rgba(239, 83, 80, 0.55);
-  --chess-premove-fill: rgba(66, 165, 245, 0.35);
+  --chess-selected-fill: #ffc40073;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffc4003b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #ef535073;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #ef53508c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #42a5f559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #5c6bc038;
 }
 
 .dark {
@@ -209,24 +286,25 @@
   --chess-b-stroke: #08060a;
   --chess-coord-on-light: #2a1a08;
   --chess-coord-on-dark: #f0e6d8;
-  --chess-selected-fill: rgba(255, 210, 60, 0.5);
+  --chess-selected-fill: #ffd23c80;
   --chess-selected-border-on-light: #1a0f00;
   --chess-selected-border-on-dark: #ffe082;
-  --chess-last-move-fill: rgba(255, 210, 60, 0.2);
+  --chess-last-move-fill: #ffd23c3b;
   --chess-last-move-border-on-light: #1a0f00;
   --chess-last-move-border-on-dark: #ffe082;
-  --chess-capture-fill: rgba(255, 130, 40, 0.5);
+  --chess-capture-fill: #ff822880;
   --chess-capture-border-on-light: #1a0a00;
   --chess-capture-border-on-dark: #ffd9b3;
-  --chess-check-fill: rgba(230, 70, 70, 0.5);
+  --chess-check-fill: #e6464680;
   --chess-check-border-on-light: #2a0000;
   --chess-check-border-on-dark: #ffcfcf;
-  --chess-illegal-fill: rgba(230, 70, 70, 0.55);
+  --chess-illegal-fill: #e646468c;
   --chess-illegal-border-on-light: #2a0000;
   --chess-illegal-border-on-dark: #ffcfcf;
-  --chess-premove-fill: rgba(70, 170, 255, 0.35);
+  --chess-premove-fill: #46aaff59;
   --chess-premove-border-on-light: #050f2a;
   --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #ffd23c2e;
 }
 
 /* Chess board — theme overrides (dark mode) */
@@ -240,24 +318,25 @@
   --chess-b-stroke: #08060a;
   --chess-coord-on-light: #2a1a08;
   --chess-coord-on-dark: #f0e6d8;
-  --chess-selected-fill: rgba(255, 210, 60, 0.5);
+  --chess-selected-fill: #ffd23c80;
   --chess-selected-border-on-light: #1a0f00;
   --chess-selected-border-on-dark: #ffe082;
-  --chess-last-move-fill: rgba(255, 210, 60, 0.2);
+  --chess-last-move-fill: #ffd23c3b;
   --chess-last-move-border-on-light: #1a0f00;
   --chess-last-move-border-on-dark: #ffe082;
-  --chess-capture-fill: rgba(255, 130, 40, 0.5);
+  --chess-capture-fill: #ff822880;
   --chess-capture-border-on-light: #1a0a00;
   --chess-capture-border-on-dark: #ffd9b3;
-  --chess-check-fill: rgba(230, 70, 70, 0.5);
+  --chess-check-fill: #e6464680;
   --chess-check-border-on-light: #2a0000;
   --chess-check-border-on-dark: #ffcfcf;
-  --chess-illegal-fill: rgba(230, 70, 70, 0.55);
+  --chess-illegal-fill: #e646468c;
   --chess-illegal-border-on-light: #2a0000;
   --chess-illegal-border-on-dark: #ffcfcf;
-  --chess-premove-fill: rgba(70, 170, 255, 0.35);
+  --chess-premove-fill: #46aaff59;
   --chess-premove-border-on-light: #050f2a;
   --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #ffd23c2e;
 }
 .dark[data-chess-theme="forest"],
 .dark [data-chess-theme="forest"] {
@@ -269,8 +348,25 @@
   --chess-b-stroke: #050802;
   --chess-coord-on-light: #1a2408;
   --chess-coord-on-dark: #e8ecda;
-  --chess-check-fill: rgba(220, 70, 70, 0.5);
-  --chess-illegal-fill: rgba(220, 70, 70, 0.55);
+  --chess-selected-fill: #ffb30080;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffb3003b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #dc464680;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #dc46468c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #1e88e559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #9ccc652e;
 }
 .dark[data-chess-theme="ocean"],
 .dark [data-chess-theme="ocean"] {
@@ -282,10 +378,25 @@
   --chess-b-stroke: #03080b;
   --chess-coord-on-light: #071216;
   --chess-coord-on-dark: #eaf4f7;
-  --chess-selected-fill: rgba(255, 210, 60, 0.5);
-  --chess-last-move-fill: rgba(255, 210, 60, 0.2);
-  --chess-check-fill: rgba(230, 70, 70, 0.5);
-  --chess-illegal-fill: rgba(230, 70, 70, 0.55);
+  --chess-selected-fill: #ffd23c80;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffd23c3b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #e6464680;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #e646468c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #1e88e559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #64b5f633;
 }
 .dark[data-chess-theme="rose"],
 .dark [data-chess-theme="rose"] {
@@ -297,11 +408,25 @@
   --chess-b-stroke: #0c0404;
   --chess-coord-on-light: #200b0b;
   --chess-coord-on-dark: #f7e7e6;
-  --chess-selected-fill: rgba(240, 80, 140, 0.4);
-  --chess-last-move-fill: rgba(240, 80, 140, 0.18);
-  --chess-check-fill: rgba(210, 60, 60, 0.5);
-  --chess-illegal-fill: rgba(210, 60, 60, 0.55);
-  --chess-premove-fill: rgba(160, 80, 200, 0.4);
+  --chess-selected-fill: #f0508c66;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #f0508c3b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #c6282880;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #d23c3c80;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #d23c3c8c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #a050c866;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #f0508c26;
 }
 .dark[data-chess-theme="slate"],
 .dark [data-chess-theme="slate"] {
@@ -313,10 +438,25 @@
   --chess-b-stroke: #05080b;
   --chess-coord-on-light: #0a0d10;
   --chess-coord-on-dark: #eef1f3;
-  --chess-selected-fill: rgba(255, 210, 60, 0.5);
-  --chess-last-move-fill: rgba(255, 210, 60, 0.2);
-  --chess-check-fill: rgba(220, 70, 70, 0.5);
-  --chess-illegal-fill: rgba(220, 70, 70, 0.55);
+  --chess-selected-fill: #ffd23c80;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffd23c3b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #dc464680;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #dc46468c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #1e88e559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #90a4ae40;
 }
 .dark[data-chess-theme="midnight"],
 .dark [data-chess-theme="midnight"] {
@@ -328,11 +468,25 @@
   --chess-b-stroke: #0a0f1a;
   --chess-coord-on-light: #0a0f1a;
   --chess-coord-on-dark: #f0f3f8;
-  --chess-selected-fill: rgba(255, 196, 0, 0.45);
-  --chess-last-move-fill: rgba(255, 196, 0, 0.14);
-  --chess-check-fill: rgba(239, 83, 80, 0.45);
-  --chess-illegal-fill: rgba(239, 83, 80, 0.55);
-  --chess-premove-fill: rgba(66, 165, 245, 0.35);
+  --chess-selected-fill: #ffc40073;
+  --chess-selected-border-on-light: #1a0f00;
+  --chess-selected-border-on-dark: #ffe082;
+  --chess-last-move-fill: #ffc4003b;
+  --chess-last-move-border-on-light: #1a0f00;
+  --chess-last-move-border-on-dark: #ffe082;
+  --chess-capture-fill: #e6510080;
+  --chess-capture-border-on-light: #1a0a00;
+  --chess-capture-border-on-dark: #ffd9b3;
+  --chess-check-fill: #ef535073;
+  --chess-check-border-on-light: #2a0000;
+  --chess-check-border-on-dark: #ffcfcf;
+  --chess-illegal-fill: #ef53508c;
+  --chess-illegal-border-on-light: #2a0000;
+  --chess-illegal-border-on-dark: #ffcfcf;
+  --chess-premove-fill: #42a5f559;
+  --chess-premove-border-on-light: #050f2a;
+  --chess-premove-border-on-dark: #c8e8fe;
+  --chess-hover-fill: #5c6bc038;
 }
 
 @theme inline {
@@ -403,6 +557,7 @@
   --color-chess-premove-fill: var(--chess-premove-fill);
   --color-chess-premove-border-on-light: var(--chess-premove-border-on-light);
   --color-chess-premove-border-on-dark: var(--chess-premove-border-on-dark);
+  --color-chess-hover-fill: var(--chess-hover-fill);
 }
 
 @layer base {

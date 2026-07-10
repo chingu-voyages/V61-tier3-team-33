@@ -1,5 +1,8 @@
 import type { Brand } from "../../chess/core/brand";
 import type { Event } from "../protocol/events";
+import { logger as rootLogger } from "../../logging/log";
+
+const log = rootLogger.child({ module: "Hub" });
 
 // Handler that receives every event, regardless of type.
 export type EventHandler = (
@@ -90,6 +93,9 @@ export class Hub implements Publisher, Subscriber {
   /** {@inheritDoc} */
   emit(event: Event): void {
     const roomId = event.roomId;
+
+    log.info("[HUB-emit]", { type: event.type, roomId, hasFast: Boolean(this.typed.get(event.type)?.[0].size), hasDeferred: Boolean(this.typed.get(event.type)?.[1].size) });
+
     const [fastWild, deferredWild] = this.wild;
     const bucket = this.typed.get(event.type);
 
@@ -115,7 +121,7 @@ export class Hub implements Publisher, Subscriber {
     handler: Handler<T>,
     priority: Priority = DEFERRED,
   ): Unsubscribe {
-    const broad = handler as EventHandler; // safe: emit only calls this via the matching type key
+    const broad = handler as EventHandler;
     let bucket = this.typed.get(type);
     if (!bucket) {
       bucket = newBucket();
@@ -123,7 +129,11 @@ export class Hub implements Publisher, Subscriber {
     }
     const set = bucket[priority];
     set?.add(broad);
-    return () => set?.delete(broad);
+    log.info("[HUB-subscribe]", { type, priority: priority === 0 ? 'FAST' : 'DEFERRED', count: set?.size ?? 0 });
+    return () => {
+      set?.delete(broad);
+      log.info("[HUB-unsubscribe]", { type, count: set?.size ?? 0 });
+    };
   }
 
   /** {@inheritDoc} */

@@ -1,9 +1,13 @@
 import type { PieceColor } from "../types";
+import { logger as rootLogger } from "../../logging/log";
+
+const log = rootLogger.child({ module: "Grace" });
 
 interface GraceEntry {
   color: PieceColor;
   handle: ReturnType<typeof setTimeout>;
   deadlineMs: number;
+  roomId: string;
 }
 
 /**
@@ -23,11 +27,13 @@ export class Grace {
 
     const deadlineMs = Date.now() + timeoutMs;
     const handle = setTimeout(() => {
+      log.info("[GRACE-expired]", { roomId, color, deadlineMs, wasActive: this.timers.has(roomId) });
       this.timers.delete(roomId);
       onExpire();
     }, timeoutMs);
 
-    this.timers.set(roomId, { color, handle, deadlineMs });
+    this.timers.set(roomId, { color, handle, deadlineMs, roomId });
+    log.info("[GRACE-started]", { roomId, color, timeoutMs, deadlineMs, totalActive: this.timers.size });
     return deadlineMs;
   }
 
@@ -37,10 +43,14 @@ export class Grace {
    */
   cancel(roomId: string): boolean {
     const existing = this.timers.get(roomId);
-    if (!existing) return false;
+    if (!existing) {
+      log.info("[GRACE-cancel-noop]", { roomId, totalActive: this.timers.size });
+      return false;
+    }
 
     clearTimeout(existing.handle);
     this.timers.delete(roomId);
+    log.info("[GRACE-cancelled]", { roomId, color: existing.color, remainingMs: existing.deadlineMs - Date.now(), totalActive: this.timers.size });
     return true;
   }
 
@@ -51,9 +61,11 @@ export class Grace {
 
   /** Cancels every running grace timer. Used for cleanup. */
   clear(): void {
+    const count = this.timers.size;
     for (const { handle } of this.timers.values()) {
       clearTimeout(handle);
     }
     this.timers.clear();
+    log.info("[GRACE-cleared]", { cancelled: count });
   }
 }
