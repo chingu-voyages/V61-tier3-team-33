@@ -3,6 +3,7 @@ import {
   BLACK,
   WHITE,
   type JoinInput,
+  type Mode,
   type MoveInput,
   type PieceColor,
   type Position,
@@ -78,6 +79,24 @@ export class GameService implements GameFacade {
     }
 
     log.info("[GS-join-session]", { playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode, disconnectedAt: session.disconnectedAt });
+
+    // Explicit roomId different from session's current room: this is a
+    // room switch, not a reconnect. Remember the old room but don't leave
+    // it yet — only commit once the new join succeeds. If the old room no
+    // longer exists, there's nothing to switch from or roll back to — fall
+    // through to the stale-session cleanup below instead.
+    let switchingFrom: { roomId: string; color: PieceColor; mode: Mode | null } | null = null;
+    if (
+      session.roomId &&
+      session.color !== null &&
+      input.roomId !== undefined &&
+      input.roomId !== session.roomId &&
+      this.games.get(session.roomId)
+    ) {
+      log.info("[GS-join-switch-room]", { playerId: session.playerId, fromRoomId: session.roomId, toRoomId: input.roomId });
+      switchingFrom = { roomId: session.roomId, color: session.color, mode: session.mode };
+      this.sessions.clearSession(ws);
+    }
 
     // Rejoin on reconnect.
     if (session.roomId && session.color !== null) {
@@ -156,7 +175,11 @@ export class GameService implements GameFacade {
         // Joining via an invite link must target an existing room —
         // creating one here would silently strand the inviter.
         log.warn("[GS-join-missing-room]", { playerId: session.playerId, roomId: input.roomId });
-        this.sessions.clearSession(ws);
+        if (switchingFrom) {
+          this.sessions.bind(ws, switchingFrom);
+        } else {
+          this.sessions.clearSession(ws);
+        }
         Reply.send(ws, Reply.error(ROOM_NOT_FOUND, "Room not found."));
         return;
       } else {
@@ -181,6 +204,9 @@ export class GameService implements GameFacade {
     const color = input.color ?? game.nextColor();
     if (color === null) {
       log.warn("[GS-join-color-null]", { playerId: session.playerId, roomId: game.id, input });
+      if (switchingFrom) {
+        this.sessions.bind(ws, switchingFrom);
+      }
       Reply.send(ws, Reply.error(GAME_FULL, "Game is full."));
       return;
     }
@@ -190,6 +216,9 @@ export class GameService implements GameFacade {
     const occupant = new Human(session.playerId, ws, this.protocol);
     const result = game.join(color, occupant);
     if (!result.ok) {
+      if (switchingFrom) {
+        this.sessions.bind(ws, switchingFrom);
+      }
       if (result.error === ROOM_FULL) {
         log.warn("[GS-join-color-taken]", { playerId: session.playerId, roomId: game.id, color });
         Reply.send(ws, Reply.error(GAME_FULL, "That color is already taken."));
@@ -201,6 +230,14 @@ export class GameService implements GameFacade {
         );
       }
       return;
+    }
+
+    if (switchingFrom) {
+      const previous = this.games.get(switchingFrom.roomId);
+      if (previous && !previous.isFinished) {
+        previous.leave(switchingFrom.color);
+      }
+      this.pendingUndos.delete(switchingFrom.roomId);
     }
 
     this.sessions.bind(ws, { roomId: game.id, color, mode: input.mode });

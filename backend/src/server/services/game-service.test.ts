@@ -750,6 +750,25 @@ describe("GameService", () => {
       expect(joinMsg!.roomId).toBe(roomId);
     });
 
+    it("keeps the old game if the switch target doesn't exist", async () => {
+      const { service, sessions, games } = makeService();
+      const { white, black, roomId } = await seatTwoPlayers(service, sessions);
+
+      await service.join(white, { mode: HUMAN_VS_HUMAN, roomId: "nonexistent" });
+
+      expect(lastSent(white)).toEqual(
+        expect.objectContaining({ type: SESSION_ERROR, code: ROOM_NOT_FOUND }),
+      );
+
+      // White is still seated in the original room, not stranded.
+      expect(games.get(roomId)!.getOccupant(WHITE)).not.toBeNull();
+      const session = sessions.bySocket(white)!;
+      expect(session.roomId).toBe(roomId);
+
+      // Opponent never got ROOM_LEFT.
+      expect(sent(black).some((m) => m.type === ROOM_LEFT)).toBe(false);
+    });
+
     it("switches into the requested room when a different roomId is given (EC11)", async () => {
       const { service, sessions, games } = makeService();
       const { white, roomId } = await seatTwoPlayers(service, sessions);
