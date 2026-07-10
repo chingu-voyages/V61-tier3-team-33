@@ -7,18 +7,14 @@ interface EmoteOverlayProps {
 }
 
 export function EmoteOverlay({ emote }: EmoteOverlayProps) {
-  const [visible, setVisible] = useState(false)
-  const [current, setCurrent] = useState<string | null>(null)
+  const [visible, setVisible] = useState(true)
 
   useEffect(() => {
-    if (!emote) return
-    setCurrent(emote)
-    setVisible(true)
     const hide = setTimeout(() => setVisible(false), 2000)
     return () => clearTimeout(hide)
-  }, [emote])
+  }, [])
 
-  if (!current) return null
+  if (!emote) return null
 
   return (
     <div
@@ -27,7 +23,7 @@ export function EmoteOverlay({ emote }: EmoteOverlayProps) {
         visible ? "opacity-100" : "opacity-0",
       ].join(" ")}
     >
-      <span className="text-6xl drop-shadow-lg animate-bounce">{current}</span>
+      <span className="text-6xl drop-shadow-lg animate-bounce">{emote}</span>
     </div>
   )
 }

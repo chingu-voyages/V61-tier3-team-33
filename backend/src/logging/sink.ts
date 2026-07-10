@@ -36,6 +36,7 @@ const FAMILY_COLOR: Record<EventFamily, string> = {
   clock: "\x1b[33m", // yellow
   grace: "\x1b[33m", // yellow
   connection: "\x1b[35m", // magenta
+  emote: "\x1b[95m",   // clear magenta
 };
 
 // Caps the inline JSON payload in ConsoleSink so one large event (e.g. a

@@ -6,7 +6,6 @@ import type { ClockState } from "@/socket/types"
 import { WHITE } from "@/core/piece"
 import { getPieceIcon } from "@/components/pieces"
 import { KNIGHT } from "@/core/piece"
-import { cn } from "@/lib/utils"
 
 function fmtClock(ms: number | undefined): string {
   if (ms === undefined) return "--:--"
