@@ -2,7 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import { Reply } from "./replies";
 import { SESSION_HANDSHAKE } from "./commands";
 import { SESSION_ERROR, INVALID_PAYLOAD, NOT_IMPLEMENTED } from "./errors";
-import { WS_OPEN, type WebSocket } from "../domain/types";
+import { WS_OPEN, type WebSocket } from "../types";
 
 describe("Reply", () => {
   /** A minimal fake WebSocket. Each call makes a distinct object, so two

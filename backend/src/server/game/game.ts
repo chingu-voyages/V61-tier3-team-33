@@ -9,7 +9,9 @@ import {
   ACTIVE,
   FINISHED,
   RULES,
+  ABANDONED,
   RESIGNATION,
+  TIMEOUT,
   IN_PROGRESS,
   NO_DRAW_REASON,
   type EndReason,
@@ -21,7 +23,7 @@ import {
   type PieceColor,
   type PieceType,
   type Position,
-} from "../domain/types";
+} from "../types";
 
 import {
   ok,
@@ -42,13 +44,23 @@ import {
   type UndoError,
   type JoinError,
   type SelectError,
-} from "../domain/result";
+} from "../types";
 
 import type { Occupant } from "../occupant/occupant";
-import type { Publisher } from "../bus/bus";
+import type { Publisher, Subscriber } from "../bus/bus";
+import { FAST } from "../bus/bus";
 import { Mutex } from "../util/mutex";
+import type { Clock } from "../clock/clock";
+import type { Timer } from "../clock/timer";
 
-import { Notifications, type Notification } from "../protocol/events";
+import {
+  Notifications,
+  CLOCK_EXPIRED,
+  type Notification,
+} from "../protocol/events";
+import { logger as rootLogger } from "../../logging/log";
+
+const log = rootLogger.child({ module: "Game" });
 
 /** A single chess match: two color slots, one engine, one lifecycle. */
 export class Game {
@@ -60,13 +72,31 @@ export class Game {
   private chess: Chess = new Chess();
   private slots = new Map<PieceColor, Occupant>();
   private lock = new Mutex();
+  private abandonedBy: PieceColor | null = null;
 
   constructor(
     readonly id: string,
     readonly mode: Mode,
-    private publisher: Publisher,
+    readonly clock: Clock,
+    private publisher: Publisher & Subscriber,
+    readonly timer: Timer,
     private onActivated?: () => void,
-  ) {}
+  ) {
+    log.info("[GAME-create]", { id, mode: mode.toString(), format: this.clock.format, initialMs: this.clock.initialMs });
+    this.setup();
+  }
+
+  private setup(): void {
+    this.publisher.on(
+      CLOCK_EXPIRED,
+      (roomId, event) => {
+        if (event.type === CLOCK_EXPIRED && roomId === this.id) {
+          this.expire();
+        }
+      },
+      FAST,
+    );
+  }
 
   get isEmpty(): boolean {
     return this.slots.size === 0;
@@ -108,8 +138,10 @@ export class Game {
 
   /** Removes the occupant from a color slot and broadcasts room:left. */
   leave(color: PieceColor): void {
+    log.info("[GAME-leave]", { id: this.id, color, occupant: this.slots.get(color)?.playerId });
     this.broadcast(Notifications.roomLeft(this.id, color));
     this.slots.delete(color);
+    log.info("[GAME-leave-done]", { id: this.id, slotsRemaining: this.slots.size });
   }
 
   /**
@@ -120,6 +152,7 @@ export class Game {
    */
   reseat(color: PieceColor, occupant: Occupant): Occupant | null {
     const previous = this.slots.get(color) ?? null;
+    log.info("[GAME-reseat]", { id: this.id, color, newPlayerId: occupant.playerId, previousPlayerId: previous?.playerId ?? null });
     this.slots.set(color, occupant);
     return previous;
   }
@@ -144,13 +177,24 @@ export class Game {
 
   /** Seats an occupant into a color slot; the game goes ACTIVE once both are filled. */
   join(color: PieceColor, occupant: Occupant): Result<void, JoinError> {
-    if (this.status === FINISHED) return err(INVALID_MODE);
-    if (this.slots.has(color)) return err(ROOM_FULL);
+    log.info("[GAME-join]", { id: this.id, color, playerId: occupant.playerId, status: this.status, slotsBefore: this.slots.size });
+    if (this.status === FINISHED) {
+      log.warn("[GAME-join-reject-finished]", { id: this.id, color });
+      return err(INVALID_MODE);
+    }
+    if (this.slots.has(color)) {
+      log.warn("[GAME-join-reject-full]", { id: this.id, color, occupant: this.slots.get(color)?.playerId });
+      return err(ROOM_FULL);
+    }
 
     this.slots.set(color, occupant);
     if (this.isFull) {
       this.status = ACTIVE;
+      log.info("[GAME-activated]", { id: this.id, white: this.slots.get(WHITE)?.playerId, black: this.slots.get(BLACK)?.playerId });
+      this.timer.start(this.clock.initialMs, this.clock.initialMs, WHITE);
       this.onActivated?.();
+    } else {
+      log.info("[GAME-join-waiting]", { id: this.id, color, slotsNow: this.slots.size, nextColor: this.nextColor() });
     }
 
     return ok();
@@ -184,24 +228,48 @@ export class Game {
     return ok([...destinations]);
   }
 
-  /** Applies a move for `color`. Caller broadcasts MOVE_MADE on success. */
+  /** Applies a move as `color`. The caller broadcasts MOVE_MADE on success. */
   async move(
     color: PieceColor,
     input: MoveInput,
   ): Promise<Result<Move, MoveError>> {
     return this.lock.run(async () => {
-      if (this.status !== ACTIVE) return err(GAME_OVER);
-      if (this.chess.sideToMove() !== color) return err(NOT_YOUR_TURN);
-      if (this.chess.isOver()) return err(GAME_OVER);
-      if (this.chess.pieceAt(input.from) === null) return err(SQUARE_EMPTY);
+      if (this.status !== ACTIVE) {
+        log.warn("[GAME-move-reject-not-active]", { id: this.id, color, from: input.from, to: input.to, status: this.status });
+        return err(GAME_OVER);
+      }
+      if (this.chess.sideToMove() !== color) {
+        log.warn("[GAME-move-reject-turn]", { id: this.id, color, from: input.from, to: input.to, expectedTurn: this.chess.sideToMove() });
+        return err(NOT_YOUR_TURN);
+      }
+      if (this.chess.isOver()) {
+        log.warn("[GAME-move-reject-over]", { id: this.id, color });
+        return err(GAME_OVER);
+      }
+      if (this.chess.pieceAt(input.from) === null) {
+        log.warn("[GAME-move-reject-empty]", { id: this.id, color, from: input.from });
+        return err(SQUARE_EMPTY);
+      }
 
       try {
+        this.timer.stop(color);
+        log.info("[GAME-move-executing]", { id: this.id, color, from: input.from, to: input.to });
         const applied = this.chess.move(input.from, input.to, input.promoteTo);
         this.settleIfOver();
 
+        if (this.status === ACTIVE) {
+          const opponent = color === WHITE ? BLACK : WHITE;
+          this.timer.startNext(opponent);
+        }
+
+        log.info("[GAME-move-success]", { id: this.id, color, san: applied.san, status: this.status });
         return ok(applied);
       } catch (e) {
-        if (e instanceof IllegalMoveError) return err(ILLEGAL_MOVE);
+        if (e instanceof IllegalMoveError) {
+          log.warn("[GAME-move-illegal]", { id: this.id, color, from: input.from, to: input.to });
+          return err(ILLEGAL_MOVE);
+        }
+        log.error("[GAME-move-exception]", { id: this.id, color, error: e instanceof Error ? e.message : String(e) });
         throw e;
       }
     });
@@ -213,12 +281,18 @@ export class Game {
    */
   async resign(by: PieceColor): Promise<Result<GameOutcome, MoveError>> {
     return this.lock.run(async () => {
-      if (this.status !== ACTIVE) return err(GAME_OVER);
+      if (this.status !== ACTIVE) {
+        log.warn("[GAME-resign-reject]", { id: this.id, by, status: this.status });
+        return err(GAME_OVER);
+      }
 
+      this.timer.dispose();
       const winner = by === WHITE ? BLACK : WHITE;
       this.status = FINISHED;
       this.endReason = RESIGNATION;
       this.finishedAt = Date.now();
+
+      log.info("[GAME-resigned]", { id: this.id, by, winner });
 
       const outcome: GameOutcome = {
         status: this.chess.gameResult().status,
@@ -232,21 +306,75 @@ export class Game {
     });
   }
 
+  /**
+   * Ends the game due to abandonment by `color` (grace period expired).
+   * No-op if already finished. Like `expire`, broadcasts internally.
+   */
+  async abandon(by: PieceColor): Promise<void> {
+    return this.lock.run(async () => {
+      if (this.status !== ACTIVE) {
+        log.warn("[GAME-abandon-skip]", { id: this.id, by, status: this.status });
+        return;
+      }
+
+      this.timer.dispose();
+      this.abandonedBy = by;
+      this.status = FINISHED;
+      this.endReason = ABANDONED;
+      this.finishedAt = Date.now();
+
+      log.info("[GAME-abandoned]", { id: this.id, by, winner: by === WHITE ? BLACK : WHITE });
+
+      const outcome = this.outcome();
+      this.broadcast(Notifications.gameEnded(this.id, outcome, outcome.winner));
+    });
+  }
+
+  /** Called internally when the timer emits CLOCK_EXPIRED. Safe to call multiple times. */
+  expire(): void {
+    if (this.status !== ACTIVE) {
+      log.warn("[GAME-expire-skip]", { id: this.id, status: this.status });
+      return;
+    }
+    this.timer.dispose();
+    this.status = FINISHED;
+    this.endReason = TIMEOUT;
+    this.finishedAt = Date.now();
+
+    const expiredColor = this.chess.sideToMove();
+
+    log.info("[GAME-expired]", { id: this.id, expiredColor, winner: expiredColor === WHITE ? BLACK : WHITE });
+
+    this.broadcast(Notifications.clockExpired(this.id, expiredColor));
+
+    const result = this.outcome();
+    this.broadcast(Notifications.gameEnded(this.id, result, result.winner));
+  }
+
   /** Undoes the last move, reopening the game if it had just finished. */
   async undo(): Promise<Result<Move, UndoError>> {
     return this.lock.run(async () => {
-      if (this.status === WAITING) return err(NO_HISTORY);
+      if (this.status === WAITING) {
+        log.warn("[GAME-undo-no-history]", { id: this.id, status: this.status });
+        return err(NO_HISTORY);
+      }
 
       try {
         const undone = this.chess.undoMove();
-        if (this.status === FINISHED) {
+        const wasFinished = this.status === FINISHED;
+        if (wasFinished) {
           this.status = ACTIVE;
           this.finishedAt = null;
         }
 
+        log.info("[GAME-undo-success]", { id: this.id, reopened: wasFinished, san: undone.san });
         return ok(undone);
       } catch (e) {
-        if (e instanceof NothingToUndoError) return err(NO_HISTORY);
+        if (e instanceof NothingToUndoError) {
+          log.warn("[GAME-undo-nothing]", { id: this.id });
+          return err(NO_HISTORY);
+        }
+        log.error("[GAME-undo-exception]", { id: this.id, error: e instanceof Error ? e.message : String(e) });
         throw e;
       }
     });
@@ -261,6 +389,7 @@ export class Game {
     return {
       status: this.status,
       fen: this.chess.toFen(),
+      turn: this.chess.sideToMove(),
       isCheck: this.chess.isInCheck(),
       resultStatus: outcome.status,
       winner: outcome.winner,
@@ -270,6 +399,7 @@ export class Game {
       history: history.map((m) => m.san ?? ""),
       capturedByWhite,
       capturedByBlack,
+      clock: this.timer.state,
     };
   }
 
@@ -290,6 +420,30 @@ export class Game {
 
   /** The current outcome, built from a given (or freshly-fetched) engine result. */
   private outcome(engineResult = this.chess.gameResult()): GameOutcome {
+    if (this.endReason === TIMEOUT) {
+      const expiredSide = this.chess.sideToMove();
+      const winner = expiredSide === WHITE ? BLACK : WHITE;
+      return {
+        status: IN_PROGRESS,
+        winner,
+        hasWinner: true,
+        drawReason: NO_DRAW_REASON,
+        reason: TIMEOUT,
+      };
+    }
+
+    if (this.endReason === ABANDONED && this.abandonedBy !== null) {
+      const winner = this.abandonedBy === WHITE ? BLACK : WHITE;
+      const hasOpponent = this.slots.has(winner);
+      return {
+        status: IN_PROGRESS,
+        winner: hasOpponent ? winner : WHITE,
+        hasWinner: hasOpponent,
+        drawReason: NO_DRAW_REASON,
+        reason: ABANDONED,
+      };
+    }
+
     return {
       status: engineResult.status,
       winner: engineResult.winner,

@@ -24,7 +24,8 @@ import {
   IconSchool,
 } from "@tabler/icons-react"
 import Link from "next/link"
-import { WhiteQueen } from "@/components/pieces"
+import { getPieceIcon } from "@/components/pieces"
+import { QUEEN, WHITE } from "@/core/piece"
 
 const navItems = [
   {
@@ -53,6 +54,7 @@ const navItems = [
 ]
 
 export function AppSidebar() {
+  const piece = { color: WHITE, type: QUEEN }
   return (
     <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
@@ -62,7 +64,9 @@ export function AppSidebar() {
               render={<Link href="/" />}
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <WhiteQueen className="size-5! [&_path]:fill-white" />
+              {getPieceIcon(piece, {
+                className: "size-5! [&_path]:fill-white",
+              })}
               <span className="text-base font-semibold">Chingu Chess</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

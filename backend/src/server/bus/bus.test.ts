@@ -2,8 +2,8 @@ import { describe, expect, it, mock } from "bun:test";
 import { Hub, FAST, DEFERRED } from "./bus";
 import { CONNECTION_OPENED, ROOM_JOINED } from "../protocol/events";
 import type { Event } from "../protocol/events";
-import { WHITE } from "../domain/types";
-import type { GameSnapshot } from "../domain/types";
+import { WHITE } from "../types";
+import type { GameSnapshot } from "../types";
 
 describe("Hub", () => {
   // Minimal valid events for each type used below.

@@ -9,14 +9,14 @@ import {
 } from "bun:test";
 import { Games } from "./games";
 import type { Occupant } from "../occupant/occupant";
-import type { Publisher } from "../bus/bus";
+import type { Publisher, Subscriber } from "../bus/bus";
 import {
   WHITE,
   BLACK,
   HUMAN,
   HUMAN_VS_HUMAN,
   HUMAN_VS_AI,
-} from "../domain/types";
+} from "../types";
 
 describe("Games", () => {
   function makeOccupant(playerId: string): Occupant {
@@ -24,7 +24,7 @@ describe("Games", () => {
   }
 
   function makePublisher() {
-    return { emit: mock(() => {}) } satisfies Publisher;
+    return { emit: mock(() => {}), on: mock(() => () => {}), onAny: mock(() => () => {}) } satisfies Publisher & Subscriber;
   }
 
   /** Fresh store with short TTLs, so expiry tests don't need huge fake-time jumps. */
@@ -136,8 +136,8 @@ describe("Games", () => {
       expect(store.findWaiting(HUMAN_VS_HUMAN)).toBeNull();
       // The stale id should be gone now too, not just skipped.
       const queue = (
-        store as unknown as { queue: Map<unknown, Set<string>> }
-      ).queue.get(HUMAN_VS_HUMAN);
+        store as unknown as { queue: Map<string, Set<string>> }
+      ).queue.get(`0:blitz`);
       expect(queue?.has("room-1")).toBe(false);
     });
   });

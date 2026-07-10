@@ -1,6 +1,9 @@
-import type { WebSocket } from "../domain/types";
+import type { WebSocket } from "../types";
 import type { Session } from "./session";
 import type { SessionStore } from "./session-store";
+import { logger as rootLogger } from "../../logging/log";
+
+const log = rootLogger.child({ module: "Sessions" });
 
 // How long a disconnected session is kept around before being pruned —
 // long enough for a client to reconnect (resume) after a network blip.
@@ -22,21 +25,27 @@ function generatePlayerId(): string {
 export class Sessions implements SessionStore {
   private bySocketMap: Map<string, Session> = new Map();
   private byTokenMap: Map<string, Session> = new Map();
+  private byPlayerIdMap: Map<string, Session> = new Map();
   private pruner: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private disconnectedTtlMs = DISCONNECTED_TTL_MS) {}
 
-  /** Looks up the session currently bound to this socket. */
+  /** {@inheritDoc} */
   bySocket(ws: WebSocket): Session | null {
     return this.bySocketMap.get(ws.id) ?? null;
   }
 
-  /** Looks up a session by its resume token, regardless of connection state. */
+  /** {@inheritDoc} */
   byToken(token: string): Session | null {
     return this.byTokenMap.get(token) ?? null;
   }
 
-  /** Creates and stores a new session for a freshly connected socket. */
+  /** {@inheritDoc} */
+  byPlayerId(playerId: string): Session | null {
+    return this.byPlayerIdMap.get(playerId) ?? null;
+  }
+
+  /** {@inheritDoc} */
   open(ws: WebSocket, playerId: string): Session {
     const session: Session = {
       token: crypto.randomUUID(),
@@ -51,79 +60,125 @@ export class Sessions implements SessionStore {
 
     this.bySocketMap.set(ws.id, session);
     this.byTokenMap.set(session.token, session);
+    this.byPlayerIdMap.set(session.playerId, session);
+
+    log.info("[SESSION-open]", { playerId, token: session.token, wsId: ws.id, bySocketCount: this.bySocketMap.size, byTokenCount: this.byTokenMap.size });
 
     return session;
   }
 
-  /**
-   * Reattaches a prior session to a new socket, or null if the token is
-   * invalid/expired. Rekeys `bySocketMap`: the old socket's entry is
-   * removed and a new one is added under the new socket, since a Map keyed
-   * by object identity has no way to "rename" a key in place.
-   */
+  /** {@inheritDoc} */
   resume(token: string, ws: WebSocket): Session | null {
     const session = this.byTokenMap.get(token);
-    if (!session) return null;
+    if (!session) {
+      log.warn("[SESSION-resume-miss]", { token: token.slice(0, 8), wsId: ws.id });
+      return null;
+    }
 
-    this.bySocketMap.delete(session.ws.id);
+    const oldWsId = session.ws.id;
+    this.bySocketMap.delete(oldWsId);
     session.ws = ws;
     session.disconnectedAt = null;
     this.bySocketMap.set(ws.id, session);
 
+    log.info("[SESSION-resume]", { playerId: session.playerId, oldWsId, newWsId: ws.id, roomId: session.roomId, color: session.color, mode: session.mode });
+
     return session;
   }
 
-  /**
-   * Resumes the session for `token` if it's valid, reattaching it to `ws`;
-   * otherwise opens a brand new session for `ws` with a freshly generated
-   * playerId.
-   */
+  /** {@inheritDoc} */
   resumeOrOpen(ws: WebSocket, token?: string): Session {
     const resumed = token ? this.resume(token, ws) : undefined;
-    return resumed ?? this.open(ws, generatePlayerId());
+    if (resumed) {
+      log.info("[SESSION-resumeOrOpen-resumed]", { playerId: resumed.playerId, roomId: resumed.roomId, color: resumed.color });
+      return resumed;
+    }
+    const opened = this.open(ws, generatePlayerId());
+    log.info("[SESSION-resumeOrOpen-fresh]", { playerId: opened.playerId, hadToken: Boolean(token) });
+    return opened;
   }
 
-  /**
-   * Marks the session bound to this socket as disconnected, e.g. on
-   * disconnect. Unlike `Games.drop`, this does NOT immediately erase the
-   * session — it's removed from `bySocketMap` (the socket is dead, so
-   * there's nothing left to look it up by) but stays in `byTokenMap`,
-   * stamped with `disconnectedAt`, so `resume()` can still reattach it
-   * within `disconnectedTtlMs`. `prune()` is what actually deletes it once
-   * that window passes without a reconnect.
-   */
+  /** {@inheritDoc} */
   drop(ws: WebSocket): void {
     const session = this.bySocketMap.get(ws.id);
-    if (!session) return;
+    if (!session) {
+      log.warn("[SESSION-drop-miss]", { wsId: ws.id });
+      return;
+    }
 
+    const priorDisconnected = session.disconnectedAt;
     this.bySocketMap.delete(ws.id);
     session.disconnectedAt = Date.now();
+
+    log.info("[SESSION-drop]", { playerId: session.playerId, wsId: ws.id, wasDisconnected: priorDisconnected !== null, roomId: session.roomId, color: session.color, disconnectedAt: session.disconnectedAt });
   }
 
-  /**
-   * Merges the given fields into the session bound to this socket. Since
-   * `bySocketMap` and `byTokenMap` hold the same Session object, mutating
-   * it here is visible through both indexes with no re-sync needed.
-   */
+  /** {@inheritDoc} */
   bind(ws: WebSocket, patch: Partial<Session>): void {
     const session = this.bySocketMap.get(ws.id);
-    if (!session) return;
+    if (!session) {
+      log.warn("[SESSION-bind-miss]", { wsId: ws.id, patch });
+      return;
+    }
 
+    const before = { roomId: session.roomId, color: session.color, mode: session.mode };
     Object.assign(session, patch);
+    log.info("[SESSION-bind]", { playerId: session.playerId, wsId: ws.id, before, after: { roomId: session.roomId, color: session.color, mode: session.mode } });
   }
 
-  /** Removes all sessions that have been disconnected past `disconnectedTtlMs`. */
+  /** {@inheritDoc} */
+  clearSession(ws: WebSocket): void {
+    const session = this.bySocketMap.get(ws.id);
+    if (!session) {
+      log.warn("[SESSION-clearSession-miss]", { wsId: ws.id });
+      return;
+    }
+
+    log.info("[SESSION-clearSession]", { playerId: session.playerId, wsId: ws.id, before: { roomId: session.roomId, color: session.color, mode: session.mode } });
+    this.clearFields(session);
+  }
+
+  /** {@inheritDoc} */
+  clearByPlayerId(playerId: string, expectedRoomId: string): void {
+    const session = this.byPlayerIdMap.get(playerId);
+    if (!session) {
+      log.warn("[SESSION-clearByPlayerId-miss]", { playerId, expectedRoomId });
+      return;
+    }
+
+    if (session.roomId !== expectedRoomId) {
+      log.info("[SESSION-clearByPlayerId-skip-moved]", { playerId, expectedRoomId, actualRoomId: session.roomId });
+      return;
+    }
+
+    log.info("[SESSION-clearByPlayerId]", { playerId, roomId: expectedRoomId });
+    this.clearFields(session);
+  }
+
+  /** Shared by clearSession/clearByPlayerId — resets the room-binding fields in place. */
+  private clearFields(session: Session): void {
+    session.roomId = null;
+    session.color = null;
+    session.mode = null;
+  }
+
+  /** {@inheritDoc} */
   prune(): void {
+    let count = 0;
     for (const session of this.byTokenMap.values()) {
       if (this.isExpired(session)) {
+        log.info("[SESSION-prune]", { playerId: session.playerId, roomId: session.roomId, color: session.color, disconnectedAt: session.disconnectedAt, staleForMs: Date.now() - session.disconnectedAt! });
         this.byTokenMap.delete(session.token);
+        this.byPlayerIdMap.delete(session.playerId);
+        count++;
       }
+    }
+    if (count > 0) {
+      log.info("[SESSION-prune-summary]", { pruned: count, remaining: this.byTokenMap.size, remainingBySocket: this.bySocketMap.size });
     }
   }
 
-  /**
-   * Begins periodic pruning every `intervalMs`. Restarts cleanly if already running.
-   */
+  /** {@inheritDoc} */
   startPruning(intervalMs: number = DEFAULT_PRUNE_INTERVAL_MS): void {
     if (this.pruner) {
       this.stopPruning();
@@ -137,7 +192,7 @@ export class Sessions implements SessionStore {
     this.pruner = setTimeout(tick, intervalMs);
   }
 
-  /** Stops periodic pruning started by `startPruning`. Safe to call if not running. */
+  /** {@inheritDoc} */
   stopPruning(): void {
     if (!this.pruner) return;
 

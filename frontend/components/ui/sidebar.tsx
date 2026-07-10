@@ -70,8 +70,12 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
 
+<<<<<<< HEAD
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
+=======
+  // Internal state; openProp/setOpenProp for external control.
+>>>>>>> origin/development
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
   const setOpen = React.useCallback(
@@ -83,18 +87,30 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
+<<<<<<< HEAD
       // This sets the cookie to keep the sidebar state.
+=======
+      // Persist sidebar state to cookie.
+>>>>>>> origin/development
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
     [setOpenProp, open]
   )
 
+<<<<<<< HEAD
   // Helper to toggle the sidebar.
+=======
+  // Toggle the sidebar.
+>>>>>>> origin/development
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
   }, [isMobile, setOpen, setOpenMobile])
 
+<<<<<<< HEAD
   // Adds a keyboard shortcut to toggle the sidebar.
+=======
+  // Keyboard shortcut to toggle sidebar.
+>>>>>>> origin/development
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -110,8 +126,12 @@ function SidebarProvider({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
 
+<<<<<<< HEAD
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
+=======
+  // data-state="expanded" | "collapsed" for Tailwind styling.
+>>>>>>> origin/development
   const state = open ? "expanded" : "collapsed"
 
   const contextValue = React.useMemo<SidebarContextProps>(
@@ -205,7 +225,11 @@ function Sidebar({
             render={
               <Button
                 variant="ghost"
+<<<<<<< HEAD
                 className="absolute inset-e-4 top-3.25 bg-secondary"
+=======
+                className="absolute inset-e-4 top-3.25 z-10 bg-secondary"
+>>>>>>> origin/development
                 size="icon-sm"
               />
             }
@@ -228,7 +252,11 @@ function Sidebar({
       data-side={side}
       data-slot="sidebar"
     >
+<<<<<<< HEAD
       {/* This is what handles the sidebar gap on desktop */}
+=======
+      {/* Sidebar gap on desktop */}
+>>>>>>> origin/development
       <div
         data-slot="sidebar-gap"
         className={cn(
@@ -245,7 +273,11 @@ function Sidebar({
         data-side={side}
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:-left-(--sidebar-width) data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:-right-(--sidebar-width) md:flex",
+<<<<<<< HEAD
           // Adjust the padding for floating and inset variants.
+=======
+          // Padding for floating/inset variants.
+>>>>>>> origin/development
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-e group-data-[side=right]:border-s",
@@ -621,7 +653,11 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
+<<<<<<< HEAD
   // Random width between 50 to 90%.
+=======
+  // Random width 50–90%.
+>>>>>>> origin/development
   const [width] = React.useState(() => {
     return `${Math.floor(Math.random() * 40) + 50}%`
   })

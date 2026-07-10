@@ -1,4 +1,4 @@
-import type { PieceColor, Mode, WebSocket } from "../domain/types";
+import type { PieceColor, Mode, WebSocket } from "../types";
 
 // One connection lifecycle. Plain data — no behavior.
 // Created by Sessions.open() on connect, mutated by Sessions.bind() on join,

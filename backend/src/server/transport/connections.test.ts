@@ -2,11 +2,11 @@ import { describe, expect, it, mock } from "bun:test";
 import { Connections } from "./connections";
 import { CONNECTION_OPENED, CONNECTION_CLOSED } from "../protocol/events";
 import { SESSION_HANDSHAKE } from "../protocol/commands";
-import { WS_OPEN, type WebSocket } from "../domain/types";
+import { WS_OPEN, type WebSocket } from "../types";
 import type { SessionStore } from "../session/session-store";
 import type { Session } from "../session/session";
 import type { Publisher } from "../bus/bus";
-import type { Protocol } from "../protocol/protocol";
+import type { Codec } from "../codec/codec";
 import type { Notification } from "../protocol/events";
 
 describe("Connections", () => {
@@ -41,11 +41,14 @@ describe("Connections", () => {
     return {
       bySocket: mock(() => null),
       byToken: mock(() => null),
+      byPlayerId: mock(() => null),
       open: mock(() => makeSession()),
       resume: mock(() => null),
       resumeOrOpen: mock(() => makeSession()),
       drop: mock(() => {}),
       bind: mock(() => {}),
+      clearSession: mock(() => {}),
+      clearByPlayerId: mock(() => {}),
       prune: mock(() => {}),
       startPruning: mock(() => {}),
       stopPruning: mock(() => {}),
@@ -57,7 +60,7 @@ describe("Connections", () => {
     return { emit: mock(() => {}) };
   }
 
-  function makeProtocol(overrides: Partial<Protocol> = {}): Protocol {
+  function makeCodec(overrides: Partial<Codec> = {}): Codec {
     return {
       decode: mock(() => null),
       encode: mock((event: Notification) => JSON.stringify(event)),
@@ -70,7 +73,7 @@ describe("Connections", () => {
       const session = makeSession();
       const sessions = makeSessions({ resumeOrOpen: mock(() => session) });
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -82,7 +85,7 @@ describe("Connections", () => {
     it("passes no token through when the caller supplies none", () => {
       const sessions = makeSessions();
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -95,7 +98,7 @@ describe("Connections", () => {
       const session = makeSession({ playerId: "player-42" });
       const sessions = makeSessions({ resumeOrOpen: mock(() => session) });
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -113,7 +116,7 @@ describe("Connections", () => {
       const session = makeSession({ playerId: "player-7", token: "tok-7" });
       const sessions = makeSessions({ resumeOrOpen: mock(() => session) });
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -137,7 +140,7 @@ describe("Connections", () => {
           order.push("emit");
         }),
       };
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws: WebSocket = {
         id: crypto.randomUUID(),
@@ -158,7 +161,7 @@ describe("Connections", () => {
     it("does nothing when the socket has no bound session", () => {
       const sessions = makeSessions({ bySocket: mock(() => null) });
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -172,7 +175,7 @@ describe("Connections", () => {
       const session = makeSession();
       const sessions = makeSessions({ bySocket: mock(() => session) });
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -185,7 +188,7 @@ describe("Connections", () => {
       const session = makeSession({ playerId: "player-9" });
       const sessions = makeSessions({ bySocket: mock(() => session) });
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -203,7 +206,7 @@ describe("Connections", () => {
       const session = makeSession();
       const sessions = makeSessions({ bySocket: mock(() => session) });
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -217,7 +220,7 @@ describe("Connections", () => {
     it("is a no-op: it neither drops nor emits nor sends", () => {
       const sessions = makeSessions();
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
 
@@ -233,7 +236,7 @@ describe("Connections", () => {
       const sessions = makeSessions();
       const publisher = makePublisher();
       const encoded = '{"type":"fake"}';
-      const protocol = makeProtocol({ encode: mock(() => encoded) });
+      const protocol = makeCodec({ encode: mock(() => encoded) });
       const connections = new Connections(sessions, publisher, protocol);
       const ws = makeSocket();
       const event = { type: "fake" } as unknown as Notification;
@@ -249,7 +252,7 @@ describe("Connections", () => {
     it("encodes the notification exactly once", () => {
       const sessions = makeSessions();
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const recipients = [makeSocket(), makeSocket(), makeSocket()];
       const event = { type: "fake" } as unknown as Notification;
@@ -263,7 +266,7 @@ describe("Connections", () => {
       const sessions = makeSessions();
       const publisher = makePublisher();
       const encoded = '{"type":"fake"}';
-      const protocol = makeProtocol({ encode: mock(() => encoded) });
+      const protocol = makeCodec({ encode: mock(() => encoded) });
       const connections = new Connections(sessions, publisher, protocol);
       const recipients = [makeSocket(), makeSocket()];
       const event = { type: "fake" } as unknown as Notification;
@@ -278,7 +281,7 @@ describe("Connections", () => {
     it("does nothing when given no recipients", () => {
       const sessions = makeSessions();
       const publisher = makePublisher();
-      const protocol = makeProtocol();
+      const protocol = makeCodec();
       const connections = new Connections(sessions, publisher, protocol);
       const event = { type: "fake" } as unknown as Notification;
 

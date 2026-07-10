@@ -4,7 +4,7 @@ import {
   INVALID_MAX_ATTEMPTS,
   INVALID_BASE_DELAY,
   INVALID_MAX_DELAY,
-} from "../domain/result";
+} from "../types";
 
 describe("Retry", () => {
   describe("construction validation", () => {

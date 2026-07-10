@@ -1,8 +1,15 @@
-import type { Publisher } from "../bus/bus";
-import { ok, type CommitError, type Result } from "../domain/result";
-import { HUMAN_VS_HUMAN, type Mode } from "../domain/types";
+import type { Publisher, Subscriber } from "../bus/bus";
+import { ok, type CommitError, type Result } from "../types";
+import { HUMAN_VS_HUMAN, type Mode } from "../types";
+import type { Clock } from "../clock/clock";
+import { type ClockFormat, BLITZ } from "../types";
+import { createClock } from "../clock/factory";
+import { ClockTimer } from "../clock/timer";
 import { Game } from "./game";
 import type { GameStore } from "./game-store";
+import { logger } from "../../logging/log";
+
+const log = logger.child({ module: "Games" });
 
 // How long a finished game stays in memory before being swept — long enough
 // for a slow client to fetch the final snapshot after the last move/undo.
@@ -15,88 +22,102 @@ const EMPTY_TTL_MS = 60 * 1000;
 // How often the sweeper checks for expired games.
 const DEFAULT_SWEEP_INTERVAL_MS = 30 * 1000;
 
-/** In-memory implementation of GameStore, backed by a Map plus a waiting-game queue per mode. */
+function queueKey(mode: Mode, format: ClockFormat): string {
+  return `${mode}:${format}`;
+}
+
+/** In-memory implementation of GameStore, backed by a Map plus a waiting-game queue per (mode, format). */
 export class Games implements GameStore {
   private games: Map<string, Game> = new Map();
-  private queue: Map<Mode, Set<string>> = new Map();
+  private queue: Map<string, Set<string>> = new Map();
   private sweeper: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
-    private publisher: Publisher,
+    private publisher: Publisher & Subscriber,
     private resultTtlMs = RESULTS_TTL_MS,
     private emptyTtlMs = EMPTY_TTL_MS,
   ) {}
 
-  /** Looks up a game by id, or null if it doesn't exist. */
+  /** {@inheritDoc} */
   get(id: string): Game | null {
     return this.games.get(id) ?? null;
   }
 
-  /**
-   * Returns the oldest still-waiting game for `mode`, or null if none.
-   * Self-heals: discards any stale ids it encounters (present in the
-   * queue but no longer in `this.games`, which shouldn't normally happen
-   * since `drop` keeps both in sync, but this guards against it anyway).
-   */
-  findWaiting(mode: Mode): Game | null {
-    const queue = this.queueFor(mode);
+  /** {@inheritDoc} */
+  // `DEFAULT` isn't a real clock format the factory knows how to build —
+  // createClock() falls back to BlitzClock (format BLITZ) whenever it's
+  // asked for DEFAULT or nothing at all. Search under BLITZ here too, or
+  // callers that omit `format` never find the games created the same way.
+  findWaiting(mode: Mode, format: ClockFormat = BLITZ): Game | null {
+    const queue = this.queueFor(mode, format);
+
+    log.info("[GAMES-findWaiting-start]", { mode: mode.toString(), format, queueSize: queue.size });
 
     for (const id of queue) {
       const game = this.games.get(id);
       if (!game) {
+        log.warn("[GAMES-findWaiting-stale]", { id, mode: mode.toString(), format });
         queue.delete(id);
         continue;
       }
 
       if (game.isWaiting) {
+        log.info("[GAMES-findWaiting-hit]", { id, mode: mode.toString(), format, slots: game['slots']?.size ?? 0 });
         return game;
+      } else {
+        log.info("[GAMES-findWaiting-skip-not-waiting]", { id, mode: mode.toString(), format, status: game.status });
       }
     }
 
+    log.info("[GAMES-findWaiting-miss]", { mode: mode.toString(), format, queueSize: queue.size });
     return null;
   }
 
-  /**
-   * Creates and stores a new game, generating an id if none is given.
-   * The game starts WAITING and is enqueued for its mode; it's
-   * automatically dequeued once it goes ACTIVE (see the `onActivated`
-   * callback passed into `Game`).
-   */
-  create(id: string = crypto.randomUUID(), mode: Mode = HUMAN_VS_HUMAN): Game {
-    const game = new Game(id, mode, this.publisher, () => {
-      this.queueFor(mode).delete(id);
+  /** {@inheritDoc} */
+  create(
+    id: string = crypto.randomUUID(),
+    mode: Mode = HUMAN_VS_HUMAN,
+    clock: Clock = createClock(),
+  ): Game {
+    const timer = new ClockTimer(clock, id, this.publisher);
+    const game = new Game(id, mode, clock, this.publisher, timer, () => {
+      log.info("[GAMES-activation-callback]", { id });
+      this.queueFor(mode, clock.format).delete(id);
     });
 
     this.games.set(id, game);
-    this.queueFor(mode).add(id);
+    this.queueFor(mode, clock.format).add(id);
+
+    log.info("[GAMES-created]", { id, mode: mode.toString(), format: clock.format, totalGames: this.games.size, queueSizes: [...this.queue.entries()].map(([k, v]) => `${k}:${v.size}`).join(',') });
 
     return game;
   }
 
-  /**
-   * Persists a new state for an existing game. Currently trivial (always
-   * succeeds) since `Game` mutates in place under its own mutex, so there's
-   * no actual conflict to detect yet.
-   *
-   * TODO: once Chess/Game become immutable (Stockfish integration), add a
-   * real optimistic-concurrency check here — compare against the currently
-   * stored game and return err(CONFLICT) on divergence.
-   */
+  /** {@inheritDoc} */
+  // TODO: once Chess/Game become immutable (Stockfish integration), add a
+  // real optimistic-concurrency check here — compare against the currently
+  // stored game and return err(CONFLICT) on divergence.
   commit(id: string, game: Game): Result<void, CommitError> {
+    log.info("[GAMES-commit]", { id, status: game.status, slots: game['slots']?.size ?? 0 });
     this.games.set(id, game);
     return ok();
   }
 
-  /** Removes the game from both the store and its waiting queue, if present. */
+  /** {@inheritDoc} */
   drop(id: string): void {
     const game = this.games.get(id);
-    if (!game) return;
+    if (!game) {
+      log.warn("[GAMES-drop-miss]", { id });
+      return;
+    }
 
     this.games.delete(id);
-    this.queue.get(game.mode)?.delete(id);
+    this.queue.get(queueKey(game.mode, game.clock.format))?.delete(id);
+
+    log.info("[GAMES-drop]", { id, status: game.status, mode: game.mode.toString(), remaining: this.games.size });
   }
 
-  /** Drops every expired game (see `isExpired`) and returns how many were removed. */
+  /** {@inheritDoc} */
   sweep(): number {
     let count = 0;
     for (const [id, game] of this.games) {
@@ -105,18 +126,13 @@ export class Games implements GameStore {
         count++;
       }
     }
+    if (count > 0) {
+      log.debug("sweep completed", { count, remaining: this.games.size });
+    }
     return count;
   }
 
-  /**
-   * Begins periodic sweeping every `intervalMs`. Restarts cleanly if already
-   * running.
-   *
-   * Uses a self-rescheduling `setTimeout` rather than `setInterval`: the
-   * next sweep is only scheduled once the current one has fully returned,
-   * so overlapping sweeps are structurally impossible — including if
-   * `sweep()` ever becomes async in the future.
-   */
+  /** {@inheritDoc} */
   startSweeping(intervalMs: number = DEFAULT_SWEEP_INTERVAL_MS): void {
     if (this.sweeper) {
       this.stopSweeping();
@@ -128,22 +144,27 @@ export class Games implements GameStore {
     };
 
     this.sweeper = setTimeout(tick, intervalMs);
+
+    log.info("sweeper started", { intervalMs });
   }
 
-  /** Stops periodic sweeping started by `startSweeping`. Safe to call if not running. */
+  /** {@inheritDoc} */
   stopSweeping(): void {
     if (!this.sweeper) return;
 
     clearTimeout(this.sweeper);
     this.sweeper = null;
+
+    log.info("sweeper stopped");
   }
 
-  /** The waiting-id queue for `mode`, creating an empty one on first use. */
-  private queueFor(mode: Mode): Set<string> {
-    let queue = this.queue.get(mode);
+  /** The waiting-id queue for `(mode, format)`, creating an empty one on first use. */
+  private queueFor(mode: Mode, format: ClockFormat): Set<string> {
+    const key = queueKey(mode, format);
+    let queue = this.queue.get(key);
     if (!queue) {
       queue = new Set();
-      this.queue.set(mode, queue);
+      this.queue.set(key, queue);
     }
     return queue;
   }

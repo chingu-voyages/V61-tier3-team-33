@@ -11,7 +11,11 @@ import {
   type PieceType,
   type PieceColor,
   type Piece,
+<<<<<<< HEAD
 } from "@/lib/core/piece"
+=======
+} from "@/core/piece"
+>>>>>>> origin/development
 
 type PieceIconProps = SVGAttributes<SVGSVGElement>
 
@@ -156,7 +160,11 @@ function WhiteRook(props: PieceIconProps) {
   )
 }
 
+<<<<<<< HEAD
 export function WhiteQueen(props: PieceIconProps) {
+=======
+function WhiteQueen(props: PieceIconProps) {
+>>>>>>> origin/development
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" {...props}>
       <path

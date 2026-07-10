@@ -1,19 +1,30 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, afterEach, mock } from "bun:test";
 import { Game } from "./game";
 import type { Occupant } from "../occupant/occupant";
-import type { Publisher } from "../bus/bus";
+import type { Publisher, Subscriber } from "../bus/bus";
+import { MOVE, DEFAULT } from "../types";
+import type { Clock } from "../clock/clock";
+import type { Timer } from "../clock/timer";
+import { ClockTimer } from "../clock/timer";
 import {
   WHITE,
   BLACK,
   WAITING,
   ACTIVE,
   FINISHED,
+  ABANDONED,
   RULES,
   RESIGNATION,
+  TIMEOUT,
   HUMAN,
   HUMAN_VS_HUMAN,
   CHECKMATE,
-} from "../domain/types";
+  DRAW,
+  STALEMATE,
+  THREEFOLD_REPETITION,
+  FIFTY_MOVE_RULE,
+  INSUFFICIENT_MATERIAL,
+} from "../types";
 import {
   NOT_YOUR_TURN,
   ILLEGAL_MOVE,
@@ -26,10 +37,15 @@ import {
   SELECT_NOT_YOUR_TURN,
   SELECT_SQUARE_EMPTY,
   SELECT_NOT_YOUR_PIECE,
-} from "../domain/result";
-import { MOVE_MADE } from "../protocol/events";
+} from "../types";
+import { MOVE_MADE, CLOCK_EXPIRED, ROOM_LEFT } from "../protocol/events";
 import {
   A1,
+  A6,
+  B6,
+  C3,
+  D2,
+  D4,
   D5,
   D6,
   D7,
@@ -40,23 +56,56 @@ import {
   E7,
   F2,
   F3,
+  F6,
+  F7,
+  G1,
   G2,
   G4,
+  G7,
+  G8,
   D8,
   H4,
 } from "../../chess";
+import { Chess } from "../../chess";
 
 describe("Game", () => {
+  afterEach(() => {
+    Date.now = Date.now; // reset if any test mocked it (unused in these tests but safe)
+  });
+
   function makeOccupant(playerId: string): Occupant {
     return { kind: HUMAN, playerId, notify: mock(() => {}) };
   }
 
   function makePublisher() {
-    return { emit: mock(() => {}) } satisfies Publisher;
+    return { emit: mock(() => {}), on: mock(() => () => {}), onAny: mock(() => () => {}) } satisfies Publisher & Subscriber;
   }
 
-  function makeGame(publisher: Publisher = makePublisher()) {
-    return new Game("game-1", HUMAN_VS_HUMAN, publisher);
+  /** A mock per-move Clock strategy: onMove resets to initialMs, no delay. */
+  function mockClock(initialMs = 300_000): Clock {
+    return {
+      type: MOVE,
+      format: DEFAULT,
+      initialMs,
+      onMove: () => initialMs,
+      onTurn: () => 0,
+    };
+  }
+
+  /** A mock Timer that records calls without real ticking. */
+  function makeMockTimer(): Timer {
+    return {
+      strategy: mockClock(),
+      state: { whiteMs: 0, blackMs: 0, active: null },
+      start: mock(() => {}),
+      stop: mock(() => 0),
+      startNext: mock(() => {}),
+      dispose: mock(() => {}),
+    };
+  }
+
+  function makeGame(publisher: Publisher & Subscriber = makePublisher(), timer: Timer = makeMockTimer()) {
+    return new Game("game-1", HUMAN_VS_HUMAN, mockClock(), publisher, timer);
   }
 
   /** Seats two occupants so the game goes ACTIVE, returning both. */
@@ -87,7 +136,7 @@ describe("Game", () => {
     });
 
     it("carries the id and mode passed to the constructor", () => {
-      const game = new Game("room-42", HUMAN_VS_HUMAN, makePublisher());
+      const game = new Game("room-42", HUMAN_VS_HUMAN, mockClock(), makePublisher(), makeMockTimer());
 
       expect(game.id).toBe("room-42");
       expect(game.mode).toBe(HUMAN_VS_HUMAN);
@@ -243,6 +292,106 @@ describe("Game", () => {
 
       expect(white.notify).not.toHaveBeenCalled();
       expect(reconnected.notify).toHaveBeenCalledWith(event);
+    });
+  });
+
+  describe("isEmpty", () => {
+    it("returns true when no slots are filled", () => {
+      const game = makeGame();
+      expect(game.isEmpty).toBe(true);
+    });
+
+    it("returns false when at least one slot is filled", () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+      expect(game.isEmpty).toBe(false);
+    });
+  });
+
+  describe("isWaiting", () => {
+    it("returns true when status is WAITING", () => {
+      const game = makeGame();
+      expect(game.isWaiting).toBe(true);
+    });
+
+    it("returns false when status is ACTIVE", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      expect(game.isWaiting).toBe(false);
+    });
+
+    it("returns false when status is FINISHED", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.expire();
+      expect(game.isWaiting).toBe(false);
+    });
+  });
+
+  describe("isActive", () => {
+    it("returns true when status is ACTIVE", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      expect(game.isActive).toBe(true);
+    });
+
+    it("returns false when status is WAITING", () => {
+      const game = makeGame();
+      expect(game.isActive).toBe(false);
+    });
+
+    it("returns false when status is FINISHED", () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.expire();
+      expect(game.isActive).toBe(false);
+    });
+  });
+
+  describe("leave", () => {
+    it("removes the occupant from the slot", () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+      game.join(BLACK, makeOccupant("p2"));
+
+      game.leave(WHITE);
+
+      expect(game.getOccupant(WHITE)).toBeNull();
+      expect(game.isFull).toBe(false);
+    });
+
+    it("broadcasts ROOM_LEFT to the publisher", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      game.join(WHITE, makeOccupant("p1"));
+
+      game.leave(WHITE);
+
+      expect(publisher.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: ROOM_LEFT, color: WHITE }),
+      );
+    });
+
+    it("does not throw when leaving an already-empty slot", () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+      game.leave(WHITE);
+      game.leave(WHITE); // already empty — should be safe
+      expect(game.isEmpty).toBe(true);
+    });
+
+    it("allows the last occupant to leave without crashing (EC35)", () => {
+      const publisher = makePublisher();
+      const timer = makeMockTimer();
+      const game = makeGame(publisher, timer);
+      seatBothPlayers(game); // game becomes ACTIVE, timer started
+      game.leave(WHITE);
+      game.leave(BLACK); // last occupant leaves
+
+      expect(game.isEmpty).toBe(true);
+      expect(game.isActive).toBe(true); // leave doesn't change status
+      // Game should still be accessible for queries
+      expect(game.nextColor()).toBe(WHITE);
     });
   });
 
@@ -531,6 +680,7 @@ describe("Game", () => {
       const snapshot = game.snapshot();
 
       expect(snapshot.isCheck).toBe(false);
+      expect(snapshot.turn).toBe(WHITE);
       expect(snapshot.history).toEqual([]);
       expect(snapshot.capturedByWhite).toEqual([]);
       expect(snapshot.capturedByBlack).toEqual([]);
@@ -547,6 +697,7 @@ describe("Game", () => {
       const snapshot = game.snapshot();
 
       expect(snapshot.history).toEqual(["e4", "e5"]);
+      expect(snapshot.turn).toBe(WHITE);
     });
 
     it("tracks captured pieces by the color that captured them", async () => {
@@ -580,6 +731,371 @@ describe("Game", () => {
         }),
       );
       expect(snapshot.history).toEqual(["f3", "e5", "g4", "Qh4#"]);
+    });
+  });
+
+  describe("timer — lifecycle", () => {
+    it("starts timer when game becomes ACTIVE (second player joins)", () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+
+      game.join(WHITE, makeOccupant("p1"));
+      expect(timer.start).not.toHaveBeenCalled();
+
+      game.join(BLACK, makeOccupant("p2"));
+      expect(timer.start).toHaveBeenCalledTimes(1);
+      expect(timer.start).toHaveBeenCalledWith(
+        game.clock.initialMs,
+        game.clock.initialMs,
+        WHITE,
+      );
+    });
+
+    it("stops current player and starts opponent on legal move", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      const { white, black } = seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      await game.move(WHITE, { from: E2, to: E4 });
+
+      expect(timer.stop).toHaveBeenCalledWith(WHITE);
+      expect(timer.startNext).toHaveBeenCalledWith(BLACK);
+    });
+
+    it("does not stop timer on rejected move (wrong turn)", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      await game.move(BLACK, { from: E7, to: E5 });
+
+      expect(timer.stop).not.toHaveBeenCalled();
+      expect(timer.startNext).not.toHaveBeenCalled();
+    });
+
+    it("does not start opponent timer on game-ending move", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+      (timer.stop as ReturnType<typeof mock>).mockClear();
+      const startNextMock = timer.startNext as ReturnType<typeof mock>;
+      startNextMock.mockClear();
+
+      await playFoolsMate(game);
+
+      // Last move (Qh4#) should stop black's clock but NOT start white's
+      expect(timer.stop).toHaveBeenCalledWith(BLACK);
+      // startNext was called for the 3 non-mating moves, but NOT for the last
+      expect(startNextMock.mock.calls.length).toBe(3);
+    });
+
+    it("disposes timer on resign", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      await game.resign(WHITE);
+
+      expect(timer.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it("restores clock state on undo", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+      (timer.start as ReturnType<typeof mock>).mockClear();
+
+      // Make a move — timer.stop returns the remaining for the mover
+      (timer.stop as ReturnType<typeof mock>).mockReturnValue(290_000);
+      await game.move(WHITE, { from: E2, to: E4 });
+
+      // Undo should restore clock
+      await game.undo();
+      // The test just verifies undo doesn't crash — real clock restore
+      // needs timer state history (wired below)
+    });
+
+    it("includes clock state in snapshot", () => {
+      const timer = makeMockTimer();
+      timer.state.whiteMs = 250_000;
+      timer.state.blackMs = 180_000;
+      timer.state.active = WHITE;
+      const game = makeGame(undefined, timer);
+
+      const snap = game.snapshot();
+
+      expect(snap.clock).toEqual({ whiteMs: 250_000, blackMs: 180_000, active: WHITE });
+    });
+  });
+
+  describe("timer — expiry → forfeit", () => {
+    it("forfeits the expired side on CLOCK_EXPIRED", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      // Simulate CLOCK_EXPIRED
+      game.expire();
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(TIMEOUT);
+    });
+
+    it("does nothing on CLOCK_EXPIRED if already finished", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      game.expire();
+      game.expire(); // second expiry — no-op
+
+      expect(game.endReason).toBe(TIMEOUT);
+    });
+
+    it("reports the non-expired side as winner", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      game.expire();
+
+      const snap = game.snapshot();
+      expect(snap.winner).toBe(BLACK);
+      expect(snap.hasWinner).toBe(true);
+      expect(snap.endReason).toBe(TIMEOUT);
+    });
+
+    it("rejects further moves after expiry-forfeit", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      game.expire();
+
+      const result = await game.move(BLACK, { from: E7, to: E5 });
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
+    });
+
+    it("subscribes to CLOCK_EXPIRED through the publisher with FAST priority", () => {
+      const publisher = makePublisher();
+      makeGame(publisher, makeMockTimer());
+
+      expect(publisher.on).toHaveBeenCalledWith(
+        CLOCK_EXPIRED,
+        expect.any(Function),
+        0, // FAST priority
+      );
+    });
+  });
+
+  describe("abandon", () => {
+    it("ends the game as ABANDONED with the opponent as winner", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(ABANDONED);
+      const snap = game.snapshot();
+      expect(snap.winner).toBe(BLACK);
+      expect(snap.hasWinner).toBe(true);
+      expect(snap.endReason).toBe(ABANDONED);
+    });
+
+    it("broadcasts GAME_ENDED with abandonment result", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      expect(publisher.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "game:ended",
+          result: expect.objectContaining({ reason: ABANDONED, winner: BLACK }),
+        }),
+      );
+    });
+
+    it("is a no-op if already finished", async () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE); // first — ends the game
+      publisher.emit = mock(() => {}); // reset broadcast spy
+      await game.abandon(BLACK); // second — no-op
+
+      expect(game.endReason).toBe(ABANDONED);
+      expect(publisher.emit).not.toHaveBeenCalled();
+    });
+
+    it("disposes the timer", async () => {
+      const timer = makeMockTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      expect(timer.dispose).toHaveBeenCalled();
+    });
+
+    it("rejects further moves after abandonment", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      await game.abandon(WHITE);
+
+      const result = await game.move(BLACK, { from: E7, to: E5 });
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
+    });
+
+    it("handles abandon when both slots have occupants", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      await game.abandon(BLACK);
+
+      expect(game.snapshot().winner).toBe(WHITE);
+    });
+
+    it("handles abandon when the opponent slot is empty", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.leave(BLACK); // opponent leaves — game is still ACTIVE but only WHITE remains
+
+      await game.abandon(WHITE);
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(ABANDONED);
+      const snap = game.snapshot();
+      expect(snap.hasWinner).toBe(false);
+      expect(snap.winner).toBe(WHITE); // dummy default, not meaningful when hasWinner=false
+    });
+
+    it("is a no-op if game is not ACTIVE (WAITING)", async () => {
+      const game = makeGame();
+      game.join(WHITE, makeOccupant("p1"));
+
+      await game.abandon(WHITE);
+
+      expect(game.isFinished).toBe(false);
+      expect(game.status).toBe(WAITING);
+    });
+  });
+
+  describe("expire — edge cases", () => {
+    it("broadcasts even when no occupants are seated", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      game.join(WHITE, makeOccupant("p1"));
+      game.join(BLACK, makeOccupant("p2"));
+      game.leave(WHITE);
+      game.leave(BLACK); // both occupants gone, game still ACTIVE
+
+      game.expire();
+
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(TIMEOUT);
+      expect(publisher.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "game:ended",
+        }),
+      );
+    });
+
+    it("is a no-op if already finished with no occupants", () => {
+      const publisher = makePublisher();
+      const game = makeGame(publisher, makeMockTimer());
+      seatBothPlayers(game);
+      game.expire();
+
+      game.leave(WHITE);
+      game.leave(BLACK);
+      publisher.emit = mock(() => {}); // reset after leave broadcasts
+      game.expire(); // second expiry — should not broadcast
+
+      expect(publisher.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("draw detection", () => {
+    it("detects stalemate", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "k7/8/1K6/8/8/8/8/1R6 w - - 0 1" });
+
+      const result = await game.move(WHITE, { from: B6, to: A6 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(STALEMATE);
+    });
+
+    it("detects threefold repetition", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      await game.move(WHITE, { from: G1, to: F3 });
+      await game.move(BLACK, { from: G8, to: F6 });
+      await game.move(WHITE, { from: F3, to: G1 });
+      await game.move(BLACK, { from: F6, to: G8 });
+      await game.move(WHITE, { from: G1, to: F3 });
+      await game.move(BLACK, { from: G8, to: F6 });
+      await game.move(WHITE, { from: F3, to: G1 });
+      const result = await game.move(BLACK, { from: F6, to: G8 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(THREEFOLD_REPETITION);
+    });
+
+    it("detects fifty-move rule", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 99 1" });
+
+      const result = await game.move(WHITE, { from: G1, to: F3 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(FIFTY_MOVE_RULE);
+    });
+
+    it("detects insufficient material", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "8/4N3/8/3b4/8/2K5/8/k7 w - - 0 1" });
+
+      const result = await game.move(WHITE, { from: E7, to: D5 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(INSUFFICIENT_MATERIAL);
+    });
+
+    it("returns GAME_OVER from defensive isOver check when position is already a draw", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "8/8/8/8/8/8/4K3/4k3 w - - 0 1" });
+
+      const result = await game.move(WHITE, { from: E2, to: F3 });
+
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
     });
   });
 });

@@ -1,8 +1,8 @@
 import type { Occupant } from "./occupant";
-import type { Protocol } from "../protocol/protocol";
+import type { Codec } from "../codec/codec";
 import type { Notification } from "../protocol/events";
-import type { WebSocket } from "../domain/types";
-import { HUMAN } from "../domain/types";
+import type { WebSocket } from "../types";
+import { HUMAN } from "../types";
 
 /**
  * A human player at a color slot. Holds the live socket and sends
@@ -14,10 +14,10 @@ export class Human implements Occupant {
   constructor(
     readonly playerId: string,
     private ws: WebSocket,
-    private protocol: Protocol,
+    private protocol: Codec,
   ) {}
 
-  /** @inheritdoc */
+  /** {@inheritDoc} */
   notify(event: Notification): void {
     this.ws.send(this.protocol.encode(event));
   }

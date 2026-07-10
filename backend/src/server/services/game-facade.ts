@@ -3,7 +3,7 @@ import type {
   MoveInput,
   Position,
   WebSocket,
-} from "../domain/types";
+} from "../types";
 
 /** Player-facing actions a client can trigger over a socket. */
 export interface GameFacade {
@@ -23,7 +23,9 @@ export interface GameFacade {
   leave(ws: WebSocket): Promise<void>;
   /** Resends the caller's current game state. */
   sync(ws: WebSocket): Promise<void>;
-  /** The click-a-piece step before move — replies with the legal
-   * destination squares, or a rejection reason. */
+  /**
+   * The click-a-piece step before move — replies with the legal destination squares, or a rejection reason.
+   * @param position — the board square the player clicked
+   */
   selectPosition(ws: WebSocket, position: Position): Promise<void>;
 }

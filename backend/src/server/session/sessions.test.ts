@@ -5,7 +5,7 @@ import {
   HUMAN_VS_HUMAN,
   WS_OPEN,
   type WebSocket,
-} from "../domain/types";
+} from "../types";
 
 describe("Sessions", () => {
   /** A minimal fake WebSocket. Each call makes a distinct object, so two
@@ -78,6 +78,38 @@ describe("Sessions", () => {
       const store = makeStore();
 
       expect(store.byToken("no-such-token")).toBeNull();
+    });
+  });
+
+  describe("byPlayerId", () => {
+    it("returns the session for a known playerId", () => {
+      const store = makeStore();
+      const ws = makeSocket();
+      const session = store.open(ws, "player-42");
+
+      expect(store.byPlayerId("player-42")).toBe(session);
+    });
+
+    it("returns null for an unknown playerId", () => {
+      const store = makeStore();
+      store.open(makeSocket(), "player-1");
+
+      expect(store.byPlayerId("no-such-player")).toBeNull();
+    });
+
+    it("returns null after the session is pruned", () => {
+      const store = makeStore(1000);
+      const ws = makeSocket();
+      const session = store.open(ws, "player-prune");
+      store.drop(ws);
+      // Simulate time passing past TTL
+      const original = Date.now;
+      Date.now = () => session.disconnectedAt! + 1001;
+
+      store.prune();
+
+      Date.now = original;
+      expect(store.byPlayerId("player-prune")).toBeNull();
     });
   });
 
@@ -340,6 +372,55 @@ describe("Sessions", () => {
       const store = makeStore();
 
       expect(() => store.stopPruning()).not.toThrow();
+    });
+  });
+
+  describe("prune with playerId cleanup", () => {
+    it("removes the old byPlayerId entry when a fresh session is opened with same token resume failure", () => {
+      const store = makeStore(1000);
+      const ws1 = makeSocket();
+      const s1 = store.open(ws1, "player-1");
+      const token = s1.token;
+      store.drop(ws1);
+
+      // Simulate time passing past TTL
+      const original = Date.now;
+      Date.now = () => s1.disconnectedAt! + 1001;
+      store.prune();
+      Date.now = original;
+
+      // Old playerId is gone
+      expect(store.byPlayerId("player-1")).toBeNull();
+
+      // New session with old token — resumeOrOpen should open fresh,
+      // and the old playerId must not reappear
+      const ws2 = makeSocket();
+      const s2 = store.resumeOrOpen(ws2, token);
+
+      expect(s2.playerId).not.toBe("player-1");
+      expect(store.byPlayerId("player-1")).toBeNull();
+      expect(store.bySocket(ws2)).toBe(s2);
+    });
+  });
+
+  describe("session stability on resume with stale roomId", () => {
+    it("clearSession clears roomId, color, and mode", () => {
+      const store = makeStore();
+      const ws = makeSocket();
+      const session = store.open(ws, "player-1");
+      store.bind(ws, { roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN });
+
+      store.clearSession(ws);
+
+      expect(session.roomId).toBeNull();
+      expect(session.color).toBeNull();
+      expect(session.mode).toBeNull();
+    });
+
+    it("clearSession is a no-op for unknown socket", () => {
+      const store = makeStore();
+
+      expect(() => store.clearSession(makeSocket())).not.toThrow();
     });
   });
 });

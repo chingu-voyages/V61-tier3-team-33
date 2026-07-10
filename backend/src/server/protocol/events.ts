@@ -6,8 +6,8 @@ import {
   type Move,
   type PieceColor,
   type Position,
-} from "../domain/types";
-import type { MoveError, SelectError } from "../domain/result";
+} from "../types";
+import type { MoveError, SelectError } from "../types";
 
 type WebSocket = unknown;
 
@@ -39,9 +39,8 @@ export const POSITION_REJECTED = "position:reject" as const;
 export const CLOCK_STARTED = "clock:started" as const;
 export const CLOCK_PAUSED = "clock:paused" as const;
 export const CLOCK_EXPIRED = "clock:expired" as const;
-export const CLOCK_TICK = "clock:tick" as const;
 
-// Grace — emitted by GraceTimer (owned by Reactor)
+// Grace — emitted by Grace (owned by Connections)
 export const GRACE_STARTED = "grace:started" as const;
 export const GRACE_CANCELLED = "grace:cancelled" as const;
 export const GRACE_EXPIRED = "grace:expired" as const;
@@ -66,11 +65,6 @@ export type Signal =
       playerId: string;
       ws: WebSocket;
       roomId: null;
-    }
-  | {
-      type: typeof CLOCK_TICK;
-      clock: ClockState;
-      roomId: string;
     };
 
 // Notification — a player needs to know. Reaches Hub subscribers AND
@@ -86,6 +80,7 @@ export type Notification =
       type: typeof GAME_STARTED;
       roomId: string;
       fen: string;
+      turn: PieceColor;
       clock: ClockState | null;
     }
   | {
@@ -106,6 +101,7 @@ export type Notification =
       move: Move;
       isCheck: boolean;
       isGameOver: boolean;
+      turn: PieceColor;
       result: GameOutcome | null;
       clock: ClockState | null;
     }
@@ -206,11 +202,6 @@ export const Signals = {
   connectionResumed(playerId: string, ws: WebSocket): Signal {
     return { type: CONNECTION_RESUMED, playerId, ws, roomId: null };
   },
-
-  /** Not emitted yet — no ClockTimer exists to call this. */
-  clockTick(roomId: string, clock: ClockState): Signal {
-    return { type: CLOCK_TICK, roomId, clock };
-  },
 };
 
 /**
@@ -232,8 +223,8 @@ export const Notifications = {
   },
 
   /** Broadcast once, the moment a room's second seat fills. */
-  gameStarted(roomId: string, fen: string): Notification {
-    return { type: GAME_STARTED, roomId, fen, clock: null };
+  gameStarted(roomId: string, fen: string, turn: PieceColor, clock: ClockState | null): Notification {
+    return { type: GAME_STARTED, roomId, fen, turn, clock };
   },
 
   roomLeft(roomId: string, color: PieceColor): Notification {
@@ -267,8 +258,9 @@ export const Notifications = {
       move,
       isCheck: snapshot.isCheck,
       isGameOver,
+      turn: snapshot.turn,
       result: isGameOver ? GameOutcome.fromSnapshot(snapshot) : null,
-      clock: null,
+      clock: snapshot.clock ?? null,
     };
   },
 
@@ -291,7 +283,7 @@ export const Notifications = {
   },
 
   undoApplied(roomId: string, state: GameSnapshot): Notification {
-    return { type: UNDO_APPLIED, roomId, state, clock: null };
+    return { type: UNDO_APPLIED, roomId, state, clock: state.clock ?? null };
   },
 
   undoDeclined(roomId: string, by: PieceColor): Notification {
@@ -312,5 +304,44 @@ export const Notifications = {
     reason: SelectError,
   ): Notification {
     return { type: POSITION_REJECTED, roomId, position, reason };
+  },
+
+  clockStarted(
+    roomId: string,
+    color: PieceColor,
+    remainingMs: number,
+  ): Notification {
+    return { type: CLOCK_STARTED, roomId, color, remainingMs };
+  },
+
+  clockPaused(
+    roomId: string,
+    color: PieceColor,
+    remainingMs: number,
+  ): Notification {
+    return { type: CLOCK_PAUSED, roomId, color, remainingMs };
+  },
+
+  clockExpired(roomId: string, color: PieceColor): Notification {
+    return { type: CLOCK_EXPIRED, roomId, color };
+  },
+
+  /** Emitted when a disconnected player's grace period begins. */
+  graceStarted(
+    roomId: string,
+    color: PieceColor,
+    deadlineMs: number,
+  ): Notification {
+    return { type: GRACE_STARTED, roomId, color, deadlineMs };
+  },
+
+  /** Emitted when the disconnected player reconnects before grace expired. */
+  graceCancelled(roomId: string, color: PieceColor): Notification {
+    return { type: GRACE_CANCELLED, roomId, color };
+  },
+
+  /** Emitted when the grace period expires without reconnection. */
+  graceExpired(roomId: string, color: PieceColor): Notification {
+    return { type: GRACE_EXPIRED, roomId, color };
   },
 };
