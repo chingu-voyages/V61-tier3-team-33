@@ -82,6 +82,16 @@ describe("SocketClient", () => {
     expect(received).toEqual([])
   })
 
+  test("onMessage unsubscribe stops delivery", () => {
+    const client = makeClient()
+    FakeSocket.instances[0].triggerOpen()
+    const received: unknown[] = []
+    const unsubscribe = client.onMessage("PING", (raw) => received.push(raw))
+    unsubscribe()
+    FakeSocket.instances[0].triggerMessage({ type: "PING" })
+    expect(received).toEqual([])
+  })
+
   test("CLOSED reconnects by creating a new socket", async () => {
     const client = makeClient()
     FakeSocket.instances[0].triggerOpen()
@@ -97,10 +107,19 @@ describe("SocketClient", () => {
     expect(client.snapshot().status).toBe("failed")
   })
 
-  test("reconnect() only works when failed", () => {
-    const client = makeClient()
+  test("reconnect() transitions from failed to connecting", () => {
+    const client = makeClient({ maxDisconnectedMs: 0 })
+    FakeSocket.instances[0].triggerClose()
+    expect(client.snapshot().status).toBe("failed")
     client.reconnect()
     expect(client.snapshot().status).toBe("connecting")
+  })
+
+  test("reconnect() no-ops when not failed", () => {
+    const client = makeClient()
+    const statusBefore = client.snapshot().status
+    client.reconnect()
+    expect(client.snapshot().status).toBe(statusBefore)
   })
 
   test("send() no-ops when not open", () => {
@@ -119,10 +138,54 @@ describe("SocketClient", () => {
     ])
   })
 
+  test("onAnySend observes outbound messages", () => {
+    const client = makeClient()
+    FakeSocket.instances[0].triggerOpen()
+    FakeSocket.instances[0].readyState = FakeSocket.OPEN
+    const observed: unknown[] = []
+    client.onAnySend((raw) => observed.push(raw))
+    client.send({ type: "ping" })
+    expect(observed).toEqual([{ type: "ping" }])
+  })
+
+  test("onAnySend unsubscribe stops observing", () => {
+    const client = makeClient()
+    FakeSocket.instances[0].triggerOpen()
+    FakeSocket.instances[0].readyState = FakeSocket.OPEN
+    const observed: unknown[] = []
+    const unsub = client.onAnySend((raw) => observed.push(raw))
+    unsub()
+    client.send({ type: "ping" })
+    expect(observed).toEqual([])
+  })
+
+  test("message without type does not crash", () => {
+    const client = makeClient()
+    FakeSocket.instances[0].triggerOpen()
+    const received: unknown[] = []
+    client.onMessage("PING" as any, (raw) => received.push(raw))
+    FakeSocket.instances[0].triggerMessage({ noType: true })
+    expect(received).toEqual([])
+  })
+
+  test("destroy() prevents dispatch after cleanup", () => {
+    const client = makeClient()
+    client.destroy()
+    FakeSocket.instances[0].triggerOpen()
+    expect(client.snapshot().status).toBe("connecting")
+  })
+
   test("destroy() clears listeners and stops reconnecting", () => {
     const client = makeClient()
     client.destroy()
     FakeSocket.instances[0].triggerClose()
     expect(FakeSocket.instances.length).toBe(1)
+  })
+
+  test("isDestroyed reflects destroy state", () => {
+    const client = makeClient()
+    expect(client.isDestroyed).toBe(false)
+    client.destroy()
+    expect(client.isDestroyed).toBe(true)
   })
 })
