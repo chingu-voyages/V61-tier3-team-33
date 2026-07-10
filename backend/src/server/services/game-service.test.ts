@@ -8,6 +8,7 @@ import {
   BLACK,
   ABANDONED,
   HUMAN_VS_HUMAN,
+  HUMAN_VS_AI,
   WS_OPEN,
   GAME_OVER,
   type JoinInput,
@@ -305,6 +306,34 @@ describe("GameService", () => {
         expect.objectContaining({ type: SESSION_ERROR, code: GAME_FINISHED }),
       );
     });
+
+    it("marks the game as finished synchronously on resign, with no macrotask wait (GAME_ENDED is FAST)", async () => {
+      const { service, sessions, games } = makeServiceWithHub();
+      const { white, black, roomId } = await seatTwoPlayers(service, sessions);
+
+      await service.resign(white);
+
+      // No `await new Promise(setTimeout)` here on purpose — if
+      // handleGameEnded() were still on the DEFERRED lane, the game
+      // would not be marked finished yet.
+      expect(games.get(roomId)!.isFinished).toBe(true);
+    });
+
+    it("lets a resigned player start a fresh match immediately", async () => {
+      const { service, sessions } = makeServiceWithHub();
+      const { white } = await seatTwoPlayers(service, sessions);
+
+      await service.resign(white);
+
+      // Leave the finished game first, then join a fresh match.
+      await service.leave(white);
+      await service.join(white, { mode: HUMAN_VS_HUMAN });
+
+      const joined = sent(white).find(
+        (m) => m.type === ROOM_JOINED && m.state?.hasWinner !== true,
+      );
+      expect(joined).toBeDefined();
+    });
   });
 
   describe("undo flow", () => {
@@ -389,6 +418,22 @@ describe("GameService", () => {
       expect(lastSent(black)).toEqual(
         expect.objectContaining({ type: UNDO_REQUESTED }),
       );
+    });
+
+    it("ignores acceptUndo if the game finished while a request was pending", async () => {
+      const { service, sessions, hub } = makeServiceWithHub();
+      const { white, black } = await seatTwoPlayers(service, sessions);
+      await service.move(white, { from: E2, to: E4 });
+      await service.requestUndo(black);
+
+      // Game ends (resign) while black's undo request is still pending.
+      await service.resign(white);
+
+      const blackCallsBefore = sent(black).length;
+      await service.acceptUndo(white);
+
+      // Must not reopen the finished game.
+      expect(sent(black).length).toBe(blackCallsBefore);
     });
 
     it("ignores declineUndo when nothing is pending", async () => {
@@ -854,6 +899,24 @@ describe("GameService", () => {
       expect(lastSent(staleBlack)).toEqual(
         expect.objectContaining({ type: ROOM_LEFT, color: WHITE }),
       );
+    });
+
+    it("binds session.mode from the room's actual mode, not the joiner's input mode", async () => {
+      const { service, sessions } = makeService();
+      const host = makeSocket("host");
+      connect(sessions, host);
+      await service.join(host, {
+        mode: HUMAN_VS_HUMAN,
+        roomId: "friend-room",
+        clock: "bullet" as any,
+      });
+
+      // Invitee's client sends a mismatched mode for the same room.
+      const invitee = makeSocket("invitee");
+      connect(sessions, invitee);
+      await service.join(invitee, { mode: HUMAN_VS_AI, roomId: "friend-room" });
+
+      expect(sessions.bySocket(invitee)!.mode).toBe(HUMAN_VS_HUMAN);
     });
 
     it("re-seats on double join from the same socket (EC1)", async () => {

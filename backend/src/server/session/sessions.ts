@@ -135,6 +135,28 @@ export class Sessions implements SessionStore {
     }
 
     log.info("[SESSION-clearSession]", { playerId: session.playerId, wsId: ws.id, before: { roomId: session.roomId, color: session.color, mode: session.mode } });
+    this.clearFields(session);
+  }
+
+  /** {@inheritDoc} */
+  clearByPlayerId(playerId: string, expectedRoomId: string): void {
+    const session = this.byPlayerIdMap.get(playerId);
+    if (!session) {
+      log.warn("[SESSION-clearByPlayerId-miss]", { playerId, expectedRoomId });
+      return;
+    }
+
+    if (session.roomId !== expectedRoomId) {
+      log.info("[SESSION-clearByPlayerId-skip-moved]", { playerId, expectedRoomId, actualRoomId: session.roomId });
+      return;
+    }
+
+    log.info("[SESSION-clearByPlayerId]", { playerId, roomId: expectedRoomId });
+    this.clearFields(session);
+  }
+
+  /** Shared by clearSession/clearByPlayerId — resets the room-binding fields in place. */
+  private clearFields(session: Session): void {
     session.roomId = null;
     session.color = null;
     session.mode = null;
