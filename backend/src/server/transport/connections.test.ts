@@ -48,6 +48,7 @@ describe("Connections", () => {
       drop: mock(() => {}),
       bind: mock(() => {}),
       clearSession: mock(() => {}),
+      clearByPlayerId: mock(() => {}),
       prune: mock(() => {}),
       startPruning: mock(() => {}),
       stopPruning: mock(() => {}),

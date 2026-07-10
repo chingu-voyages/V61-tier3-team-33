@@ -149,13 +149,10 @@ export type GameEvent =
       emote: string
     }
 
-/** Every message shape the client can receive. `useSocketEvent` narrows
- * against this union — add a variant above whenever the server sends a
- * new message type. */
+/** Every message shape the client can receive. Add a variant above for new server messages. */
 export type ServerEvent = GameEvent | HandshakeReply | ErrorReply
 
-/** Runtime check that `raw` is a tagged object whose `type` matches `tag`.
- * Deliberately shallow — server is trusted to send well-formed messages. */
+/** Runtime check that `raw.type` matches `tag`. Shallow — server is trusted. */
 export function hasType<K extends ServerEvent["type"]>(
   raw: unknown,
   tag: K

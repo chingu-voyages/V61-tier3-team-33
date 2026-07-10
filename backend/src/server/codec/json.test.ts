@@ -11,10 +11,11 @@ import {
   UNDO_DECLINE,
   GAME_RESIGN,
   STATE_SYNC,
+  POSITION_SELECT,
   type Command,
 } from "../protocol/commands";
 import { ROOM_JOINED } from "../protocol/events";
-import { HUMAN_VS_HUMAN, WHITE, EASY } from "../types";
+import { HUMAN_VS_HUMAN, WHITE, EASY, DEFAULT, BULLET, BLITZ, SWIFT, STEADY, PATIENT, CASUAL } from "../types";
 
 const codec = new JsonCodec();
 
@@ -139,6 +140,60 @@ describe("JsonCodec.decode", () => {
           difficulty: "easy",
         }),
       ).toBeNull();
+    });
+
+    describe("clock field", () => {
+      it("decodes with a valid clock format", () => {
+        for (const fmt of [DEFAULT, BULLET, BLITZ, SWIFT, STEADY, PATIENT, CASUAL]) {
+          const result = codec.decode({
+            type: ROOM_JOIN,
+            mode: HUMAN_VS_HUMAN,
+            clock: fmt,
+          });
+          expect(result).not.toBeNull();
+          expect((result! as any).clock).toBe(fmt);
+        }
+      });
+
+      it("defaults clock to undefined when not provided", () => {
+        const result = codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN });
+        expect((result as any).clock).toBeUndefined();
+      });
+
+      it("rejects a non-string clock", () => {
+        expect(
+          codec.decode({
+            type: ROOM_JOIN,
+            mode: HUMAN_VS_HUMAN,
+            clock: 42,
+          }),
+        ).toBeNull();
+      });
+
+      it("rejects an unrecognised clock format", () => {
+        expect(
+          codec.decode({
+            type: ROOM_JOIN,
+            mode: HUMAN_VS_HUMAN,
+            clock: "lightning",
+          }),
+        ).toBeNull();
+      });
+    });
+  });
+
+  describe("position:select", () => {
+    it("decodes with a numeric position", () => {
+      const result = codec.decode({ type: POSITION_SELECT, position: 12 });
+      expect(result).toEqual({ type: POSITION_SELECT, position: 12 } as Command);
+    });
+
+    it("rejects a non-number position", () => {
+      expect(codec.decode({ type: POSITION_SELECT, position: "e2" })).toBeNull();
+    });
+
+    it("rejects missing position", () => {
+      expect(codec.decode({ type: POSITION_SELECT })).toBeNull();
     });
   });
 

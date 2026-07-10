@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, useMemo } from "react"
+import { useCallback, useState, useMemo, useRef, useEffect } from "react"
 import { useRoom } from "@/context/room/context"
 import { useChess } from "@/chess/context"
 import { Board } from "@/components/board/Board"
@@ -8,6 +8,7 @@ import { WHITE, BLACK, QUEEN, ROOK, BISHOP, KNIGHT } from "@/core/piece"
 import type { PieceType, PieceColor } from "@/core/piece"
 import { Position } from "@/core/position"
 import { Board as ChessBoard, Square } from "@/core/board"
+import { useSoundContext } from "@/audio/context"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -52,8 +53,35 @@ export function View({ onLeave }: ViewProps) {
     setEmoteKey(k => k + 1)
   })
 
-  const onSquareClick = useCallback(
-    (pos: Position) => {
+  const { prime: primeAudio, preload: preloadAudio, playMove, playCapture } = useSoundContext()
+  const lastPlayedSeq = useRef<number>(0)
+  const prevBoardRef = useRef(chessState.board)
+
+  // Preload sounds early to avoid deferred-play race between moves.
+  useEffect(() => {
+    preloadAudio()
+  }, [preloadAudio])
+
+  useEffect(() => {
+    // Monotonic counter — integer comparison avoids re-render ambiguity.
+    if (chessState.moveSeq === lastPlayedSeq.current) {
+      prevBoardRef.current = chessState.board
+      return
+    }
+    lastPlayedSeq.current = chessState.moveSeq
+    const move = chessState.lastMove
+    if (move) {
+      const wasCapture = Square.decode(ChessBoard.at(prevBoardRef.current, move.to)) !== null
+      if (wasCapture) playCapture()
+      else playMove()
+    }
+    prevBoardRef.current = chessState.board
+  }, [chessState.moveSeq, chessState.lastMove, chessState.board, playMove, playCapture])
+
+  const onSquareClickRef = useRef<(pos: Position) => void>(() => {})
+  useEffect(() => {
+    onSquareClickRef.current = (pos: Position) => {
+      primeAudio()
       if (state.status === FINISHED) return
       if (chessState.pendingPromotion) {
         cancelPromotion()
@@ -64,9 +92,10 @@ export function View({ onLeave }: ViewProps) {
         return
       }
       select(pos)
-    },
-    [chessState.selected, chessState.legalMoves, chessState.pendingPromotion, makeMove, select, cancelPromotion, state.status],
-  )
+    }
+  })
+  // Stable ref — avoids re-rendering Board's memoized squares on every move.
+  const onSquareClick = useCallback((pos: Position) => onSquareClickRef.current(pos), [])
 
   const promotionColor: PieceColor | null = chessState.pendingPromotion
     ? Square.pieceColor(ChessBoard.at(chessState.board, chessState.pendingPromotion.from))
@@ -109,9 +138,7 @@ export function View({ onLeave }: ViewProps) {
     ? (boardFlipped ? Position.rank(chessState.pendingPromotion.to) + 1 : 8 - Position.rank(chessState.pendingPromotion.to))
     : undefined
 
-  // The picker always anchors on the promotion square (an edge row) and extends
-  // 4 squares in toward the center of the board, flush against the board itself
-  // - matching how chess.com renders its promotion picker.
+  // Anchors on promotion square, extends 4 squares toward center (chess.com style).
   const promotionAnchoredAtTop = promotionTargetRow === 1
   const promotionStyle = promotionColumn !== undefined
     ? {
@@ -121,12 +148,13 @@ export function View({ onLeave }: ViewProps) {
     : undefined
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6 lg:p-6">
-      <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6 lg:p-6">
+      <div className="flex w-fit min-h-0 flex-1 flex-col items-center gap-3 self-center lg:w-auto lg:flex-none lg:self-auto">
         <ClockDisplay color={flipped ? myColor : oppColor} label={flipped ? "You" : "Opponent"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
 
-        <div className="relative">
-          <EmoteOverlay key={emoteKey} emote={receivedEmote} />
+          <div className="relative flex min-h-0 w-full flex-1 items-center justify-center"> 
+            <EmoteOverlay key={emoteKey} emote={receivedEmote} />
+
           <Board board={chessState.board} view={{ selected: chessState.selected, legalMoves: chessState.legalMoves, lastMove: chessState.lastMove, flipped: boardFlipped }} onSquareClick={onSquareClick} />
           {chessState.pendingPromotion && promotionColor !== null && promotionStyle && (
             <div

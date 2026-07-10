@@ -2,8 +2,7 @@ import { memo } from "react"
 import { DEFAULT_CHESS_THEME } from "@/core/theme"
 import { STORAGE_KEY } from "./theme-store"
 
-// Runs inline before hydration to avoid a flash of the default theme.
-// Serialized via toString(), so it must be self-contained (no closures).
+// Inline before hydration to avoid theme flash. Serialized via toString() — no closures.
 function applyStoredTheme(storageKey: string, defaultTheme: string) {
   try {
     const stored = localStorage.getItem(storageKey) || defaultTheme

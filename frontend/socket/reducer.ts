@@ -24,9 +24,7 @@ export function reducer(state: SocketState, action: SocketAction): SocketState {
       return { status: "open", attempt: 0, disconnectedAt: null }
 
     case "CLOSED": {
-      // First drop starts the clock; later drops keep the original
-      // timestamp, so elapsed time is measured from when connectivity
-      // was actually lost.
+      // First drop starts the clock; later drops keep original timestamp.
       const disconnectedAt = state.disconnectedAt ?? action.now
       const elapsed = action.now - disconnectedAt
 
@@ -42,8 +40,7 @@ export function reducer(state: SocketState, action: SocketAction): SocketState {
     }
 
     case "MANUAL_RECONNECT":
-      // Only meaningful from "failed" — enforced by SocketClient.reconnect,
-      // not here, since the reducer shouldn't reject actions silently.
+      // Only meaningful from "failed" — enforced by SocketClient.reconnect.
       return { status: "connecting", attempt: 0, disconnectedAt: null }
   }
 }

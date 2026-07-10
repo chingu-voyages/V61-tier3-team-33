@@ -19,6 +19,11 @@ import {
   HUMAN,
   HUMAN_VS_HUMAN,
   CHECKMATE,
+  DRAW,
+  STALEMATE,
+  THREEFOLD_REPETITION,
+  FIFTY_MOVE_RULE,
+  INSUFFICIENT_MATERIAL,
 } from "../types";
 import {
   NOT_YOUR_TURN,
@@ -36,6 +41,11 @@ import {
 import { MOVE_MADE, CLOCK_EXPIRED, ROOM_LEFT } from "../protocol/events";
 import {
   A1,
+  A6,
+  B6,
+  C3,
+  D2,
+  D4,
   D5,
   D6,
   D7,
@@ -46,11 +56,17 @@ import {
   E7,
   F2,
   F3,
+  F6,
+  F7,
+  G1,
   G2,
   G4,
+  G7,
+  G8,
   D8,
   H4,
 } from "../../chess";
+import { Chess } from "../../chess";
 
 describe("Game", () => {
   afterEach(() => {
@@ -1006,6 +1022,80 @@ describe("Game", () => {
       game.expire(); // second expiry — should not broadcast
 
       expect(publisher.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("draw detection", () => {
+    it("detects stalemate", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "k7/8/1K6/8/8/8/8/1R6 w - - 0 1" });
+
+      const result = await game.move(WHITE, { from: B6, to: A6 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(STALEMATE);
+    });
+
+    it("detects threefold repetition", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+
+      await game.move(WHITE, { from: G1, to: F3 });
+      await game.move(BLACK, { from: G8, to: F6 });
+      await game.move(WHITE, { from: F3, to: G1 });
+      await game.move(BLACK, { from: F6, to: G8 });
+      await game.move(WHITE, { from: G1, to: F3 });
+      await game.move(BLACK, { from: G8, to: F6 });
+      await game.move(WHITE, { from: F3, to: G1 });
+      const result = await game.move(BLACK, { from: F6, to: G8 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(THREEFOLD_REPETITION);
+    });
+
+    it("detects fifty-move rule", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 99 1" });
+
+      const result = await game.move(WHITE, { from: G1, to: F3 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(FIFTY_MOVE_RULE);
+    });
+
+    it("detects insufficient material", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "8/4N3/8/3b4/8/2K5/8/k7 w - - 0 1" });
+
+      const result = await game.move(WHITE, { from: E7, to: D5 });
+
+      expect(result.ok).toBe(true);
+      expect(game.isFinished).toBe(true);
+      expect(game.endReason).toBe(RULES);
+      expect(game.snapshot().resultStatus).toBe(DRAW);
+      expect(game.snapshot().drawReason).toBe(INSUFFICIENT_MATERIAL);
+    });
+
+    it("returns GAME_OVER from defensive isOver check when position is already a draw", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      (game as any).chess = new Chess({ fen: "8/8/8/8/8/8/4K3/4k3 w - - 0 1" });
+
+      const result = await game.move(WHITE, { from: E2, to: F3 });
+
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
     });
   });
 });

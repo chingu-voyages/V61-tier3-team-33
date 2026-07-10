@@ -50,14 +50,14 @@ describe("ChessStore", () => {
     store.makeMove(E2, E4)
 
     const s = store.snapshot()
-    expect(s.lastMove).toEqual({ from: E2, to: E4 })
+    expect(s.lastMove).toEqual({ from: E2, to: E4, type: MoveType(0) })
     expect(s.pendingMove).toEqual({ from: E2, to: E4 })
-    // Pawn should be at e4
+    // Pawn at e4
     const piece = Square.decode(Board.at(s.board, E4))
     expect(piece).toEqual({ color: WHITE, type: PAWN })
-    // E2 should be empty
+    // E2 empty
     expect(Square.isEmpty(Board.at(s.board, E2))).toBe(true)
-    // Should have sent move:make and cleared selection
+    // Sent move:make, cleared selection
     expect(sent).toContainEqual({ type: "move:make", from: E2, to: E4 })
     expect(s.selected).toBeNull()
     expect(s.legalMoves).toEqual([])
@@ -68,7 +68,7 @@ describe("ChessStore", () => {
     const store = new ChessStoreImpl((cmd) => sent.push(cmd as { type: string }))
     store.makeMove(E2, E4)
     const afterFirst = store.snapshot().fen
-    // Second call should no-op since e2 is empty
+    // Second call no-ops; e2 empty
     store.makeMove(E2, E4)
     expect(store.snapshot().fen).toBe(afterFirst)
     expect(sent.filter((c) => c.type === "move:make").length).toBe(1)
@@ -107,7 +107,7 @@ describe("ChessStore", () => {
     store.applyMove(e4Move)
     const s = store.snapshot()
     expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
-    expect(s.lastMove).toEqual({ from: E2, to: E4 })
+    expect(s.lastMove).toEqual({ from: E2, to: E4, type: MoveType(0) })
     expect(Square.isEmpty(Board.at(s.board, E2))).toBe(true)
   })
 
@@ -117,7 +117,7 @@ describe("ChessStore", () => {
     expect(store.snapshot().pendingMove).not.toBeNull()
 
     store.applyMove(e4Move)
-    // Should have cleared pendingMove without double-applying
+    // Cleared pendingMove, no double-apply
     expect(store.snapshot().pendingMove).toBeNull()
     expect(store.snapshot().fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
   })
@@ -128,7 +128,7 @@ describe("ChessStore", () => {
 
     store.rejectMove("illegal-move", E2, E4)
     const s = store.snapshot()
-    // Board should be back to starting position
+    // Board back to starting position
     expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     expect(s.moveRejection).toBe("illegal-move")
     expect(s.pendingMove).toBeNull()

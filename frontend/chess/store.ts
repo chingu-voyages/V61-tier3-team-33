@@ -1,6 +1,6 @@
 import { Chess } from "./index"
 import type { Position } from "./core/position"
-import type { Move } from "./core/move"
+import type { Move, MoveType } from "./core/move"
 import type { Snapshot } from "./core/history"
 import { Board, type Board as BoardType } from "./core/board"
 import type { ClockState } from "@/socket/types"
@@ -11,7 +11,8 @@ export interface ChessState {
   board: BoardType
   clock: ClockState | null
   clockReceivedAt: number | null
-  lastMove: { from: Position; to: Position } | null
+  lastMove: { from: Position; to: Position; type: MoveType } | null
+  moveSeq: number
   selected: Position | null
   legalMoves: Position[]
   moveRejection: string | null
@@ -60,6 +61,7 @@ export class ChessStoreImpl implements ChessStore {
       clock: null,
       clockReceivedAt: null,
       lastMove: null,
+      moveSeq: 0,
       selected: null,
       legalMoves: [],
       moveRejection: null,
@@ -109,7 +111,8 @@ export class ChessStoreImpl implements ChessStore {
     this.pending = { from, to, snap }
     this.setState({
       ...this.snapshotFromChess(),
-      lastMove: { from, to },
+      lastMove: { from, to, type: move.type },
+      moveSeq: this.state.moveSeq + 1,
       pendingMove: { from, to },
       selected: null,
       legalMoves: [],
@@ -164,7 +167,8 @@ export class ChessStoreImpl implements ChessStore {
     this.chess.apply(move)
     this.setState({
       ...this.snapshotFromChess(),
-      lastMove: { from: move.from, to: move.to },
+      lastMove: { from: move.from, to: move.to, type: move.type },
+      moveSeq: this.state.moveSeq + 1,
       selected: null,
       legalMoves: [],
     })
@@ -198,6 +202,7 @@ export class ChessStoreImpl implements ChessStore {
     this.setState({
       ...this.snapshotFromChess(),
       lastMove: null,
+      moveSeq: 0,
       selected: null,
       legalMoves: [],
       moveRejection: null,

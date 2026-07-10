@@ -51,6 +51,18 @@ export interface SessionWriter {
    * state is detected (e.g. game was swept, or room doesn't exist on join).
    */
   clearSession(ws: WebSocket): void;
+  /**
+   * Same effect as clearSession, but reachable without a live socket —
+   * for a player who's mid-disconnect (grace pending) when their room
+   * ends. `expectedRoomId` guards against clobbering a session that has
+   * since moved on to a different room while this cleanup was in flight
+   * (cleanup is typically triggered by a DEFERRED event handler, so the
+   * session may no longer be in the state that triggered it): the clear
+   * is skipped, not forced, if the session's current roomId doesn't match.
+   * @param playerId — whose session to clear
+   * @param expectedRoomId — only clears if the session is still bound to this room
+   */
+  clearByPlayerId(playerId: string, expectedRoomId: string): void;
   /** Removes all expired sessions immediately. */
   prune(): void;
   /**

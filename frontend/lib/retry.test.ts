@@ -33,7 +33,7 @@ describe("backoffDelay", () => {
   test("is close to maxDelayMs once capped, not still growing", () => {
     const delayAt10 = backoffDelay(10, config)
     const delayAt20 = backoffDelay(20, config)
-    // Both should be capped around maxDelayMs, not 2^10 vs 2^20 apart.
+    // Both capped at maxDelayMs, not orders of magnitude apart.
     expect(delayAt10).toBeGreaterThanOrEqual(config.maxDelayMs)
     expect(delayAt20).toBeGreaterThanOrEqual(config.maxDelayMs)
   })

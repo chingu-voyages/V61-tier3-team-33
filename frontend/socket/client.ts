@@ -15,46 +15,46 @@ type MessageListener = (raw: unknown) => void
 export interface SocketClientOptions {
   retryConfig?: RetryConfig
   maxDisconnectedMs?: number
-  socketCtor?: typeof WebSocket // Injected so tests can supply a fake WebSocket.
+  socketCtor?: typeof WebSocket // DI for tests
 }
 
 export default class SocketClient {
-  // Flag indicating whether the socket is destroyed.
+  // Whether the socket is destroyed.
   private destroyed = false
 
-  /** Public read-only access for downstream guard code (e.g. getSocketClient). */
+  /** Public read-only for downstream guards. */
   get isDestroyed(): boolean {
     return this.destroyed
   }
 
-  // state of the current socket
+  // Current socket state
   private state: SocketState = initialSocketState
 
-  // Notified on status transitions (connecting/open/reconnecting/closed/failed)
+  // Notified on status transitions
   private statusListener: Set<StatusListener> = new Set()
 
-  // Notified on every inbound message, keyed by message type — for feature code.
+  // Notified on inbound messages, keyed by type
   private messageListeners: Map<string, Set<MessageListener>> = new Map()
 
-  // Notified on every inbound message, regardless of type — for debug tooling.
+  // Notified on all inbound messages (debug)
   private observers: Set<MessageListener> = new Set()
 
-  // Notified on every outbound send — for debug tooling.
+  // Notified on outbound sends (debug)
   private outObservers: Set<MessageListener> = new Set()
 
-  // Constructor for creating sockets — real WebSocket, or a fake for tests.
+  // Socket ctor — real or fake for tests
   private readonly SocketCtor: typeof WebSocket
 
-  // The live socket instance, once connected.
+  // Live socket instance
   private socket: InstanceType<typeof WebSocket> | null = null
 
-  // Timer for retrying connection after disconnection.
+  // Reconnection timer
   private retryTimer: ReturnType<typeof setTimeout> | null = null
 
-  // config for retry policy
+  // Retry policy config
   private readonly retryConfig?: RetryConfig
 
-  // maximum time to wait before reconnecting
+  // Max reconnect wait
   private readonly maxDisconnectedMs: number
 
   constructor(
@@ -202,8 +202,7 @@ export function resetSocketClient(): void {
   globalThis._chessSocketClient = undefined
 }
 
-// retryConfig/maxDisconnectedMs only apply on first creation for a given url;
-// changing them on a live client requires resetSocketClient() first.
+// Options only apply on first creation; change via resetSocketClient().
 export function getSocketClient(
   url: string,
   options: SocketClientOptions
@@ -217,8 +216,7 @@ export function getSocketClient(
     resetSocketClient()
   }
 
-  // If the singleton was destroyed (e.g. during test teardown or hot reload),
-  // recreate it rather than returning a dead client.
+  // Recreate if destroyed (test teardown / hot reload).
   if (!globalThis._chessSocketClient || globalThis._chessSocketClient.isDestroyed) {
     resetSocketClient()
     globalThis._chessSocketClient = new SocketClient(url, options)

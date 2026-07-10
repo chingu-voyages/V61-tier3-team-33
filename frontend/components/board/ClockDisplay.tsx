@@ -6,6 +6,7 @@ import type { ClockState } from "@/socket/types"
 import { WHITE } from "@/core/piece"
 import { getPieceIcon } from "@/components/pieces"
 import { KNIGHT } from "@/core/piece"
+import { cn } from "@/lib/utils"
 
 function fmtClock(ms: number | undefined): string {
   if (ms === undefined) return "--:--"
@@ -38,6 +39,9 @@ export function ClockDisplay({ color, label, clock, clockReceivedAt }: ClockDisp
       ].join(" ")}
     >
       <div className="flex items-center gap-2">
+        {isActive && (
+          <span className="inline-block size-2 animate-pulse rounded-full bg-chess-check-fill" />
+        )}
         {getPieceIcon({ type: KNIGHT, color }, { className: "size-5" })}
         <span className={["font-medium text-sm", isActive ? "text-foreground" : "text-muted-foreground"].join(" ")}>
           {label}

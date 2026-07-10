@@ -48,8 +48,7 @@ function useConnectionToast() {
       dismissTimer.current = null
     }
 
-    // Title-only toast, no description/action carried over from a
-    // previous state (e.g. a lingering "failed" description/retry).
+    // Title-only toast; no lingering description/action from previous state.
     const show = (
       type: "info" | "warning" | "success" | "error",
       title: string,
@@ -97,8 +96,7 @@ function useConnectionToast() {
         break
 
       case "failed":
-        // Description + retry action stay put — the toast is only ever
-        // removed by the user (Retry, close/swipe/escape, or manual dismiss).
+        // Description/retry persist until user dismisses.
         show("error", "Connection failed", {
           description: "Unable to connect. Please refresh or try again.",
           action: { label: "Retry", onClick: () => reconnect() },

@@ -1,5 +1,6 @@
 import type { Brand } from "./brand";
 import type { Piece, PieceColor } from "./piece";
+import type { MoveType } from "./move";
 import { Position, File, Rank } from "./position";
 import { WHITE, BLACK, PieceType, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from "./piece";
 
@@ -27,10 +28,10 @@ export type VariantKey =
 export interface StateConfig {
   selected: Position | null;
   legalMoves: Position[];
-  lastMove: { from: Position; to: Position } | null;
+  lastMove: { from: Position; to: Position; type: MoveType } | null;
 }
 
-/** A packed square byte (0 = empty, 1–6 = white PAWN…KING, 7–12 = black PAWN…KING). */
+/** Packed square byte: 0 empty, 1–6 white, 7–12 black. */
 export type Square = Brand<number, "Square">;
 
 export const Square = Object.assign(
@@ -109,7 +110,7 @@ export const EMPTY_SQUARE: Square = Square(0);
 
 const WHITE_MAX: Square = Square(6);
 
-/** The 8x8 grid of squares, indexed by Position. */
+/** 8x8 grid of squares. */
 export type Board = Brand<Uint8Array, "Board">;
 
 export const Board = {
