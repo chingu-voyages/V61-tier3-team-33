@@ -79,6 +79,29 @@ export class GameService implements GameFacade {
 
     log.info("[GS-join-session]", { playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode, disconnectedAt: session.disconnectedAt });
 
+    // A join naming a *different* room than the one the session is
+    // currently bound to isn't a reconnect — it's a request to switch
+    // games (e.g. an invite link opened while a stale/old session is
+    // still attached to a previous room). Without this, the reconnect
+    // branch below keys off session.roomId alone and silently reseats
+    // the player back into their old room, ignoring input.roomId
+    // entirely — the invite never gets processed. Free the old seat
+    // first so the reconnect branch only ever fires for genuine resumes.
+    if (
+      session.roomId &&
+      session.color !== null &&
+      input.roomId !== undefined &&
+      input.roomId !== session.roomId
+    ) {
+      log.info("[GS-join-switch-room]", { playerId: session.playerId, fromRoomId: session.roomId, toRoomId: input.roomId });
+      const previous = this.games.get(session.roomId);
+      if (previous) {
+        previous.leave(session.color);
+        this.pendingUndos.delete(previous.id);
+      }
+      this.sessions.clearSession(ws);
+    }
+
     // Rejoin on reconnect.
     if (session.roomId && session.color !== null) {
       log.info("[GS-join-reconnect-branch]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
