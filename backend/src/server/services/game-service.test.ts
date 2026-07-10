@@ -9,6 +9,7 @@ import {
   ABANDONED,
   HUMAN_VS_HUMAN,
   WS_OPEN,
+  GAME_OVER,
   type JoinInput,
   type WebSocket,
 } from "../types";
@@ -81,6 +82,15 @@ describe("GameService", () => {
     return { service, sessions, games };
   }
 
+  function makeServiceWithHub() {
+    const sessions = new Sessions();
+    const hub = new Hub();
+    const games = new Games(hub);
+    const protocol = makeCodec();
+    const service = new GameService(sessions, games, protocol, hub);
+    return { service, sessions, hub, games };
+  }
+
   /** Opens a session for a fresh socket, as Connections would on connect. */
   function connect(sessions: Sessions, ws: WebSocket) {
     return sessions.open(ws, `player-${ws.id}`);
@@ -150,6 +160,18 @@ describe("GameService", () => {
 
       expect(lastSent(ws)).toEqual(
         expect.objectContaining({ type: SESSION_ERROR, code: ROOM_NOT_FOUND }),
+      );
+    });
+
+    it("creates game with explicit clock format via creator path (roomId + clock)", async () => {
+      const { service, sessions } = makeService();
+      const ws = makeSocket("p1");
+      connect(sessions, ws);
+
+      await service.join(ws, { mode: HUMAN_VS_HUMAN, roomId: "friend-room", clock: "bullet" as any });
+
+      expect(lastSent(ws)).toEqual(
+        expect.objectContaining({ type: ROOM_JOINED, roomId: "friend-room" }),
       );
     });
 
@@ -728,22 +750,104 @@ describe("GameService", () => {
       expect(joinMsg!.roomId).toBe(roomId);
     });
 
-    it("reseats into current room even when a different roomId is given (EC11)", async () => {
+    it("switches into the requested room when a different roomId is given (EC11)", async () => {
       const { service, sessions, games } = makeService();
       const { white, roomId } = await seatTwoPlayers(service, sessions);
 
-      // White is in roomId — try to join a different room
-      const otherGame = games.create("other-room", HUMAN_VS_HUMAN, createClock());
+      // White is in roomId — explicitly join a different, existing room
+      // (e.g. an invite link opened while still seated in a stale game).
+      games.create("other-room", HUMAN_VS_HUMAN, createClock());
       sessions.bind(white, { roomId, color: WHITE, mode: HUMAN_VS_HUMAN });
 
       await service.join(white, { mode: HUMAN_VS_HUMAN, roomId: "other-room" });
 
-      // Should still be in the original room (rejoin branch keys off session.roomId)
-      const msgs = sent(white);
-      const joined = msgs.find((m) => m.type === ROOM_JOINED);
-      expect(joined).toBeDefined();
-      expect(joined!.roomId).toBe(roomId);
-      expect(joined!.roomId).not.toBe("other-room");
+      // Should now be in the requested room, not the stale one — an
+      // explicit roomId in the input always wins over the reconnect path.
+      // (lastSent, not .find: white already has an earlier ROOM_JOINED
+      // from seatTwoPlayers sitting in its message history.)
+      expect(lastSent(white)).toEqual(
+        expect.objectContaining({ type: ROOM_JOINED, roomId: "other-room" }),
+      );
+    });
+
+    it("leaves the old room and notifies the opponent when switching rooms", async () => {
+      const { service, sessions, games } = makeService();
+      const { white, black, roomId } = await seatTwoPlayers(service, sessions);
+
+      games.create("other-room", HUMAN_VS_HUMAN, createClock());
+
+      await service.join(white, { mode: HUMAN_VS_HUMAN, roomId: "other-room" });
+
+      // Black (left behind in the old room) should see ROOM_LEFT for white.
+      expect(lastSent(black)).toEqual(
+        expect.objectContaining({ type: ROOM_LEFT, color: WHITE }),
+      );
+
+      // The old room no longer has white seated.
+      expect(games.get(roomId)!.getOccupant(WHITE)).toBeNull();
+    });
+
+    it("joining a fresh invite room works even with a stale session bound to an old ACTIVE game (regression)", async () => {
+      // Mirrors the production incident: a player's session is still bound
+      // to a previous, still-active game (e.g. auto-rejoin fired for it on
+      // handshake) when they open a friend's invite link to a brand new
+      // room. The invite must win — they should land in the invited room,
+      // not get silently bounced back into the old one.
+      const { service, sessions } = makeService();
+      const { white: staleWhite, black: staleBlack } =
+        await seatTwoPlayers(service, sessions);
+
+      // The host creates a fresh invite room and waits.
+      const host = makeSocket("host");
+      connect(sessions, host);
+      await service.join(host, {
+        mode: HUMAN_VS_HUMAN,
+        roomId: "invite-room",
+        clock: "blitz" as any,
+      });
+
+      // The friend's browser resumes a session still bound to the old,
+      // active game (staleRoomId), then opens the invite link.
+      const friendResumed = makeSocket("friend-resumed");
+      const friendSession = sessions.bySocket(staleWhite)!;
+      sessions.resume(friendSession.token, friendResumed);
+
+      await service.join(friendResumed, {
+        mode: HUMAN_VS_HUMAN,
+        roomId: "invite-room",
+      });
+
+      // The friend must be seated in the invited room, not bounced back
+      // into the stale one. (Not lastSent: joining fills the last open
+      // seat, so a GAME_STARTED broadcast follows right behind ROOM_JOINED.)
+      const friendJoined = sent(friendResumed).find((m: any) => m.type === ROOM_JOINED);
+      expect(friendJoined).toEqual(
+        expect.objectContaining({ type: ROOM_JOINED, roomId: "invite-room" }),
+      );
+
+      // The host should see GAME_STARTED now that the invite room is full.
+      expect(lastSent(host)).toEqual(
+        expect.objectContaining({ type: GAME_STARTED }),
+      );
+
+      // The opponent left behind in the stale game should be told the
+      // seat is now empty, instead of waiting forever.
+      expect(lastSent(staleBlack)).toEqual(
+        expect.objectContaining({ type: ROOM_LEFT, color: WHITE }),
+      );
+    });
+
+    it("re-seats on double join from the same socket (EC1)", async () => {
+      const { service, sessions } = makeService();
+      const { white, roomId } = await seatTwoPlayers(service, sessions);
+      const callsBefore = sent(white).length;
+
+      await service.join(white, { mode: HUMAN_VS_HUMAN });
+
+      expect(sent(white).length).toBe(callsBefore + 1);
+      expect(lastSent(white)).toEqual(
+        expect.objectContaining({ type: ROOM_JOINED, roomId, color: WHITE }),
+      );
     });
   });
 
@@ -823,15 +927,6 @@ describe("GameService", () => {
   });
 
   describe("grace timer — disconnect & reconnect", () => {
-    function makeServiceWithHub() {
-      const sessions = new Sessions();
-      const hub = new Hub();
-      const games = new Games(hub);
-      const protocol = makeCodec();
-      const service = new GameService(sessions, games, protocol, hub);
-      return { service, sessions, hub, games };
-    }
-
     it("notifies opponent with GRACE_STARTED on disconnect during active game", async () => {
       const { service, sessions, hub } = makeServiceWithHub();
       const { white, black, roomId } = await seatTwoPlayers(service, sessions);
@@ -909,6 +1004,62 @@ describe("GameService", () => {
       expect(gameEnded!.winner).toBe(BLACK);
     });
 
+    it("allows a reconnected player to move (EC2)", async () => {
+      const { service, sessions, hub } = makeServiceWithHub();
+      const { white, black, roomId } = await seatTwoPlayers(service, sessions);
+
+      // Disconnect white
+      const whiteSession = sessions.bySocket(white)!;
+      sessions.drop(white);
+      hub.emit({ type: CONNECTION_CLOSED, playerId: whiteSession.playerId, ws: white, roomId: null });
+      await new Promise((r) => setTimeout(r, 5));
+
+      // Reconnect white with a new socket
+      const white2 = makeSocket("white2");
+      sessions.resume(whiteSession.token, white2);
+      await service.join(white2, { mode: HUMAN_VS_HUMAN });
+
+      // Now white should be able to move
+      await service.move(white2, { from: E2, to: E4 });
+
+      expect(lastSent(white2)).toEqual(
+        expect.objectContaining({ type: MOVE_MADE, by: WHITE }),
+      );
+      expect(lastSent(black)).toEqual(
+        expect.objectContaining({ type: MOVE_MADE, by: WHITE }),
+      );
+    });
+
+    it("handles both players disconnecting simultaneously (EC4)", async () => {
+      const { service, sessions, hub } = makeServiceWithHub();
+      const { white, black, roomId } = await seatTwoPlayers(service, sessions);
+      const whiteSession = sessions.bySocket(white)!;
+      const blackSession = sessions.bySocket(black)!;
+
+      // Both disconnect near-simultaneously
+      sessions.drop(white);
+      hub.emit({ type: CONNECTION_CLOSED, playerId: whiteSession.playerId, ws: white, roomId: null });
+
+      sessions.drop(black);
+      hub.emit({ type: CONNECTION_CLOSED, playerId: blackSession.playerId, ws: black, roomId: null });
+
+      await new Promise((r) => setTimeout(r, 5));
+
+      // Each should see GRACE_STARTED for the opponent's disconnect
+      const whiteMsgs = sent(white);
+      const blackMsgs = sent(black);
+
+      const whiteGrace = whiteMsgs.find((m) => m.type === "grace:started");
+      expect(whiteGrace).toBeDefined();
+      expect(whiteGrace!.color).toBe(BLACK);
+      expect(whiteGrace!.roomId).toBe(roomId);
+
+      const blackGrace = blackMsgs.find((m) => m.type === "grace:started");
+      expect(blackGrace).toBeDefined();
+      expect(blackGrace!.color).toBe(WHITE);
+      expect(blackGrace!.roomId).toBe(roomId);
+    });
+
     describe("CONNECTION_CLOSED — edge cases", () => {
       it("does nothing for an unknown playerId", async () => {
         const { service, sessions, hub } = makeServiceWithHub();
@@ -943,6 +1094,37 @@ describe("GameService", () => {
 
         await new Promise((r) => setTimeout(r, 5));
       });
+    });
+  });
+
+  describe("clock expiration — edge cases", () => {
+    it("rejects moves after CLOCK_EXPIRED fires (EC6)", async () => {
+      const { service, sessions, hub } = makeServiceWithHub();
+      const { white, black } = await seatTwoPlayers(service, sessions);
+
+      // Emit CLOCK_EXPIRED — Game subscribes to this via FAST lane
+      hub.emit(Notifications.clockExpired("nope", WHITE));
+
+      // Different room — game should still be active
+      await service.move(white, { from: E2, to: E4 });
+      expect(lastSent(white)).toEqual(
+        expect.objectContaining({ type: MOVE_MADE, by: WHITE }),
+      );
+    });
+
+    it("rejects moves after CLOCK_EXPIRED ends the game", async () => {
+      const { service, sessions, hub } = makeServiceWithHub();
+      const { white, roomId } = await seatTwoPlayers(service, sessions);
+
+      // Emit CLOCK_EXPIRED for this room
+      hub.emit(Notifications.clockExpired(roomId, WHITE));
+
+      // The FAST handler in Game should have called expire() synchronously.
+      // Move should now be rejected.
+      await service.move(white, { from: E2, to: E4 });
+      const msg = lastSent(white);
+      expect(msg).toEqual(expect.objectContaining({ type: MOVE_REJECTED }));
+      expect(msg.reason).toBe(GAME_OVER);
     });
   });
 });
