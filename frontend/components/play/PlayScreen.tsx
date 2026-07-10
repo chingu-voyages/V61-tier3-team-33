@@ -47,9 +47,7 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
 
   const createRoom = useCallback(
     (tc: TimeControl) => {
-      // Guard against clicking before the handshake completes — without
-      // this we'd flip to the "invite" phase with no join ever sent,
-      // stranding the user on that screen forever.
+      // Guard against clicking before handshake — prevents stranded invite phase.
       if (!session) {
         gooeyToast.error("Still connecting\u2026", {
           description: "Hang tight, try again in a moment.",
@@ -81,9 +79,7 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
     [actions, session]
   )
 
-  // Auto-join when entering via invite link (roomId from URL, phase is "joining").
-  // Also re-fires on reconnect: each time session flips to non-null on a new
-  // connection generation (socket.status → open), we allow another join attempt.
+  // Auto-join via invite link. Re-fires on reconnect when session flips to non-null.
   useEffect(() => {
     if (session && phase.phase === "joining" && !joinSentRef.current) {
       joinSentRef.current = true

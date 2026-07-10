@@ -17,9 +17,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     () => SERVER_SNAPSHOT
   )
 
-  // Start decoding sound buffers as early as possible (app mount), well
-  // before any real move happens — see AudioClient.preload() for why this
-  // matters (avoids a deferred-play race that could stack two sounds).
+  // Preload sound buffers early to avoid deferred-play race.
   useEffect(() => {
     client?.preload()
   }, [client])

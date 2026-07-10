@@ -6,7 +6,7 @@ import { Socket, SocketContext } from "./context"
 
 const noop = () => {}
 const cbNoop = () => () => {}
-// used as onMessage fallback; ignores type arg
+// onMessage fallback; ignores type arg
 const onMessageNoop = (_type: string, _handler: unknown) => () => {}
 
 const serverState: SocketState = {

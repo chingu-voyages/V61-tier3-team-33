@@ -1,6 +1,6 @@
 import { JoinInput, MoveInput, SelectInput } from "./types"
 
-// all commands that server can recieve
+// Server-bound commands
 export const SESSION_HANDSHAKE = "session:handshake" as const
 export const SESSION_PONG = "session:pong" as const
 export const ROOM_JOIN = "room:join" as const
@@ -26,8 +26,7 @@ export type Command =
   | { type: typeof STATE_SYNC }
   | ({ type: typeof POSITION_SELECT } & SelectInput)
 
-// Typed builders so callers never hand-assemble a `{ type, ... }` literal —
-// a missing or misspelled field is now a compile error.
+// Typed builders — type-safe, no raw object literals.
 export const Commands = {
   handshake(token?: string): Command {
     return token

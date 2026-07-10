@@ -8,11 +8,7 @@ import {
 } from "@tabler/icons-react"
 import type { TimeControl } from "./types"
 
-// ids must match the backend's ClockFormat values (see
-// backend/src/server/clock/move/*.ts) — GameService sends `tc.id` straight
-// through as the clock format, and Games queues/searches games keyed on
-// that exact string, so a mismatched id here means matchmaking silently
-// creates a room nobody can ever find.
+// ids must match backend ClockFormat values — mismatch silently breaks matchmaking.
 export const DEFAULT_TIME_CONTROLS: TimeControl[] = [
   {
     id: "bullet",

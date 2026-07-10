@@ -53,14 +53,13 @@ describe("AudioClient", () => {
     const client = new AudioClient()
     expect(FakeAudioContext.instances.length).toBe(0)
     client.preload()
-    // Without injected audioCtor, preload() silently fails in test env
-    // We just verify it doesn't throw
+    // No injected audioCtor → preload fails silently; verify it doesn't throw
     expect(client.snapshot()).toEqual({ ready: false })
   })
 
   test("play no-ops when buffers are not loaded", () => {
     const client = makeClient()
-    // Should not throw
+    // Must not throw
     client.play("move")
     client.play("capture")
   })
@@ -72,8 +71,7 @@ describe("AudioClient", () => {
   })
 
   test("getAudioClient returns null on server", () => {
-    // Simulate SSR: no AudioContext available (has window in Happy DOM)
-    // In Happy DOM, window exists, so getAudioClient should return an instance
+    // SSR simulation: Happy DOM has window, so getAudioClient returns instance
     const result = getAudioClient()
     expect(result).not.toBeNull()
   })
@@ -81,8 +79,7 @@ describe("AudioClient", () => {
   test("play with injected buffers creates audio nodes", () => {
     const client = makeClient()
     client.preload()
-    // After preload with FakeAudioContext, buffers should still be empty
-    // because fetch will fail in test. We'll manually verify play() doesn't throw.
+    // Preload with FakeAudioContext → fetch fails, buffers empty. Verify play() doesn't throw.
     client.play("move")
   })
 })

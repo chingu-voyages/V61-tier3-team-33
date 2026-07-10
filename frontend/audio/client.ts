@@ -1,8 +1,3 @@
-// Singleton audio engine for game sound effects, mirroring socket/client.ts:
-// one instance lives on `globalThis` (survives remounts/HMR), and exposes
-// subscribe/snapshot so React can read it via useSyncExternalStore instead
-// of ad-hoc refs/effects in every component that wants to play a sound.
-
 export type SoundName = "move" | "capture"
 
 export interface AudioClientState {
@@ -51,15 +46,7 @@ export class AudioClient {
     for (const cb of this.listeners) cb()
   }
 
-  /**
-   * Create the AudioContext and start decoding sound buffers immediately.
-   * Safe to call without a user gesture — decodeAudioData works on a
-   * suspended context; only playback (start()) needs a gesture. Calling this
-   * as early as possible (e.g. app mount, via AudioProvider) means buffers
-   * are already decoded by the time a real move happens, avoiding a
-   * deferred-play race where a slow first sound and a fast second one could
-   * both end up queued on the same load promise and fire back-to-back.
-   */
+  /** Create AudioContext, start decoding buffers early — avoids deferred-play race between moves. */
   preload = (): void => {
     if (!this.ctx) {
       try {
@@ -71,7 +58,7 @@ export class AudioClient {
     void this.ensureLoaded()
   }
 
-  /** Must be called from a user gesture to unlock audio playback. */
+  /** Unlock audio playback — must be called from a user gesture. */
   prime = (): void => {
     if (this.state.ready) return
     this.preload()
@@ -96,7 +83,7 @@ export class AudioClient {
             const arrayBuf = await res.arrayBuffer()
             this.buffers[name] = await ctx.decodeAudioData(arrayBuf)
           } catch {
-            // leave missing; play() will just no-op for this sound
+            // Missing — play() no-ops
           }
         })
       )
@@ -109,23 +96,18 @@ export class AudioClient {
     const ctx = this.ctx
     const buf = this.buffers[name]
     if (!ctx || !buf) {
-      // Buffers should normally already be decoded via preload(). If we get
-      // here it's a genuine edge case (e.g. play() fired before preload had
-      // a chance to run) — drop the sound rather than deferring, since a
-      // deferred call can land on top of a later move's own play() and
-      // sound like a duplicate.
+      // Edge case: play() before preload. Drop rather than defer to avoid duplicates.
       return
     }
 
-    // Hard mutex: only one voice may ever sound at once. Kill anything still
-    // ringing instead of letting it stack with the new sound.
+    // Hard mutex — kill active voice to prevent stacking.
     if (this.activeVoice) {
       try {
         this.activeVoice.gain.gain.cancelScheduledValues(ctx.currentTime)
         this.activeVoice.gain.gain.setValueAtTime(0, ctx.currentTime)
         this.activeVoice.source.stop(ctx.currentTime)
       } catch {
-        // already stopped
+        // Already stopped
       }
       this.activeVoice = null
     }
@@ -140,10 +122,10 @@ export class AudioClient {
 
     source.buffer = buf
     filter.type = "lowpass"
-    filter.frequency.value = 9000 // gentle de-harshing only; keeps the transient crisp
-    filter.Q.value = 0.707 // Butterworth — flat response, no resonant peak/clipping
+    filter.frequency.value = 9000 // Gentle de-harshing, keeps transient crisp
+    filter.Q.value = 0.707 // Butterworth — flat response, no clipping
 
-    // Short attack/release envelope avoids the click/pop of a hard start-stop
+    // Short envelope avoids click/pop.
     gain.gain.setValueAtTime(0, now)
     gain.gain.linearRampToValueAtTime(volume, now + 0.008)
     gain.gain.setTargetAtTime(0, now + buf.duration - 0.05, 0.03)
@@ -168,11 +150,7 @@ declare global {
   var _chessAudioClient: AudioClient | undefined
 }
 
-/**
- * Get or create the singleton AudioClient.
- * Pass `opts` on the **first** call to control DI (e.g. AudioContext constructor).
- * Subsequent calls (including from AudioProvider) always return the same instance.
- */
+/** Get or create singleton AudioClient. Pass opts on first call for DI. */
 export function getAudioClient(opts?: AudioClientOptions): AudioClient | null {
   if (typeof window === "undefined") return null
   if (!globalThis._chessAudioClient) {

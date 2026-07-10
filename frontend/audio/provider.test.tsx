@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react"
 
 beforeEach(() => {
   FakeAudioContext.instances = []
-  // Reset singleton so each test starts fresh
+  // Reset singleton for fresh test
   const global = globalThis as { _chessAudioClient?: unknown }
   delete global._chessAudioClient
 })
@@ -24,7 +24,7 @@ describe("AudioProvider", () => {
   })
 
   test("prime transitions state to ready via injected AudioContext", () => {
-    // Inject FakeAudioContext before provider mounts
+    // Inject FakeAudioContext before provider
     getAudioClient({ audioCtor: FakeAudioContext as unknown as typeof AudioContext })
 
     const { result, rerender } = renderHook(() => useSoundContext(), {
@@ -81,10 +81,10 @@ describe("AudioProvider + useSoundContext sound stability", () => {
       </AudioProvider>
     )
 
-    // First render with moveSeq=1 (prevSeq=0) → plays once
+    // moveSeq=1 → plays once
     expect(moveCalls).toEqual([1])
 
-    // Increment moveSeq
+    // Bump moveSeq
     rerender(
       <AudioProvider>
         <TestComponent moveSeq={2} />
@@ -93,7 +93,7 @@ describe("AudioProvider + useSoundContext sound stability", () => {
 
     expect(moveCalls).toEqual([1, 2])
 
-    // Same moveSeq — no new call
+    // Same moveSeq → no call
     rerender(
       <AudioProvider>
         <TestComponent moveSeq={2} />
@@ -119,7 +119,7 @@ describe("AudioProvider + useSoundContext sound stability", () => {
         playMove()
       }, [moveSeq, playMove])
 
-      // Simulate clicking — prime then update moveSeq
+      // Simulate click — prime then update moveSeq
       useEffect(() => {
         prime()
       }, [prime])
@@ -133,8 +133,7 @@ describe("AudioProvider + useSoundContext sound stability", () => {
       </AudioProvider>
     )
 
-    // prime() causes ready:false → ready:true transition, but
-    // the effect should still only fire once for the moveSeq change
+    // prime() triggers ready transition, but effect fires only once for moveSeq
     expect(moveCalls).toEqual([1])
   })
 })

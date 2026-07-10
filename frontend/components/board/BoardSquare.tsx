@@ -40,7 +40,7 @@ export const squareVariants = cva("relative h-full w-full", {
       none: "",
       selected: "border-2 bg-chess-selected-fill",
       lastMove: "bg-chess-last-move-fill",
-      legalMove: "", // dot rendered separately, piece-color-aware
+      legalMove: "", // dot rendered separately
       legalCapture: "border-2 bg-chess-capture-fill",
       check: "border-2 bg-chess-check-fill",
       illegal: "border-2 bg-chess-illegal-fill",
@@ -83,9 +83,7 @@ function BoardSquareImpl({
   const dotFillClass =
     movingPieceColor === WHITE ? "bg-chess-w-fill" : "bg-chess-b-fill"
 
-  // Stable per-square callback — onSquareClick itself is a stable reference
-  // from the parent, so this only changes if the square's own position does
-  // (i.e. never, since position is fixed for a given square instance).
+  // Stable per-square callback — only changes if position changes (never).
   const handleClick = useCallback(() => onSquareClick(position), [onSquareClick, position])
 
   return (
@@ -132,7 +130,5 @@ function areEqual(prev: BoardSquareProps, next: BoardSquareProps): boolean {
   )
 }
 
-// Memoized: a move only changes ~2-4 squares (from/to, plus previous
-// selection/legal-move highlights), so re-rendering all 64 on every state
-// update was the main cost behind the long-task warnings on move apply.
+// Memoized: only ~2-4 squares change per move, re-rendering all 64 was the main perf cost.
 export const BoardSquare = memo(BoardSquareImpl, areEqual)

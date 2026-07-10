@@ -45,17 +45,13 @@ export function View({ onLeave }: ViewProps) {
   const lastPlayedSeq = useRef<number>(0)
   const prevBoardRef = useRef(chessState.board)
 
-  // Start decoding sound buffers as soon as the board mounts, well before
-  // the first move — avoids the race where a move's sound gets deferred
-  // until decoding finishes and lands on top of a later move's sound.
+  // Preload sounds early to avoid deferred-play race between moves.
   useEffect(() => {
     preloadAudio()
   }, [preloadAudio])
 
   useEffect(() => {
-    // moveSeq is a monotonic counter incremented exactly once per genuinely
-    // applied move (see ChessStoreImpl) — comparing integers here removes
-    // any ambiguity string/object-reference keys could have around re-renders.
+    // Monotonic counter — integer comparison avoids re-render ambiguity.
     if (chessState.moveSeq === lastPlayedSeq.current) {
       prevBoardRef.current = chessState.board
       return
@@ -86,9 +82,7 @@ export function View({ onLeave }: ViewProps) {
       select(pos)
     }
   })
-  // Stable reference across renders (unlike a useCallback keyed on
-  // selected/legalMoves, which changes every move) so <Board>'s memoized
-  // squares don't all re-render just because this callback's identity changed.
+  // Stable ref — avoids re-rendering Board's memoized squares on every move.
   const onSquareClick = useCallback((pos: Position) => onSquareClickRef.current(pos), [])
 
   const promotionColor: PieceColor | null = chessState.pendingPromotion
@@ -132,9 +126,7 @@ export function View({ onLeave }: ViewProps) {
     ? (boardFlipped ? Position.rank(chessState.pendingPromotion.to) + 1 : 8 - Position.rank(chessState.pendingPromotion.to))
     : undefined
 
-  // The picker always anchors on the promotion square (an edge row) and extends
-  // 4 squares in toward the center of the board, flush against the board itself
-  // - matching how chess.com renders its promotion picker.
+  // Anchors on promotion square, extends 4 squares toward center (chess.com style).
   const promotionAnchoredAtTop = promotionTargetRow === 1
   const promotionStyle = promotionColumn !== undefined
     ? {
