@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 
 const EMOTES = ["👍", "😅", "🤔", "🎉", "😤", "⚡"]
 const COOLDOWN_MS = 30_000
@@ -12,8 +12,15 @@ interface EmoteTrayProps {
 export function EmoteTray({ onSend }: EmoteTrayProps) {
   const [cooldownUntil, setCooldownUntil] = useState<number>(0)
   const [open, setOpen] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
 
-  const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [cooldownUntil])
+
+  const remaining = Math.max(0, Math.ceil((cooldownUntil - now) / 1000))
   const onCooldown = remaining > 0
 
   const handleSend = useCallback((emote: string) => {
