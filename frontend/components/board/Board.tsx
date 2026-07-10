@@ -13,9 +13,7 @@ interface BoardProps {
 }
 
 export function Board({ board, view, onSquareClick }: BoardProps) {
-  // Board component renders a standard chessboard.
-  // Promotion overlays are rendered by the parent in a separate
-  // absolutely-positioned layer — see View.tsx's .relative container.
+  // Standard chessboard. Promotion overlays rendered by parent in absolute layer.
 
   const movingPieceColor = view.selected !== null
     ? Square.decode(TBoard.at(board, view.selected))?.color
@@ -27,11 +25,12 @@ export function Board({ board, view, onSquareClick }: BoardProps) {
     squares.push(
       <BoardSquare
         key={Position.index(position)}
+        position={position}
         piece={Square.decode(value)}
         isDark={Position.isDarkSquare(position)}
         state={state}
         movingPieceColor={movingPieceColor}
-        onClick={() => onSquareClick(position)}
+        onSquareClick={onSquareClick}
       />
     )
   }

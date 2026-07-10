@@ -3,6 +3,7 @@ import {
   BLACK,
   WHITE,
   type JoinInput,
+  type Mode,
   type MoveInput,
   type PieceColor,
   type Position,
@@ -20,26 +21,26 @@ import {
   NOT_IN_GAME,
   ROOM_NOT_FOUND,
 } from "../protocol/errors";
-import { Notifications, GRACE_EXPIRED, CONNECTION_CLOSED } from "../protocol/events";
+import { Notifications, GRACE_EXPIRED, CONNECTION_CLOSED, GAME_ENDED } from "../protocol/events";
 import type { Codec } from "../codec/codec";
 import { Reply } from "../protocol/replies";
 import type { SessionStore } from "../session/session-store";
 import { logger as rootLogger } from "../../logging/log";
 import type { GameFacade } from "./game-facade";
 import type { Session } from "../session/session";
-import type { Subscriber } from "../bus/bus";
+import { FAST, type Subscriber } from "../bus/bus";
 
 const log = rootLogger.child({ module: "GameService" });
 
-/** How long an undo request stays valid; only seeds `expiresAt`, not enforced yet. */
+/** TTL for undo requests (30s). */
 const UNDO_REQUEST_TTL_MS = 30 * 1000;
 
-/** Orchestrates client actions against sessions and games; wire-level only, no game rules. */
+/** Room the caller is leaving mid-join, so a failure can roll back. */
+type SwitchingFrom = { roomId: string; color: PieceColor; mode: Mode | null };
+
+/** Routes client actions to sessions and games. */
 export class GameService implements GameFacade {
-  /**
-   * roomId -> color who requested an undo. Lives here, not on `Game`,
-   * since it's a service-level handshake, not part of game rules.
-   */
+  /** roomId -> color who requested an undo. */
   private pendingUndos = new Map<string, PieceColor>();
 
   constructor(
@@ -49,12 +50,9 @@ export class GameService implements GameFacade {
     hub?: Subscriber,
   ) {
     if (hub) {
-      // Connections handles the grace timer lifecycle (start on close,
-      // cancel on resume). GameService just notifies the opponent.
       hub.on(CONNECTION_CLOSED, (_rid, event) => {
         if (event.type !== CONNECTION_CLOSED) return;
         const session = this.sessions.byPlayerId(event.playerId);
-        // Guard: player may have already reconnected (DEFERRED race)
         if (!session || session.disconnectedAt === null) return;
         this.notifyGraceStarted(session);
       });
@@ -64,6 +62,17 @@ export class GameService implements GameFacade {
           this.handleGraceExpired(event.roomId, event.color);
         }
       });
+
+      // FAST: avoid macrotask gap where a join() sees the finished room.
+      hub.on(
+        GAME_ENDED,
+        (_rid, event) => {
+          if (event.type === GAME_ENDED) {
+            this.handleGameEnded(event.roomId);
+          }
+        },
+        FAST,
+      );
     }
   }
 
@@ -79,15 +88,27 @@ export class GameService implements GameFacade {
 
     log.info("[GS-join-session]", { playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode, disconnectedAt: session.disconnectedAt });
 
-    // Rejoin on reconnect.
+    // Room switch: remember old room, commit only if join succeeds.
+    let switchingFrom: SwitchingFrom | null = null;
+    if (
+      session.roomId &&
+      session.color !== null &&
+      input.roomId !== undefined &&
+      input.roomId !== session.roomId &&
+      this.games.get(session.roomId)
+    ) {
+      log.info("[GS-join-switch-room]", { playerId: session.playerId, fromRoomId: session.roomId, toRoomId: input.roomId });
+      switchingFrom = { roomId: session.roomId, color: session.color, mode: session.mode };
+      this.sessions.clearSession(ws);
+    }
+
+    // Reconnect to existing game.
     if (session.roomId && session.color !== null) {
       log.info("[GS-join-reconnect-branch]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
       const existing = this.games.get(session.roomId);
       if (existing) {
         log.info("[GS-join-reconnect-game-found]", { roomId: session.roomId, isFinished: existing.isFinished });
 
-        // Reconnect timer is cancelled by Connections.identify() on resume.
-        // Notify the opponent the player is back.
         if (!existing.isFinished) {
           log.info("[GS-join-reconnect-active]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
           const occupied = existing.getOccupant(session.color);
@@ -119,8 +140,7 @@ export class GameService implements GameFacade {
           return;
         }
 
-        // Game is finished — still send the final snapshot so the
-        // reconnecting player can see the result.
+        // Send final snapshot so opponent can see the result.
         log.info("[GS-join-reconnect-finished]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
         const occupant = new Human(session.playerId, ws, this.protocol);
         existing.reseat(session.color, occupant);
@@ -137,9 +157,7 @@ export class GameService implements GameFacade {
         return;
       }
 
-      // Game was swept or never created — clear stale session state so the
-      // player can join a new room (or be told the room doesn't exist)
-      // instead of silently falling through into matchmaking.
+      // Game swept or never created — clear stale session.
       log.warn("[GS-join-stale-session]", { playerId: session.playerId, staleRoomId: session.roomId, color: session.color, mode: session.mode });
       this.sessions.clearSession(ws);
       log.info("[GS-join-stale-cleared]", { playerId: session.playerId });
@@ -153,16 +171,17 @@ export class GameService implements GameFacade {
         game = found;
         log.info("[GS-join-invite-found]", { roomId: input.roomId, status: game.status });
       } else if (input.clock === undefined) {
-        // Joining via an invite link must target an existing room —
-        // creating one here would silently strand the inviter.
+        // Invite link: room must exist — creating one strands the inviter.
         log.warn("[GS-join-missing-room]", { playerId: session.playerId, roomId: input.roomId });
-        this.sessions.clearSession(ws);
+        if (switchingFrom) {
+          this.sessions.bind(ws, switchingFrom);
+        } else {
+          this.sessions.clearSession(ws);
+        }
         Reply.send(ws, Reply.error(ROOM_NOT_FOUND, "Room not found."));
         return;
       } else {
-        // First join with a client-supplied id and an explicit clock
-        // format: this is the room creator (e.g. "Play a Friend"), so
-        // create the room using that id.
+        // Room creator ("Play a Friend"): create with supplied id.
         log.info("[GS-join-creator]", { playerId: session.playerId, roomId: input.roomId, mode: input.mode, clock: input.clock });
         game = this.games.create(input.roomId, input.mode, createClock(input.clock));
       }
@@ -181,6 +200,9 @@ export class GameService implements GameFacade {
     const color = input.color ?? game.nextColor();
     if (color === null) {
       log.warn("[GS-join-color-null]", { playerId: session.playerId, roomId: game.id, input });
+      if (switchingFrom) {
+        this.sessions.bind(ws, switchingFrom);
+      }
       Reply.send(ws, Reply.error(GAME_FULL, "Game is full."));
       return;
     }
@@ -190,6 +212,9 @@ export class GameService implements GameFacade {
     const occupant = new Human(session.playerId, ws, this.protocol);
     const result = game.join(color, occupant);
     if (!result.ok) {
+      if (switchingFrom) {
+        this.sessions.bind(ws, switchingFrom);
+      }
       if (result.error === ROOM_FULL) {
         log.warn("[GS-join-color-taken]", { playerId: session.playerId, roomId: game.id, color });
         Reply.send(ws, Reply.error(GAME_FULL, "That color is already taken."));
@@ -203,7 +228,16 @@ export class GameService implements GameFacade {
       return;
     }
 
-    this.sessions.bind(ws, { roomId: game.id, color, mode: input.mode });
+    if (switchingFrom) {
+      const previous = this.games.get(switchingFrom.roomId);
+      if (previous && !previous.isFinished) {
+        previous.leave(switchingFrom.color);
+      }
+      this.pendingUndos.delete(switchingFrom.roomId);
+    }
+
+    // Use game.mode (existing room), not input.mode (joiner may send anything).
+    this.sessions.bind(ws, { roomId: game.id, color, mode: game.mode });
     this.games.commit(game.id, game);
 
     const state = game.snapshot();
@@ -266,6 +300,12 @@ export class GameService implements GameFacade {
     game.broadcast(
       Notifications.moveMade(game.id, color, result.value, snapshot),
     );
+
+    // Rules-ending moves don't go through resign/abandon/expire, so
+    // they'd never reach handleGameEnded without this explicit call.
+    if (game.isFinished) {
+      this.handleGameEnded(game.id);
+    }
   }
 
   /** {@inheritDoc} */
@@ -287,8 +327,7 @@ export class GameService implements GameFacade {
       return;
     }
 
-    // No-op if a request is already pending (either side) — the opponent
-    // should accept/decline the existing one instead.
+    // No-op: a request is already pending.
     if (this.pendingUndos.has(game.id)) {
       log.info("requestUndo: ignored, already pending", { roomId: game.id, color });
       return;
@@ -323,8 +362,13 @@ export class GameService implements GameFacade {
 
     log.info("acceptUndo: input", { roomId: game.id, color, requestedBy });
 
-    // No pending request, or you can't accept your own — silently ignore
-    // rather than invent a dedicated error code for a stale client action.
+    // Guard: game.undo() will reopen a finished game, so check here.
+    if (!game.isActive) {
+      log.warn("acceptUndo: ignored, game finished", { roomId: game.id, color });
+      return;
+    }
+
+    // No pending request or accepting your own — silently ignore.
     if (requestedBy === undefined || requestedBy === color) return;
 
     this.pendingUndos.delete(game.id);
@@ -468,7 +512,7 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** Notifies the opponent that grace period started for the disconnected player. */
+  /** Notify opponent the grace period started. */
   private notifyGraceStarted(session: Session): void {
     if (!session.roomId || session.color === null) {
       log.info("[GS-grace-started-skip-no-room]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
@@ -488,7 +532,10 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** Called when a grace timer expires — abandons the game on behalf of the disconnected player. */
+  /**
+   * Grace timer expired: active game → abandon (opponent wins);
+   * waiting game → vacate seat (same as leave()), so sweep() can reap it.
+   */
   private handleGraceExpired(roomId: string, disconnectedColor: PieceColor): void {
     const game = this.games.get(roomId);
     if (!game) {
@@ -497,7 +544,37 @@ export class GameService implements GameFacade {
     }
 
     log.info("[GS-grace-expired]", { roomId, disconnectedColor, gameActive: game.isActive, gameFinished: game.isFinished });
-    game.abandon(disconnectedColor);
+
+    if (game.isActive) {
+      game.abandon(disconnectedColor);
+      return;
+    }
+
+    if (!game.isFinished) {
+      log.info("[GS-grace-expired-waiting-vacate]", { roomId, disconnectedColor });
+      const occupant = game.getOccupant(disconnectedColor);
+      game.leave(disconnectedColor);
+      this.pendingUndos.delete(roomId);
+      if (occupant) {
+        this.sessions.clearByPlayerId(occupant.playerId, roomId);
+      }
+    }
+  }
+
+  /**
+   * Game ended: clear undo state. Game object stays for clients to fetch
+   * the final snapshot; Games.sweep() reaps it later.
+   */
+  private handleGameEnded(roomId: string): void {
+    this.pendingUndos.delete(roomId);
+
+    const game = this.games.get(roomId);
+    if (!game) {
+      log.warn("[GS-game-ended-no-game]", { roomId });
+      return;
+    }
+
+    // Don't clear sessions — clients can still fetch the final snapshot.
   }
 
   private getSession(ws: WebSocket): Session | null {

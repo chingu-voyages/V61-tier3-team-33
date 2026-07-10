@@ -19,7 +19,6 @@ export interface ErrorReply {
 export type MoveError =
   "not-your-turn" | "illegal-move" | "game-over" | "square-empty"
 
-/** Own union, distinct from MoveError — selecting is a read-only query
- * over any square, not an attempted move over a from/to pair. */
+/** Distinct from MoveError — selecting is read-only over any square. */
 export type SelectError =
   "not-your-turn" | "game-over" | "square-empty" | "not-your-piece"

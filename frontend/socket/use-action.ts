@@ -19,14 +19,7 @@ export interface GameActions {
   selectPosition: (position: Position) => void
 }
 
-/**
- * The ergonomic surface for driving a game over the socket — one method
- * per `Commands` builder, minus session:handshake/pong, which
- * SessionProvider owns. Callers never touch `send` directly.
- *
- * Memoized on `send`, which is stable for the client's lifetime, so it's
- * safe to destructure a single action out without extra memoization.
- */
+/** Game actions over socket — one method per Commands builder (session:handshake/pong owned by SessionProvider). Memoized on `send`. */
 export function useGameActions(): GameActions {
   const { send } = useSocketContext()
 

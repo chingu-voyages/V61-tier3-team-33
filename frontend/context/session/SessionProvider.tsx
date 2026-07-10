@@ -11,10 +11,7 @@ import type { SessionInfo } from "./session-context"
 
 const STORAGE_KEY = "chess_session_token"
 
-// Errors that mean the saved token itself is bad — clear it so the retry
-// goes out as a fresh (tokenless) handshake instead of repeating forever.
-// Typed against ErrorCode (from socket/errors.ts) so a typo or a renamed
-// code is a compile error instead of a silently-dead check.
+// Bad token errors — clear token so retry sends fresh (tokenless) handshake.
 const TOKEN_INVALID_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
   "not-authenticated",
   "invalid-payload",
@@ -25,18 +22,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SessionInfo | null>(null)
   const [handshakeAttempt, setHandshakeAttempt] = useState(0)
   const inFlightRef = useRef(false)
-  // Tracks which connection generation the handshake was sent on.
-  // Each time the socket transitions to "open" (i.e. a new or reconnected
-  // connection), this increments so the effect re-sends the handshake even
-  // when `session` is already set from a previous connection.
+  // Increments on each "open" so handshake re-sends on reconnect even if session is set.
   const connectionGenRef = useRef(0)
 
   useEffect(() => {
     if (socket.status === "open" && !inFlightRef.current) {
-      // If the socket transitioned to "open" on a new connection generation,
-      // send the handshake (even if session is already set for reconnect).
-      // After sending, bump the generation so the same open stays silent
-      // until the next reconnect.
+      // Send handshake on new connection gen; bump gen so same open stays silent.
       const gen = connectionGenRef.current
       connectionGenRef.current = gen + 1
       inFlightRef.current = true
@@ -65,7 +56,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       description: "Retrying automatically…",
     })
 
-    // Trigger a retry on the next tick so the effect above fires again.
+    // Trigger retry so effect fires again.
     setHandshakeAttempt((n) => n + 1)
   })
 

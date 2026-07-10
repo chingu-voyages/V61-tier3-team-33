@@ -89,8 +89,8 @@ export class Game {
   private setup(): void {
     this.publisher.on(
       CLOCK_EXPIRED,
-      (_roomId, event) => {
-        if (event.type === CLOCK_EXPIRED) {
+      (roomId, event) => {
+        if (event.type === CLOCK_EXPIRED && roomId === this.id) {
           this.expire();
         }
       },
