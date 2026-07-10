@@ -8,6 +8,7 @@ import { SocketProvider } from "@/socket/provider"
 import { SessionProvider } from "@/context/session/SessionProvider"
 import { RoomProvider } from "@/context/room/provider"
 import { ChessProvider } from "@/chess/provider"
+import { AudioProvider } from "@/audio/provider"
 import { DebugPanel } from "@/components/debug/DebugPanel"
 import { env } from "@/config/env"
 
@@ -17,16 +18,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       <ChessThemeProvider>
         <TooltipProvider>
           <GooeyToaster position="top-center" closeButton="top-right" showProgress />
-          <SocketProvider url={env.socketUrl}>
-            <SessionProvider>
-              <RoomProvider>
-                <ChessProvider>
-                  {children}
-                  <DebugPanel />
-                </ChessProvider>
-              </RoomProvider>
-            </SessionProvider>
-          </SocketProvider>
+          <AudioProvider>
+            <SocketProvider url={env.socketUrl}>
+              <SessionProvider>
+                <RoomProvider>
+                  <ChessProvider>
+                    {children}
+                    <DebugPanel />
+                  </ChessProvider>
+                </RoomProvider>
+              </SessionProvider>
+            </SocketProvider>
+          </AudioProvider>
         </TooltipProvider>
       </ChessThemeProvider>
     </ThemeProvider>
