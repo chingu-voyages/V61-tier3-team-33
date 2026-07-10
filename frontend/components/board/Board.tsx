@@ -27,11 +27,12 @@ export function Board({ board, view, onSquareClick }: BoardProps) {
     squares.push(
       <BoardSquare
         key={Position.index(position)}
+        position={position}
         piece={Square.decode(value)}
         isDark={Position.isDarkSquare(position)}
         state={state}
         movingPieceColor={movingPieceColor}
-        onClick={() => onSquareClick(position)}
+        onSquareClick={onSquareClick}
       />
     )
   }

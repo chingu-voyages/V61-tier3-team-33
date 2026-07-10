@@ -50,7 +50,7 @@ describe("ChessStore", () => {
     store.makeMove(E2, E4)
 
     const s = store.snapshot()
-    expect(s.lastMove).toEqual({ from: E2, to: E4 })
+    expect(s.lastMove).toEqual({ from: E2, to: E4, type: MoveType(0) })
     expect(s.pendingMove).toEqual({ from: E2, to: E4 })
     // Pawn should be at e4
     const piece = Square.decode(Board.at(s.board, E4))
@@ -107,7 +107,7 @@ describe("ChessStore", () => {
     store.applyMove(e4Move)
     const s = store.snapshot()
     expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
-    expect(s.lastMove).toEqual({ from: E2, to: E4 })
+    expect(s.lastMove).toEqual({ from: E2, to: E4, type: MoveType(0) })
     expect(Square.isEmpty(Board.at(s.board, E2))).toBe(true)
   })
 

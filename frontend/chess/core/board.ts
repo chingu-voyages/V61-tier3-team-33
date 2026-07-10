@@ -1,5 +1,6 @@
 import type { Brand } from "./brand";
 import type { Piece, PieceColor } from "./piece";
+import type { MoveType } from "./move";
 import { Position, File, Rank } from "./position";
 import { WHITE, BLACK, PieceType, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from "./piece";
 
@@ -27,7 +28,7 @@ export type VariantKey =
 export interface StateConfig {
   selected: Position | null;
   legalMoves: Position[];
-  lastMove: { from: Position; to: Position } | null;
+  lastMove: { from: Position; to: Position; type: MoveType } | null;
 }
 
 /** A packed square byte (0 = empty, 1–6 = white PAWN…KING, 7–12 = black PAWN…KING). */
