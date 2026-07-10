@@ -159,7 +159,7 @@ describe("gameReducer", () => {
         status: ACTIVE,
         pendingUndo: { by: WHITE, expiresAt: 1 },
       },
-      { type: "ROOM_LEFT" }
+      { type: "ROOM_LEFT", color: WHITE }
     )
     expect(next.roomId).toBeNull()
     expect(next.color).toBeNull()

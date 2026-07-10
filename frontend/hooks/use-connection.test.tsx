@@ -94,7 +94,7 @@ describe("useConnection", () => {
     expect(created).toHaveLength(1)
     expect(created[0]).toMatchObject({ type: "info", title: "Connecting" })
     // Must never auto-collapse via the library's internal 4s timer.
-    expect(created[0].opts.timing).toEqual({ displayDuration: Infinity })
+    expect(created[0].opts.timing).toEqual({ displayDuration: 86400000 })
   })
 
   test("Flow A: immediate success dismisses silently, no 'Connected' flash", () => {
