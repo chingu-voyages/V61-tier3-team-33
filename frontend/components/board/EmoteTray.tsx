@@ -12,15 +12,15 @@ interface EmoteTrayProps {
 export function EmoteTray({ onSend }: EmoteTrayProps) {
   const [cooldownUntil, setCooldownUntil] = useState<number>(0)
   const [open, setOpen] = useState(false)
-  const [, setTick] = useState(0)
+  const [remaining, setRemaining] = useState(0)
 
   useEffect(() => {
-    if (cooldownUntil <= Date.now()) return
-    const id = setInterval(() => setTick(t => t + 1), 1000)
+    if (cooldownUntil <= 0) return
+    const calc = () => Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
+    setRemaining(calc())
+    const id = setInterval(() => setRemaining(calc()), 1000)
     return () => clearInterval(id)
   }, [cooldownUntil])
-
-  const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
 
   const onCooldown = remaining > 0
 
