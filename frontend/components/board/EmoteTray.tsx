@@ -17,7 +17,6 @@ export function EmoteTray({ onSend }: EmoteTrayProps) {
   useEffect(() => {
     if (cooldownUntil <= 0) return
     const calc = () => Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
-    setRemaining(calc())
     const id = setInterval(() => setRemaining(calc()), 1000)
     return () => clearInterval(id)
   }, [cooldownUntil])
@@ -28,6 +27,7 @@ export function EmoteTray({ onSend }: EmoteTrayProps) {
     if (onCooldown) return
     onSend(emote)
     setCooldownUntil(Date.now() + COOLDOWN_MS)
+    setRemaining(Math.ceil(COOLDOWN_MS / 1000))
     setOpen(false)
   }, [onCooldown, onSend])
 
