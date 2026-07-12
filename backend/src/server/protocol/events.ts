@@ -45,6 +45,9 @@ export const GRACE_STARTED = "grace:started" as const;
 export const GRACE_CANCELLED = "grace:cancelled" as const;
 export const GRACE_EXPIRED = "grace:expired" as const;
 
+// Emotes — emitted by GameService
+export const EMOTE_RECEIVED = "emote:received" as const;
+
 // Signal — server machinery only. Reaches Hub subscribers;
 // never sent to a client. Occupant.notify's type signature rejects these.
 export type Signal =
@@ -174,6 +177,12 @@ export type Notification =
       type: typeof GRACE_EXPIRED;
       roomId: string;
       color: PieceColor;
+    }
+  | {
+      type: typeof EMOTE_RECEIVED;
+      roomId: string;
+      from: PieceColor;
+      emote: string;
     };
 
 // Everything that can flow through Hub. Occupant.notify only accepts
@@ -343,5 +352,9 @@ export const Notifications = {
   /** Emitted when the grace period expires without reconnection. */
   graceExpired(roomId: string, color: PieceColor): Notification {
     return { type: GRACE_EXPIRED, roomId, color };
+  },
+
+  emoteReceived(roomId: string, from: PieceColor, emote: string): Notification {
+    return { type: EMOTE_RECEIVED, roomId, from, emote };
   },
 };

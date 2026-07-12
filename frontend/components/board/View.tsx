@@ -27,10 +27,14 @@ import {
 } from "@tabler/icons-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ClockDisplay } from "@/components/board/ClockDisplay"
+import { EmoteTray } from "@/components/board/EmoteTray"
+import { EmoteOverlay } from "@/components/board/EmoteOverlay"
 import { getPieceIcon } from "../pieces"
 import { FINISHED } from "@/socket/types"
 import { DRAW } from "@/core/game"
 import { Reason } from "@/core/reason"
+import { useSocketEvent } from "@/socket/use-event"
+import { EMOTE_RECEIVED } from "@/socket/events"
 
 interface ViewProps {
   onLeave: () => void
@@ -41,6 +45,16 @@ export function View({ onLeave }: ViewProps) {
   const { state: chessState, makeMove, select, confirmPromotion, cancelPromotion } = useChess()
   const [flipped, setFlipped] = useState(false)
   const [showResign, setShowResign] = useState(false)
+  const [receivedEmote, setReceivedEmote] = useState<string | null>(null)
+  const [emoteKey, setEmoteKey] = useState(0)
+  const [sentEmote, setSentEmote] = useState<string | null>(null)
+  const [sentEmoteKey, setSentEmoteKey] = useState(0)
+
+  useSocketEvent(EMOTE_RECEIVED, (e) => {
+    setReceivedEmote(e.emote)
+    setEmoteKey(k => k + 1)
+  })
+
   const { prime: primeAudio, preload: preloadAudio, playMove, playCapture } = useSoundContext()
   const lastPlayedSeq = useRef<number>(0)
   const prevBoardRef = useRef(chessState.board)
@@ -138,9 +152,20 @@ export function View({ onLeave }: ViewProps) {
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6 lg:p-6">
       <div className="flex w-fit min-h-0 flex-1 flex-col items-center gap-3 self-center lg:w-auto lg:flex-none lg:self-auto">
-        <ClockDisplay color={flipped ? myColor : oppColor} label={flipped ? "You" : "Opponent"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+        <div className="relative w-full">
+          {(flipped ? sentEmote : receivedEmote) !== null && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 pointer-events-none z-20">
+              <EmoteOverlay
+                key={flipped ? sentEmoteKey : emoteKey}
+                emote={(flipped ? sentEmote : receivedEmote) as string}
+              />
+            </div>
+          )}
+          <ClockDisplay color={flipped ? myColor : oppColor} label={flipped ? "You" : "Opponent"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+        </div>
 
-        <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
+          <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
+
           <Board board={chessState.board} view={{ selected: chessState.selected, legalMoves: chessState.legalMoves, lastMove: chessState.lastMove, flipped: boardFlipped }} onSquareClick={onSquareClick} />
           {chessState.pendingPromotion && promotionColor !== null && promotionStyle && (
             <div
@@ -182,7 +207,26 @@ export function View({ onLeave }: ViewProps) {
           )}
         </div>
 
-        <ClockDisplay color={flipped ? oppColor : myColor} label={flipped ? "Opponent" : "You"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+        <div className="flex w-full items-center justify-between">
+          <div className="relative flex-1">
+            {(flipped ? receivedEmote : sentEmote) !== null && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                <EmoteOverlay
+                  key={flipped ? emoteKey : sentEmoteKey}
+                  emote={(flipped ? receivedEmote : sentEmote) as string}
+                />
+              </div>
+            )}
+            <ClockDisplay color={flipped ? oppColor : myColor} label={flipped ? "Opponent" : "You"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+          </div>
+          {state.status !== FINISHED && (
+            <EmoteTray onSend={(emote) => {
+              actions.sendEmote(emote)
+              setSentEmote(emote)
+              setSentEmoteKey(k => k + 1)
+            }} />
+          )}
+        </div>
       </div>
 
       {!isFinished && (

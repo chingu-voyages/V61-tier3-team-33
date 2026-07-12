@@ -12,6 +12,7 @@ export const UNDO_DECLINE = "undo:decline" as const
 export const GAME_RESIGN = "game:resign" as const
 export const STATE_SYNC = "state:sync" as const
 export const POSITION_SELECT = "position:select" as const
+export const EMOTE_SEND = "emote:send" as const
 
 export type Command =
   | { type: typeof SESSION_HANDSHAKE; token?: string }
@@ -25,6 +26,7 @@ export type Command =
   | { type: typeof GAME_RESIGN }
   | { type: typeof STATE_SYNC }
   | ({ type: typeof POSITION_SELECT } & SelectInput)
+  | { type: typeof EMOTE_SEND; emote: string }
 
 // Typed builders — type-safe, no raw object literals.
 export const Commands = {
@@ -62,5 +64,8 @@ export const Commands = {
   },
   selectPosition(input: SelectInput): Command {
     return { type: POSITION_SELECT, ...input }
+  },
+  sendEmote(emote: string): Command {
+    return { type: EMOTE_SEND, emote }
   },
 }

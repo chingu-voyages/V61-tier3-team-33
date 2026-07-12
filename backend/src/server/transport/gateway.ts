@@ -13,12 +13,14 @@ import {
   STATE_SYNC,
   ROOM_LEAVE,
   POSITION_SELECT,
+  EMOTE_SEND,
 } from "../protocol/commands";
 import { JsonCodec } from "../codec/json";
 import { Sessions } from "../session/sessions";
 import { Connections } from "./connections";
 import { Games } from "../game/games";
 import { GameService } from "../services/game-service";
+import { EmoteService } from "../services/emote-service";
 import { Hub } from "../bus/bus";
 import { EventLog } from "../../logging/events";
 import { logger as rootLogger } from "../../logging/log";
@@ -35,6 +37,7 @@ export class Gateway {
   private app: Elysia;
   private connections: Connections;
   private gameService: GameFacade;
+  private emoteService: EmoteService;
   private EventLog: EventLog;
 
   constructor(
@@ -45,6 +48,7 @@ export class Gateway {
   ) {
     this.connections = new Connections(sessions, hub, protocol);
     this.gameService = new GameService(sessions, games, protocol, hub);
+    this.emoteService = new EmoteService(sessions, games);
     this.EventLog = new EventLog();
     this.EventLog.start(hub);
     this.app = new Elysia();
@@ -155,6 +159,11 @@ export class Gateway {
         log.info("[GATEWAY-select]", { wsId: ws.id, position: (cmd as any).position });
         this.gameService.selectPosition(ws, cmd.position);
         break;
+
+      case EMOTE_SEND:
+        this.emoteService.sendEmote(ws, cmd.emote);
+        break;
+
 
       default:
         log.warn("[GATEWAY-unknown-cmd]", { wsId: ws.id, cmdType: (cmd as any).type });

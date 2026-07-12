@@ -16,6 +16,7 @@ import {
   GAME_RESIGN,
   STATE_SYNC,
   POSITION_SELECT,
+  EMOTE_SEND,
 } from "../protocol/commands";
 import {
   DEFAULT,
@@ -119,6 +120,11 @@ const decoders: Record<Command["type"], Decoder> = {
   [POSITION_SELECT]: (raw) => {
     if (typeof raw.position !== "number") return null;
     return { type: POSITION_SELECT, position: raw.position } as Command;
+  },
+
+  [EMOTE_SEND]: (raw) => {
+    if (typeof raw.emote !== "string") return null;
+    return { type: EMOTE_SEND, emote: raw.emote };
   },
 };
 

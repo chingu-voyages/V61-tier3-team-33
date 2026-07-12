@@ -22,6 +22,7 @@ export const STATE_SYNC = "state:sync" as const;
 // The click-a-piece step before move:make — routed to GameService, answered
 // with position:accept (legal destinations) or position:reject.
 export const POSITION_SELECT = "position:select" as const;
+export const EMOTE_SEND = "emote:send" as const;
 
 export type Command =
   | { type: typeof SESSION_HANDSHAKE; token?: string }
@@ -34,4 +35,5 @@ export type Command =
   | { type: typeof UNDO_DECLINE }
   | { type: typeof GAME_RESIGN }
   | { type: typeof STATE_SYNC }
-  | { type: typeof POSITION_SELECT; position: Position };
+  | { type: typeof POSITION_SELECT; position: Position }
+  | { type: typeof EMOTE_SEND; emote: string };

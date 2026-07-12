@@ -512,7 +512,7 @@ export class GameService implements GameFacade {
     );
   }
 
-  /** Notify opponent the grace period started. */
+  /** Notifies the opponent that grace period started for the disconnected player. */
   private notifyGraceStarted(session: Session): void {
     if (!session.roomId || session.color === null) {
       log.info("[GS-grace-started-skip-no-room]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
