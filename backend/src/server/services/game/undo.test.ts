@@ -344,16 +344,11 @@ describe("UndoCommand", () => {
       // WHITE requests — BLACK is the opponent
       expect(cmd.request({ playerId: "p1", roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN })).toEqual(ok());
 
-      // BLACK (opponent) tries to cancel — should fail because EXPIRE has no self-response guard,
-      // but wait — EXPIRE doesn't check `requester === by`, so the transition succeeds.
-      // The cancel method just checks consent.transition, not who the requester is.
-      // Actually this test documents current behavior: cancel uses CONSENT_EXPIRE which
-      // doesn't distinguish who triggers it. Any player in the room can clear a pending
-      // request via cancel. This is acceptable for v1 since the opponent has accept/decline.
+      // BLACK (opponent) tries to cancel — must fail per rule 12
       const result = cmd.cancel({ playerId: "p2", roomId: "room-1", color: BLACK, mode: HUMAN_VS_HUMAN });
 
-      expect(result).toEqual(ok());
-      expect(broadcast).toHaveBeenCalledWith(Notifications.undoCancelled("room-1"));
+      expect(result).toEqual(err(PENDING_CONFLICT));
+      expect(broadcast).not.toHaveBeenCalledWith(Notifications.undoCancelled("room-1"));
     });
 
     it("advances the ratchet so a follow-up request is blocked by rule 4", () => {

@@ -268,6 +268,11 @@ export class Game {
         return err(GAME_OVER);
       }
 
+      // reject if the color is not seated
+      if (!this.slots.has(by)) {
+        return err(NOT_ALLOWED);
+      }
+
       // stop the clock and mark the game as finished
       this.timer.dispose();
       const winner = by === WHITE ? BLACK : WHITE;
@@ -292,6 +297,12 @@ export class Game {
       // skip if already finished
       if (this.status !== ACTIVE) {
         log.warn("[Game.abandon:skip]", { id: this.id, by, status: this.status });
+        return;
+      }
+
+      // skip if the color is not seated
+      if (!this.slots.has(by)) {
+        log.warn("[Game.abandon:not-seated]", { id: this.id, by });
         return;
       }
 

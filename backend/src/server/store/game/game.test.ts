@@ -640,6 +640,16 @@ describe("Game", () => {
 
       expect(result).toEqual({ ok: false, error: GAME_OVER });
     });
+
+    it("returns err(NOT_ALLOWED) when the color is not seated", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.leave(WHITE); // remove WHITE — game is still ACTIVE
+
+      const result = await game.resign(WHITE);
+
+      expect(result).toEqual({ ok: false, error: NOT_ALLOWED });
+    });
   });
 
   describe("undo", () => {
@@ -1156,6 +1166,18 @@ describe("Game", () => {
 
       expect(game.isFinished).toBe(false);
       expect(game.status).toBe(WAITING);
+    });
+
+    it("is a no-op when the color is not seated even if the game is ACTIVE", async () => {
+      const game = makeGame();
+      seatBothPlayers(game);
+      game.leave(WHITE); // remove WHITE — game is still ACTIVE
+
+      await game.abandon(WHITE);
+
+      // game should remain ACTIVE since WHITE (the abandon-by color) isn't seated
+      expect(game.isFinished).toBe(false);
+      expect(game.status).toBe(ACTIVE);
     });
   });
 

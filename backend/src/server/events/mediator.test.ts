@@ -738,6 +738,107 @@ describe("Mediator integration", () => {
     expect(endedW!.winner).toBe(1); // BLACK delivers mate
     expect(endedB!.winner).toBe(1);
   });
+
+  // ── Flow 33: Undo:cancel (requester) racing undo:decline (opponent), same tick ──
+  it("33: undo:cancel from requester and undo:decline from opponent in the same tick resolve to exactly one outcome", async () => {
+    const wsW = makeSocket();
+    const wsB = makeSocket();
+    await matchmake(mediator, wsW, wsB);
+
+    mediator.handle(wsW, { type: "move:make", from: E2, to: E4 });
+    await settle();
+
+    mediator.handle(wsW, { type: "undo:request" });
+    await settle();
+
+    expect(lastSentOfType(wsB, "undo:requested")).toBeTruthy();
+
+    // same tick: requester cancels, opponent declines
+    mediator.handle(wsW, { type: "undo:cancel" });
+    mediator.handle(wsB, { type: "undo:decline" });
+    await settle();
+
+    // exactly one of the two transitions won — either cancelled or declined
+    const cancelled = sentOfType(wsW, "undo:cancelled").length;
+    const declined = sentOfType(wsW, "undo:declined").length;
+    expect(cancelled + declined).toBe(1);
+
+    // the other got PENDING_CONFLICT
+    const conflicts = [...sentOfType(wsW, "session:error"), ...sentOfType(wsB, "session:error")].filter(
+      (m) => m.code === PENDING_CONFLICT,
+    );
+    expect(conflicts.length).toBe(1);
+
+    // consent slot is freed — no more responses possible
+    mediator.handle(wsB, { type: "undo:decline" });
+    await settle();
+    const lateConflict = lastSentOfType(wsB, "session:error") as ErrorReply | undefined;
+    expect(lateConflict?.code).toBe(PENDING_CONFLICT);
+  });
+
+  // ── Flow 34: Double close on the same socket is idempotent ──
+  it("34: double close on the same socket does not crash or send duplicate grace:started", async () => {
+    const wsW = makeSocket();
+    const wsB = makeSocket();
+    await matchmake(mediator, wsW, wsB);
+
+    mediator.close(wsW);
+    mediator.close(wsW);
+    await settle();
+
+    // opponent is notified of grace exactly once
+    const graceStarted = sentOfType(wsB, "grace:started");
+    expect(graceStarted.length).toBe(1);
+
+    // second close was a no-op — only one drop log
+  });
+
+  // ── Flow 35: Undo:request from the wrong player returns NOT_YOUR_TURN (rule 3) ──
+  it("35: undo:request from the player whose turn it is (not the mover) returns NOT_YOUR_TURN", async () => {
+    const wsW = makeSocket();
+    const wsB = makeSocket();
+    await matchmake(mediator, wsW, wsB);
+
+    // White moves e2→e4. Now it's Black's turn.
+    // The last mover is WHITE, so only WHITE may request undo (rule 3).
+    mediator.handle(wsW, { type: "move:make", from: E2, to: E4 });
+    await settle();
+
+    // Black (whose turn it is) tries to request undo — should fail
+    mediator.handle(wsB, { type: "undo:request" });
+    await settle();
+
+    const errorReply = lastSentOfType(wsB, "session:error") as ErrorReply | undefined;
+    expect(errorReply).toBeTruthy();
+    expect(errorReply!.code).toBe(NOT_YOUR_TURN);
+
+    // White (the last mover) can still request
+    mediator.handle(wsW, { type: "undo:request" });
+    await settle();
+    expect(lastSentOfType(wsB, "undo:requested")).toBeTruthy();
+  });
+
+  // ── Flow 36: Same-token simultaneous handshake from two sockets ──
+  it("36: two sockets handshaking with the same token in the same tick — no crash, both get a reply", () => {
+    const ws1 = makeSocket();
+    const token = handshake(mediator, ws1);
+
+    const ws2 = makeSocket();
+    const ws3 = makeSocket();
+
+    // both try to resume with the same token simultaneously
+    mediator.handle(ws2, { type: "session:handshake", token });
+    mediator.handle(ws3, { type: "session:handshake", token });
+
+    // each gets a handshake reply
+    const reply2 = lastSentOfType(ws2, "session:handshake") as unknown as HandshakeReply | undefined;
+    const reply3 = lastSentOfType(ws3, "session:handshake") as unknown as HandshakeReply | undefined;
+    expect(reply2).toBeTruthy();
+    expect(reply3).toBeTruthy();
+
+    // ws1 gets closed at least once (by whichever resume ran first)
+    expect((ws1.close as ReturnType<typeof mock>).mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────

@@ -173,6 +173,12 @@ export class UndoCommand {
 
     // only the requester may cancel their own request
     // CONSENT_EXPIRE is used because DECLINE/ACCEPT have a self-response guard
+    const requester = this.consent.requester(game.id);
+    if (requester === null || requester !== ctx.color!) {
+      log.warn("[UndoCommand.cancel:not-requester]", { playerId: ctx.playerId, requester });
+      return err(PENDING_CONFLICT);
+    }
+
     if (!this.consent.transition(game.id, CONSENT_EXPIRE, ctx.color!)) {
       log.warn("[UndoCommand.cancel:conflict]", { playerId: ctx.playerId });
       return err(PENDING_CONFLICT);
