@@ -1,7 +1,7 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
 
-import type { Subscriber } from "../server/bus/bus";
-import { Hub } from "../server/bus/bus";
+import type { Subscriber } from "../server/events/hub";
+import { Hub } from "../server/events/hub";
 import type { Event } from "../server/protocol/events";
 import { CONNECTION_OPENED, ROOM_JOINED } from "../server/protocol/events";
 import type { GameSnapshot } from "../server/types";

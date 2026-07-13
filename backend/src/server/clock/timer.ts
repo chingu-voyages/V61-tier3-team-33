@@ -1,5 +1,5 @@
 import { logger as rootLogger } from "../../logging/logger";
-import { type Publisher } from "../bus/bus";
+import { type Publisher } from "../events/hub";
 import { Notifications } from "../protocol/events";
 import { BLACK, type ClockState, type PieceColor, WHITE } from "../types";
 import type { Clock } from "./clock";

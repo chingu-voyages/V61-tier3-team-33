@@ -1,4 +1,4 @@
-import type { Subscriber, Unsubscribe } from "../server/bus/bus";
+import type { Subscriber, Unsubscribe } from "../server/events/hub";
 import type { Event } from "../server/protocol/events";
 import { DEFERRED } from "../server/types/priority";
 import type { LogConfig } from "./config";

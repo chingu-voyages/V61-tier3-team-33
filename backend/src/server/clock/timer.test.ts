@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 
-import type { Publisher } from "../bus/bus";
+import type { Publisher } from "../events/hub";
 import { CLOCK_EXPIRED, CLOCK_PAUSED, CLOCK_STARTED } from "../protocol/events";
 import { DEFAULT, MATCH, MOVE } from "../types";
 import { BLACK, WHITE } from "../types";
