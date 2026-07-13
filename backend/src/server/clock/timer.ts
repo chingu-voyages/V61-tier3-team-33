@@ -1,10 +1,10 @@
-import { WHITE, BLACK, type PieceColor, type ClockState } from "../types";
+import { logger as rootLogger } from "../../logging/logger";
 import { type Publisher } from "../bus/bus";
 import { Notifications } from "../protocol/events";
+import { BLACK, type ClockState, type PieceColor, WHITE } from "../types";
 import type { Clock } from "./clock";
-import { logger as rootLogger } from "../../logging/log";
 
-const log = rootLogger.child({ module: "ClockTimer" });
+const log = rootLogger.child({ module: "Timer" });
 
 /** A running chess clock for one game. */
 export interface Timer {
@@ -54,7 +54,13 @@ export class ClockTimer implements Timer {
     private roomId: string,
     private publisher: Publisher,
   ) {
-    log.info("[TIMER-created]", { roomId, format: strategy.format, initialMs: strategy.initialMs, type: strategy.type });
+    // log timer creation
+    log.info("[Timer.constructor:created]", {
+      roomId,
+      format: strategy.format,
+      initialMs: strategy.initialMs,
+      type: strategy.type,
+    });
   }
 
   /** {@inheritDoc} */
@@ -69,36 +75,46 @@ export class ClockTimer implements Timer {
 
   /** {@inheritDoc} */
   start(whiteMs: number, blackMs: number, color: PieceColor): void {
+    // set initial time for both sides
     this.whiteMs = whiteMs;
     this.blackMs = blackMs;
+
+    // begin countdown for the given color
     this.turnStartedAt = Date.now();
     this.active = color;
-    log.info("[TIMER-start]", { roomId: this.roomId, color, whiteMs, blackMs });
+    log.info("[Timer.start:started]", { roomId: this.roomId, color, whiteMs, blackMs });
     this.publisher.emit(Notifications.clockStarted(this.roomId, color, this.timeFor(color)));
     this.scheduleExpiration();
   }
 
   /** {@inheritDoc} */
   stop(color: PieceColor): number {
+    // cancel pending timers
     this.clearTimers();
+
+    // calculate elapsed time and apply time-control adjustment
     const elapsed = this.active !== null ? Date.now() - this.turnStartedAt : 0;
     const wasActive = this.active;
     this.active = null;
     const remaining = this.timeFor(color);
     const newRemaining = Math.max(0, this.strategy.onMove(remaining, elapsed));
     this.setTime(color, newRemaining);
-    log.info("[TIMER-stop]", { roomId: this.roomId, color, wasActive, elapsed, remaining, newRemaining });
+
+    // log and emit clock paused event
+    log.info("[Timer.stop:stopped]", { roomId: this.roomId, color, wasActive, elapsed, remaining, newRemaining });
     this.publisher.emit(Notifications.clockPaused(this.roomId, color, newRemaining));
     return newRemaining;
   }
 
   /** {@inheritDoc} */
   startNext(color: PieceColor): void {
+    // check for turn delay (Bronstein / simple delay)
     const delay = this.strategy.onTurn();
-    log.info("[TIMER-startNext]", { roomId: this.roomId, color, delay });
+    log.info("[Timer.startNext:starting]", { roomId: this.roomId, color, delay });
     if (delay > 0) {
+      // apply delay before starting opponent's clock
       this.delayTimer = setTimeout(() => {
-        log.info("[TIMER-delay-done]", { roomId: this.roomId, color, delay });
+        log.info("[Timer.startNext:delay-done]", { roomId: this.roomId, color, delay });
         this.resumeTicking(color);
       }, delay);
     } else {
@@ -108,7 +124,13 @@ export class ClockTimer implements Timer {
 
   /** {@inheritDoc} */
   dispose(): void {
-    log.info("[TIMER-dispose]", { roomId: this.roomId, wasActive: this.active, whiteMs: this.whiteMs, blackMs: this.blackMs });
+    // log disposal and stop all timers
+    log.info("[Timer.dispose:disposed]", {
+      roomId: this.roomId,
+      wasActive: this.active,
+      whiteMs: this.whiteMs,
+      blackMs: this.blackMs,
+    });
     this.clearTimers();
     this.active = null;
   }

@@ -1,10 +1,11 @@
-import { describe, expect, it, afterEach, mock } from "bun:test";
-import { MOVE, MATCH, DEFAULT } from "../types";
+import { afterEach, describe, expect, it, mock } from "bun:test";
+
+import type { Publisher } from "../bus/bus";
+import { CLOCK_EXPIRED, CLOCK_PAUSED, CLOCK_STARTED } from "../protocol/events";
+import { DEFAULT, MATCH, MOVE } from "../types";
+import { BLACK, WHITE } from "../types";
 import type { Clock } from "./clock";
 import { ClockTimer } from "./timer";
-import type { Publisher } from "../bus/bus";
-import { WHITE, BLACK } from "../types";
-import { CLOCK_STARTED, CLOCK_PAUSED, CLOCK_EXPIRED } from "../protocol/events";
 
 function makePublisher(): Publisher {
   return { emit: mock(() => {}) };
@@ -254,7 +255,7 @@ describe("ClockTimer", () => {
       await Bun.sleep(20);
 
       const expiredCalls = (publisher.emit as ReturnType<typeof mock>).mock.calls.filter(
-        (c: any[]) => c[0]?.type === CLOCK_EXPIRED,
+        (c: unknown[]) => c[0] && typeof c[0] === "object" && (c[0] as Record<string, unknown>).type === CLOCK_EXPIRED,
       );
       expect(expiredCalls.length).toBe(0);
     });
@@ -289,7 +290,7 @@ describe("ClockTimer", () => {
       await Bun.sleep(20);
 
       const expiredCalls = (publisher.emit as ReturnType<typeof mock>).mock.calls.filter(
-        (c: any[]) => c[0]?.type === CLOCK_EXPIRED,
+        (c: unknown[]) => c[0] && typeof c[0] === "object" && (c[0] as Record<string, unknown>).type === CLOCK_EXPIRED,
       );
       expect(expiredCalls.length).toBe(0);
     });
