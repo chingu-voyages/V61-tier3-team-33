@@ -1,32 +1,22 @@
-import type { IRules } from "./rules";
-import type { IEngine } from "../engine/engine";
-import type { ITracker } from "../tracker/tracker";
-import type { TurnContext } from "../core/state";
-import type { GameResult } from "../core/game";
-
 import { Square } from "../core/board";
+import type { GameResult } from "../core/game";
 import {
-  PAWN,
-  QUEEN,
-  ROOK,
-  BISHOP,
-  KNIGHT,
-  PieceColor,
-  WHITE,
-  BLACK,
-} from "../core/piece";
-import { Position } from "../core/position";
-import { MoveContext } from "../core/state";
-import {
-  IN_PROGRESS,
   CHECKMATE,
   DRAW,
+  FIFTY_MOVE_RULE,
+  IN_PROGRESS,
+  INSUFFICIENT_MATERIAL,
   NO_DRAW_REASON,
   STALEMATE,
   THREEFOLD_REPETITION,
-  FIFTY_MOVE_RULE,
-  INSUFFICIENT_MATERIAL,
 } from "../core/game";
+import { BISHOP, BLACK, KNIGHT, PAWN, PieceColor, QUEEN, ROOK, WHITE } from "../core/piece";
+import { Position } from "../core/position";
+import type { TurnContext } from "../core/state";
+import { MoveContext } from "../core/state";
+import type { IEngine } from "../engine/engine";
+import type { ITracker } from "../tracker/tracker";
+import type { IRules } from "./rules";
 
 export class DefaultRules implements IRules {
   isFiftyMoveRule(ctx: TurnContext): boolean {
@@ -79,26 +69,21 @@ export class DefaultRules implements IRules {
     }
 
     // K + B vs K  (either side)
-    const whiteOneBishopBlackKing =
-      wBishops === 1 && wKnights === 0 && blackKingOnly;
-    const blackOneBishopWhiteKing =
-      bBishops === 1 && bKnights === 0 && whiteKingOnly;
+    const whiteOneBishopBlackKing = wBishops === 1 && wKnights === 0 && blackKingOnly;
+    const blackOneBishopWhiteKing = bBishops === 1 && bKnights === 0 && whiteKingOnly;
     if (whiteOneBishopBlackKing || blackOneBishopWhiteKing) {
       return true;
     }
 
     // K + N vs K  (either side)
-    const whiteOneKnightBlackKing =
-      wKnights === 1 && wBishops === 0 && blackKingOnly;
-    const blackOneKnightWhiteKing =
-      bKnights === 1 && bBishops === 0 && whiteKingOnly;
+    const whiteOneKnightBlackKing = wKnights === 1 && wBishops === 0 && blackKingOnly;
+    const blackOneKnightWhiteKing = bKnights === 1 && bBishops === 0 && whiteKingOnly;
     if (whiteOneKnightBlackKing || blackOneKnightWhiteKing) {
       return true;
     }
 
     // K + B vs K + B — draw only when both bishops share the same square color
-    const bothHaveOneBishopOnly =
-      wBishops === 1 && bBishops === 1 && wKnights === 0 && bKnights === 0;
+    const bothHaveOneBishopOnly = wBishops === 1 && bBishops === 1 && wKnights === 0 && bKnights === 0;
     if (bothHaveOneBishopOnly) {
       const wBishopIsOnDark = Position.isDarkSquare(wBishopPosition);
       const bBishopIsOnDark = Position.isDarkSquare(bBishopPosition);
@@ -134,12 +119,7 @@ export class DefaultRules implements IRules {
     return !kingInCheck;
   }
 
-  getGameResult(
-    ctx: TurnContext,
-    engine: IEngine,
-    tracker: ITracker,
-    hash: bigint,
-  ): GameResult {
+  getGameResult(ctx: TurnContext, engine: IEngine, tracker: ITracker, hash: bigint): GameResult {
     if (this.isFiftyMoveRule(ctx)) {
       return {
         status: DRAW,

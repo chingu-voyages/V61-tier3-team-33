@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
+
 import {
+  A1,
+  A2,
+  A8,
+  E4,
   File,
   FILE_A,
   FILE_B,
@@ -9,6 +14,10 @@ import {
   FILE_F,
   FILE_G,
   FILE_H,
+  H1,
+  H8,
+  NO_POSITION,
+  Position,
   Rank,
   RANK_1,
   RANK_2,
@@ -18,14 +27,6 @@ import {
   RANK_6,
   RANK_7,
   RANK_8,
-  Position,
-  NO_POSITION,
-  A1,
-  A2,
-  A8,
-  E4,
-  H1,
-  H8,
 } from "./position";
 
 describe("File", () => {
@@ -80,16 +81,7 @@ describe("File", () => {
     test("multi-char → null", () => expect(File.parse("AB")).toBeNull());
 
     test("round-trips toString", () => {
-      const files = [
-        FILE_A,
-        FILE_B,
-        FILE_C,
-        FILE_D,
-        FILE_E,
-        FILE_F,
-        FILE_G,
-        FILE_H,
-      ];
+      const files = [FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H];
       for (const f of files) {
         expect(File.parse(File.toString(f))).toBe(f);
       }
@@ -150,16 +142,7 @@ describe("Rank", () => {
     test("multi-char → null", () => expect(Rank.parse("12")).toBeNull());
 
     test("round-trips toString", () => {
-      const ranks = [
-        RANK_1,
-        RANK_2,
-        RANK_3,
-        RANK_4,
-        RANK_5,
-        RANK_6,
-        RANK_7,
-        RANK_8,
-      ];
+      const ranks = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8];
       for (const r of ranks) {
         expect(Rank.parse(Rank.toString(r))).toBe(r);
       }
@@ -188,16 +171,7 @@ describe("Rank", () => {
     });
 
     test("is its own inverse", () => {
-      const ranks = [
-        RANK_1,
-        RANK_2,
-        RANK_3,
-        RANK_4,
-        RANK_5,
-        RANK_6,
-        RANK_7,
-        RANK_8,
-      ];
+      const ranks = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8];
       for (const r of ranks) {
         expect(Rank.reverse(Rank.reverse(r))).toBe(r);
       }
@@ -243,18 +217,15 @@ describe("Position", () => {
   describe("isValid", () => {
     test("A1 is valid", () => expect(Position.isValid(A1)).toBe(true));
     test("H8 is valid", () => expect(Position.isValid(H8)).toBe(true));
-    test("NO_POSITION is invalid", () =>
-      expect(Position.isValid(NO_POSITION)).toBe(false));
-    test("out-of-range value is invalid", () =>
-      expect(Position.isValid(Position(65))).toBe(false));
+    test("NO_POSITION is invalid", () => expect(Position.isValid(NO_POSITION)).toBe(false));
+    test("out-of-range value is invalid", () => expect(Position.isValid(Position(65))).toBe(false));
   });
 
   describe("toString", () => {
     test("A1 → 'A1'", () => expect(Position.toString(A1)).toBe("A1"));
     test("H8 → 'H8'", () => expect(Position.toString(H8)).toBe("H8"));
     test("E4 → 'E4'", () => expect(Position.toString(E4)).toBe("E4"));
-    test("NO_POSITION → '-'", () =>
-      expect(Position.toString(NO_POSITION)).toBe("-"));
+    test("NO_POSITION → '-'", () => expect(Position.toString(NO_POSITION)).toBe("-"));
   });
 
   describe("parse", () => {
@@ -270,26 +241,8 @@ describe("Position", () => {
     test("invalid rank → null", () => expect(Position.parse("e9")).toBeNull());
 
     test("round-trips toString for all 64 squares", () => {
-      const files = [
-        FILE_A,
-        FILE_B,
-        FILE_C,
-        FILE_D,
-        FILE_E,
-        FILE_F,
-        FILE_G,
-        FILE_H,
-      ];
-      const ranks = [
-        RANK_1,
-        RANK_2,
-        RANK_3,
-        RANK_4,
-        RANK_5,
-        RANK_6,
-        RANK_7,
-        RANK_8,
-      ];
+      const files = [FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H];
+      const ranks = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8];
       for (const f of files) {
         for (const r of ranks) {
           const pos = Position.create(f, r);
@@ -305,16 +258,7 @@ describe("Position", () => {
     test("H8 is dark", () => expect(Position.isDarkSquare(H8)).toBe(true));
 
     test("alternates across a rank", () => {
-      const files = [
-        FILE_A,
-        FILE_B,
-        FILE_C,
-        FILE_D,
-        FILE_E,
-        FILE_F,
-        FILE_G,
-        FILE_H,
-      ];
+      const files = [FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H];
       for (const f of files) {
         const pos = Position.create(f, RANK_1);
         expect(Position.isDarkSquare(pos)).toBe(f % 2 === 0);
@@ -322,16 +266,7 @@ describe("Position", () => {
     });
 
     test("alternates across a file", () => {
-      const ranks = [
-        RANK_1,
-        RANK_2,
-        RANK_3,
-        RANK_4,
-        RANK_5,
-        RANK_6,
-        RANK_7,
-        RANK_8,
-      ];
+      const ranks = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8];
       for (const r of ranks) {
         const pos = Position.create(FILE_A, r);
         expect(Position.isDarkSquare(pos)).toBe(r % 2 === 0);

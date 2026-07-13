@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
+
 import { MoveHash } from "./hash";
 import { Snapshot } from "./history";
 import { NORMAL } from "./move";
-import { PAWN, WHITE, BLACK } from "./piece";
+import { BLACK, PAWN, WHITE } from "./piece";
 import { E2, E4, NO_POSITION } from "./position";
 import { SideState, TurnContext } from "./state";
 

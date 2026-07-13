@@ -1,6 +1,5 @@
-import type { IParser } from "./parser";
-
 import { FEN } from "./fen";
+import type { IParser } from "./parser";
 
 const defaultParser = new FEN();
 

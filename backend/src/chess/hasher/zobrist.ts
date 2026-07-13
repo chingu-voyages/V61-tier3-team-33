@@ -1,12 +1,11 @@
-import type { Piece } from "../core/piece";
-import type { TurnContext } from "../core/state";
-import type { MoveHash } from "../core/hash";
-import type { IHasher } from "./hasher";
-
 import { Square } from "../core/board";
-import { ROOK, BLACK } from "../core/piece";
+import type { MoveHash } from "../core/hash";
+import { CASTLING, EN_PASSANT, Move, NORMAL, PROMOTION } from "../core/move";
+import type { Piece } from "../core/piece";
+import { BLACK, ROOK } from "../core/piece";
 import { Position } from "../core/position";
-import { Move, NORMAL, PROMOTION, CASTLING, EN_PASSANT } from "../core/move";
+import type { TurnContext } from "../core/state";
+import type { IHasher } from "./hasher";
 
 // 768 piece-position + 4 castling + 8 en-passant + 1 side-to-move = 781 keys.
 const PIECE_POSITION_COUNT = 12 * 64;
@@ -184,8 +183,7 @@ export class Zobrist implements IHasher {
     // xor out the captured pawn (it sits one rank behind the destination)
     const capturedIndex = this.pieceIndex(captured);
     const capturedPosition = Move.enPassantCapturedPosition(move);
-    hash ^=
-      this.piecePosition[this.tableOffset(capturedIndex, capturedPosition)]!;
+    hash ^= this.piecePosition[this.tableOffset(capturedIndex, capturedPosition)]!;
 
     return hash;
   }

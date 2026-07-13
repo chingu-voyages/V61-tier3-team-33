@@ -1,10 +1,9 @@
-import type { Move } from "../core/move";
-import type { Snapshot } from "../core/history";
-import type { TurnContext } from "../core/state";
-
 import { Board, Square } from "../core/board";
+import type { Snapshot } from "../core/history";
+import type { Move } from "../core/move";
 import { Move as MoveHelper } from "../core/move";
-import { NORMAL, PROMOTION, CASTLING, EN_PASSANT } from "../core/move";
+import { CASTLING, EN_PASSANT, NORMAL, PROMOTION } from "../core/move";
+import type { TurnContext } from "../core/state";
 
 export function undoImpl(ctx: TurnContext, snap: Snapshot): void {
   const move = snap.move;
@@ -71,10 +70,6 @@ function undoEnPassantImpl(ctx: TurnContext, move: Move): void {
 
   // restore the captured pawn behind the destination
   if (move.captured) {
-    Board.place(
-      ctx.board,
-      MoveHelper.enPassantCapturedPosition(move),
-      Square.create(move.captured),
-    );
+    Board.place(ctx.board, MoveHelper.enPassantCapturedPosition(move), Square.create(move.captured));
   }
 }

@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { getDefaultHistory } from "./default";
+
 import { Snapshot } from "../core/history";
-import { TurnContext } from "../core/state";
 import { NORMAL } from "../core/move";
 import { PAWN, WHITE } from "../core/piece";
-import { A1, A2, B1, B3, C1, C2 } from "../core/position";
 import type { Position } from "../core/position";
+import { A1, A2, B1, B3, C1, C2 } from "../core/position";
+import { TurnContext } from "../core/state";
+import { getDefaultHistory } from "./default";
 
 describe("MemoryHistory", () => {
   function history() {

@@ -1,25 +1,12 @@
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-
-import { King } from "./king";
-import { NORMAL } from "../core/move";
-import { SideState } from "../core/state";
-import { Board, Square } from "../core/board";
 import { describe, expect, test } from "bun:test";
+
+import { Board, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { NORMAL } from "../core/move";
 import type { Piece } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import type { Position } from "../core/position";
 import {
-  KING,
-  PAWN,
-  ROOK,
-  QUEEN,
-  BISHOP,
-  KNIGHT,
-  WHITE,
-  BLACK,
-} from "../core/piece";
-import {
-  Position,
-  NO_POSITION,
   A1,
   A2,
   A3,
@@ -62,7 +49,11 @@ import {
   H2,
   H7,
   H8,
+  NO_POSITION,
 } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import { SideState } from "../core/state";
+import { King } from "./king";
 
 describe("King", () => {
   const king = new King();
@@ -73,10 +64,7 @@ describe("King", () => {
     return { board };
   }
 
-  function moveCtx(
-    init: (b: Board) => void,
-    side: typeof WHITE | typeof BLACK,
-  ): MoveContext {
+  function moveCtx(init: (b: Board) => void, side: typeof WHITE | typeof BLACK): MoveContext {
     const board = Board.create();
     init(board);
     return {
@@ -90,35 +78,27 @@ describe("King", () => {
   describe("isAttacking", () => {
     test("a white king on any of the eight squares adjacent to E4 attacks E4", () => {
       for (const from of [D3, D4, D5, E3, E5, F3, F4, F5] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KING, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KING, color: WHITE })));
         expect(king.isAttacking(WHITE, E4, c)).toBe(true);
       }
     });
 
     test("a king two squares away does not attack (kings don't slide)", () => {
       for (const from of [E6, C4, G6] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KING, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KING, color: WHITE })));
         expect(king.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
 
     test("a king of the wrong color is ignored", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, D4, Square.create({ type: KING, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, D4, Square.create({ type: KING, color: BLACK })));
       expect(king.isAttacking(WHITE, E4, c)).toBe(false);
       expect(king.isAttacking(BLACK, E4, c)).toBe(true);
     });
 
     test("a non-king piece on an adjacent square does not trigger a king attack", () => {
       for (const pt of [QUEEN, ROOK, BISHOP, KNIGHT, PAWN] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, D4, Square.create({ type: pt, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, D4, Square.create({ type: pt, color: WHITE })));
         expect(king.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
@@ -129,30 +109,22 @@ describe("King", () => {
     });
 
     test("a king sitting on the target square itself does not attack it", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E4, Square.create({ type: KING, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, E4, Square.create({ type: KING, color: WHITE })));
       expect(king.isAttacking(WHITE, E4, c)).toBe(false);
     });
 
     test("a corner target is attacked from its 3 adjacent squares only", () => {
       for (const from of [A2, B1, B2] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KING, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KING, color: WHITE })));
         expect(king.isAttacking(WHITE, A1, c)).toBe(true);
       }
-      const c = boardCtx((b) =>
-        Board.place(b, H8, Square.create({ type: KING, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, H8, Square.create({ type: KING, color: WHITE })));
       expect(king.isAttacking(WHITE, A1, c)).toBe(false);
     });
 
     test("an edge target is attacked from its 5 adjacent squares", () => {
       for (const from of [A3, A5, B3, B4, B5] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KING, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KING, color: WHITE })));
         expect(king.isAttacking(WHITE, A4, c)).toBe(true);
       }
     });
@@ -241,19 +213,13 @@ describe("King", () => {
     });
 
     test("a square occupied by a friendly piece is excluded from the move list", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D5, Square.create({ type: PAWN, color: WHITE })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, D5, Square.create({ type: PAWN, color: WHITE })), WHITE);
       const moves = king.pseudoLegalMoves([], D4, c);
       expect(dests(moves)).toEqual([D3, C4, E4, E5, E3, C5, C3]);
     });
 
     test("a square occupied by an enemy piece is included as a capture", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D5, Square.create({ type: PAWN, color: BLACK })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, D5, Square.create({ type: PAWN, color: BLACK })), WHITE);
       const moves = king.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual(d4Adjacent);
@@ -318,13 +284,7 @@ describe("King", () => {
 
     test("king on edge A4 with an empty board has 5 moves", () => {
       const c = moveCtx(() => {}, WHITE);
-      expect(dests(king.pseudoLegalMoves([], A4, c))).toEqual([
-        A5,
-        A3,
-        B4,
-        B5,
-        B3,
-      ]);
+      expect(dests(king.pseudoLegalMoves([], A4, c))).toEqual([A5, A3, B4, B5, B3]);
     });
 
     test("a black king treats white pieces as enemies (captures) and black as own", () => {

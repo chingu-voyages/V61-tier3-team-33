@@ -1,15 +1,7 @@
-import type { TurnContext } from "../core/state";
-
 import { Board, Square } from "../core/board";
-import { Piece, KING, WHITE, BLACK } from "../core/piece";
-import {
-  Position,
-  File,
-  Rank,
-  NO_POSITION,
-  RANK_3,
-  RANK_6,
-} from "../core/position";
+import { BLACK, KING, Piece, WHITE } from "../core/piece";
+import { File, NO_POSITION, Position, Rank, RANK_3, RANK_6 } from "../core/position";
+import type { TurnContext } from "../core/state";
 import { MoveContext } from "../core/state";
 
 /**
@@ -31,11 +23,7 @@ import { MoveContext } from "../core/state";
  *          offset of the space terminator + 1, and `error` is `null` on
  *          success or a human-readable message on failure.
  */
-function decodePiecePlacement(
-  str: string,
-  ctx: TurnContext,
-  start: number,
-): [number, string | null] {
+function decodePiecePlacement(str: string, ctx: TurnContext, start: number): [number, string | null] {
   let rank = 0; // 0-based FEN rank counter (0 = rank 8, 7 = rank 1)
   let file = 0;
 
@@ -56,10 +44,7 @@ function decodePiecePlacement(
     if (letter === "/") {
       // each rank must have exactly 8 files (pieces + digits)
       if (file !== 8) {
-        return [
-          0,
-          `fen: rank ${Rank.reverse(Rank(rank)) + 1} has ${file} files, want 8`,
-        ];
+        return [0, `fen: rank ${Rank.reverse(Rank(rank)) + 1} has ${file} files, want 8`];
       }
       file = 0;
       rank++;
@@ -76,10 +61,7 @@ function decodePiecePlacement(
     if (digit >= 1 && digit <= 8) {
       // digit would push the file counter past the 8-file boundary
       if (file + digit > 8) {
-        return [
-          0,
-          `fen: rank ${Rank.reverse(Rank(rank)) + 1} overflows 8 files`,
-        ];
+        return [0, `fen: rank ${Rank.reverse(Rank(rank)) + 1} overflows 8 files`];
       }
 
       file += digit;
@@ -95,10 +77,7 @@ function decodePiecePlacement(
     const piece = Piece.parse(letter);
     // unknown letter (e.g. 'x' or 'v') is not a valid FEN piece character
     if (!piece) {
-      return [
-        0,
-        `fen: rank ${Rank.reverse(Rank(rank)) + 1}: invalid piece letter '${letter}'`,
-      ];
+      return [0, `fen: rank ${Rank.reverse(Rank(rank)) + 1}: invalid piece letter '${letter}'`];
     }
 
     // FEN rank index 0 = internal rank 7 (RANK_8), index 7 = internal rank 0 (RANK_1)
@@ -128,11 +107,7 @@ function decodePiecePlacement(
  * @returns A tuple `[nextIndex, error]` — `nextIndex` is the offset right
  *          after the trailing space.
  */
-function decodeSideToMove(
-  str: string,
-  start: number,
-  ctx: TurnContext,
-): [number, string | null] {
+function decodeSideToMove(str: string, start: number, ctx: TurnContext): [number, string | null] {
   // FEN must have a side-to-move field (cannot end after piece placement)
   if (start >= str.length) {
     return [0, "fen: missing side-to-move field"];
@@ -164,11 +139,7 @@ function decodeSideToMove(
  * @param ctx   The context whose side-state castling flags are updated.
  * @returns A tuple `[nextIndex, error]`.
  */
-function decodeCastlingRights(
-  str: string,
-  start: number,
-  ctx: TurnContext,
-): [number, string | null] {
+function decodeCastlingRights(str: string, start: number, ctx: TurnContext): [number, string | null] {
   // FEN must have a castling-rights field
   if (start >= str.length) {
     return [0, "fen: missing castling-rights field"];
@@ -199,10 +170,7 @@ function decodeCastlingRights(
         break;
       default:
         // any other character (e.g. 'X') is invalid
-        return [
-          0,
-          `fen: invalid castle rights letter '${letter}', expected any of [K, Q, k, q, -]`,
-        ];
+        return [0, `fen: invalid castle rights letter '${letter}', expected any of [K, Q, k, q, -]`];
     }
   }
 
@@ -221,11 +189,7 @@ function decodeCastlingRights(
  * @param ctx   The context whose `enPassantTarget` is set.
  * @returns A tuple `[nextIndex, error]`.
  */
-function decodeEnPassantTarget(
-  str: string,
-  start: number,
-  ctx: TurnContext,
-): [number, string | null] {
+function decodeEnPassantTarget(str: string, start: number, ctx: TurnContext): [number, string | null] {
   // FEN must have an en-passant-target field
   if (start >= str.length) {
     return [0, "fen: missing en-passant-target field"];
@@ -239,28 +203,19 @@ function decodeEnPassantTarget(
 
   // otherwise we expect exactly two characters: a file letter + a rank digit
   if (start + 1 >= str.length) {
-    return [
-      0,
-      "fen: en-passant target is too short, expected a file letter and rank digit",
-    ];
+    return [0, "fen: en-passant target is too short, expected a file letter and rank digit"];
   }
 
   const file = File.parse(str.charAt(start));
   // file must be one of a-h (or A-H, normalised to lower by File.parse)
   if (file === null) {
-    return [
-      0,
-      `fen: en-passant target file: invalid file letter '${str[start]}'`,
-    ];
+    return [0, `fen: en-passant target file: invalid file letter '${str[start]}'`];
   }
 
   const rank = Rank.parse(str.charAt(start + 1));
   // rank must be a single digit 1-8
   if (rank === null) {
-    return [
-      0,
-      `fen: en-passant target rank: invalid rank digit '${str[start + 1]}'`,
-    ];
+    return [0, `fen: en-passant target rank: invalid rank digit '${str[start + 1]}'`];
   }
 
   // per the FEN spec, the en-passant target square is always rank 3 or rank 6
@@ -284,11 +239,7 @@ function decodeEnPassantTarget(
  * @param ctx   The context whose `halfMoveClock` is set.
  * @returns A tuple `[nextIndex, error]`.
  */
-function decodeHalfMoveClock(
-  str: string,
-  start: number,
-  ctx: TurnContext,
-): [number, string | null] {
+function decodeHalfMoveClock(str: string, start: number, ctx: TurnContext): [number, string | null] {
   // scan forward to find the next space (or end of string)
   let i = start;
   while (i < str.length && str[i] !== " ") {
@@ -328,11 +279,7 @@ function decodeHalfMoveClock(
  * @param ctx   The context whose `fullMoveNumber` is set.
  * @returns `null` on success or a human-readable error message on failure.
  */
-function decodeFullMoveNumber(
-  str: string,
-  start: number,
-  ctx: TurnContext,
-): string | null {
+function decodeFullMoveNumber(str: string, start: number, ctx: TurnContext): string | null {
   // scan to end of string (this is the last field, no trailing space)
   let i = start;
   while (i < str.length) {

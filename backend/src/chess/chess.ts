@@ -1,28 +1,22 @@
-import type { Move } from "./core/move";
-import type { Piece } from "./core/piece";
-import type { GameResult } from "./core/game";
-import type { TurnContext, ChessState } from "./core/state";
-
+import type { ChessConfig } from "./config";
+import { resolveConfig } from "./config";
 import { Board as CoreBoard, Square } from "./core/board";
+import type { GameResult } from "./core/game";
 import { IN_PROGRESS } from "./core/game";
 import { MoveHash } from "./core/hash";
-import { PieceColor, PieceType, QUEEN } from "./core/piece";
+import type { Move } from "./core/move";
 import { PROMOTION } from "./core/move";
+import type { Piece, PieceType } from "./core/piece";
+import { PieceColor, QUEEN } from "./core/piece";
 import { Position } from "./core/position";
-import { TurnContext as TC, MoveContext } from "./core/state";
+import type { ChessState, TurnContext } from "./core/state";
+import { MoveContext, TurnContext as TC } from "./core/state";
+import { FENError, IllegalMoveError, InvalidSquareError, NothingToUndoError } from "./errors";
 import { SAN } from "./parser/san";
-import {
-  FENError,
-  IllegalMoveError,
-  InvalidSquareError,
-  NothingToUndoError,
-} from "./errors";
-import { resolveConfig } from "./config";
-import type { ChessConfig } from "./config";
 
 export { FENError, IllegalMoveError, InvalidSquareError, NothingToUndoError };
-export { STARTING_FEN } from "./config";
 export type { ChessConfig } from "./config";
+export { STARTING_FEN } from "./config";
 
 /**
  * Chess is the top-level game orchestrator. It owns all mutable state
@@ -49,8 +43,7 @@ export class Chess {
   private readonly history;
 
   constructor(config: ChessConfig = {}) {
-    const { fen, engine, hasher, rules, parser, tracker, history } =
-      resolveConfig(config);
+    const { fen, engine, hasher, rules, parser, tracker, history } = resolveConfig(config);
 
     this.engine = engine;
     this.hasher = hasher;
@@ -181,12 +174,7 @@ export class Chess {
 
   /** Evaluates all termination conditions cheapest-first and returns the current game result. */
   gameResult(): GameResult {
-    return this.rules.getGameResult(
-      this.ctx,
-      this.engine,
-      this.tracker,
-      this.hash,
-    );
+    return this.rules.getGameResult(this.ctx, this.engine, this.tracker, this.hash);
   }
 
   /**
@@ -218,9 +206,7 @@ export class Chess {
    */
   legalPromotions(from: Position, to: Position): PieceType[] {
     return this.legalMovesFrom(from)
-      .filter(
-        (m) => m.to === to && m.type === PROMOTION && m.promoteTo !== null,
-      )
+      .filter((m) => m.to === to && m.type === PROMOTION && m.promoteTo !== null)
       .map((m) => m.promoteTo as PieceType);
   }
 
@@ -240,10 +226,7 @@ export class Chess {
     const preMoveCtx = TC.copy(this.ctx);
 
     const legalMove =
-      this.legalMovesFrom(from).find(
-        (m) =>
-          m.to === to && (m.type !== PROMOTION || m.promoteTo === promoteTo),
-      ) ?? null;
+      this.legalMovesFrom(from).find((m) => m.to === to && (m.type !== PROMOTION || m.promoteTo === promoteTo)) ?? null;
 
     if (legalMove === null) {
       throw new IllegalMoveError();

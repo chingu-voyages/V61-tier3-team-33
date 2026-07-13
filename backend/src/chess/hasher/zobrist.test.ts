@@ -1,31 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { getDefaultHasher } from "./default";
+
+import { MoveHash } from "../core/hash";
+import type { Move } from "../core/move";
+import { CASTLING, EN_PASSANT, NORMAL, PROMOTION } from "../core/move";
+import { BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import { B1, C1, C3, D5, D6, D8, E1, E2, E3, E4, E5, E7, E8, F3, G1, H1, H5 } from "../core/position";
+import type { TurnContext } from "../core/state";
 import { getDefaultEngine } from "../engine/default";
 import { getDefaultParser } from "../parser/default";
-import { MoveHash } from "../core/hash";
-import { NORMAL, CASTLING, EN_PASSANT, PROMOTION } from "../core/move";
-import { PAWN, KNIGHT, QUEEN, ROOK, KING, WHITE, BLACK } from "../core/piece";
-import {
-  B1,
-  C1,
-  C3,
-  D5,
-  D6,
-  D8,
-  E1,
-  E2,
-  E3,
-  E4,
-  E5,
-  E7,
-  E8,
-  F3,
-  G1,
-  H1,
-  H5,
-} from "../core/position";
-import type { Move } from "../core/move";
-import type { TurnContext } from "../core/state";
+import { getDefaultHasher } from "./default";
 
 describe("Zobrist", () => {
   const hasher = getDefaultHasher();
@@ -56,68 +39,44 @@ describe("Zobrist", () => {
 
   describe("initHash", () => {
     test("non-zero for the starting position", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(hasher.initHash(ctx)).not.toBe(0n);
     });
 
     test("deterministic — same position always produces the same hash", () => {
-      const ctx1 = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
-      const ctx2 = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx1 = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      const ctx2 = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(hasher.initHash(ctx1)).toBe(hasher.initHash(ctx2));
     });
 
     test("differs when the side to move differs", () => {
-      const ctxWhite = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
-      const ctxBlack = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
-      );
+      const ctxWhite = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      const ctxBlack = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1");
       expect(hasher.initHash(ctxWhite)).not.toBe(hasher.initHash(ctxBlack));
     });
 
     test("differs when castling rights differ", () => {
-      const ctxFull = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
-      const ctxNone = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1",
-      );
+      const ctxFull = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      const ctxNone = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1");
       expect(hasher.initHash(ctxFull)).not.toBe(hasher.initHash(ctxNone));
     });
 
     test("differs when en passant target differs", () => {
-      const ctxEP = decode(
-        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
-      );
-      const ctxNoEP = decode(
-        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
-      );
+      const ctxEP = decode("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
+      const ctxNoEP = decode("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
       expect(hasher.initHash(ctxEP)).not.toBe(hasher.initHash(ctxNoEP));
     });
 
     test("differs when a piece is in a different square", () => {
-      const ctx1 = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
-      const ctx2 = decode(
-        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx1 = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      const ctx2 = decode("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1");
       expect(hasher.initHash(ctx1)).not.toBe(hasher.initHash(ctx2));
     });
   });
 
   describe("hash round-trip", () => {
     test("a normal pawn push round-trips", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       roundTrip(ctx, {
         type: NORMAL,
         piece: { type: PAWN, color: WHITE },
@@ -129,9 +88,7 @@ describe("Zobrist", () => {
     });
 
     test("a normal knight move round-trips", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       roundTrip(ctx, {
         type: NORMAL,
         piece: { type: KNIGHT, color: WHITE },
@@ -155,9 +112,7 @@ describe("Zobrist", () => {
     });
 
     test("a double pawn push (sets EP target) round-trips", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       roundTrip(ctx, {
         type: NORMAL,
         piece: { type: PAWN, color: WHITE },
@@ -169,9 +124,7 @@ describe("Zobrist", () => {
     });
 
     test("an en passant capture round-trips", () => {
-      const ctx = decode(
-        "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2",
-      );
+      const ctx = decode("rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2");
       roundTrip(ctx, {
         type: EN_PASSANT,
         piece: { type: PAWN, color: WHITE },
@@ -183,9 +136,7 @@ describe("Zobrist", () => {
     });
 
     test("a king-side castling round-trips", () => {
-      const ctx = decode(
-        "rnbqk2r/pppppppp/5bn1/8/8/5BN1/PPPPPPPP/RNBQK2R w KQkq - 4 4",
-      );
+      const ctx = decode("rnbqk2r/pppppppp/5bn1/8/8/5BN1/PPPPPPPP/RNBQK2R w KQkq - 4 4");
       roundTrip(ctx, {
         type: CASTLING,
         piece: { type: KING, color: WHITE },
@@ -259,9 +210,7 @@ describe("Zobrist", () => {
 
   describe("multi-move sequence", () => {
     test("a sequence of moves and undos preserves the hash", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       const originalHash = hasher.initHash(ctx);
 
       const moves: Move[] = [
@@ -366,9 +315,7 @@ describe("Zobrist", () => {
 
   describe("en passant target edge case", () => {
     test("a double pawn push then its undo restores the exact original hash", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       const originalHash = hasher.initHash(ctx);
 
       const move: Move = {

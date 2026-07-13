@@ -1,44 +1,11 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import { Board, Square } from "../core/board";
 import type { PieceType } from "../core/piece";
-import {
-  PAWN,
-  KNIGHT,
-  BISHOP,
-  ROOK,
-  QUEEN,
-  KING,
-  WHITE,
-  BLACK,
-} from "../core/piece";
-import {
-  File,
-  Position,
-  NO_POSITION,
-  RANK_1,
-  RANK_2,
-  RANK_7,
-  RANK_8,
-} from "../core/position";
-import {
-  A1,
-  A8,
-  B1,
-  B8,
-  C1,
-  C8,
-  D1,
-  D8,
-  E1,
-  E3,
-  E8,
-  F1,
-  F8,
-  H8,
-} from "../core/position";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import { File, NO_POSITION, Position, RANK_1, RANK_2, RANK_7, RANK_8 } from "../core/position";
+import { A1, A8, B1, B8, C1, C8, D1, D8, E1, E3, E8, F1, F8, H8 } from "../core/position";
 import { TurnContext } from "../core/state";
-
 import { getDefaultParser } from "./default";
 
 describe("FEN", () => {
@@ -64,8 +31,7 @@ describe("FEN", () => {
     });
 
     test("the Kiwipete position round-trips to the same FEN", () => {
-      const fen =
-        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+      const fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
       expect(roundTrip(fen)).toBe(fen);
     });
 
@@ -142,9 +108,7 @@ describe("FEN", () => {
       Board.place(ctx.board, E8, Square.create({ type: QUEEN, color: BLACK }));
       Board.place(ctx.board, F8, Square.create({ type: KING, color: BLACK }));
 
-      expect(parser.encode(ctx).split(" ")[0]).toBe(
-        "pnbrqk2/8/8/8/8/8/8/PNBRQK2",
-      );
+      expect(parser.encode(ctx).split(" ")[0]).toBe("pnbrqk2/8/8/8/8/8/8/PNBRQK2");
     });
 
     test("side to move emits 'w' for white", () => {
@@ -238,39 +202,14 @@ describe("FEN", () => {
 
     test("a complete hand-built position encodes to the expected FEN", () => {
       const ctx = TurnContext.create();
-      const back: readonly PieceType[] = [
-        ROOK,
-        KNIGHT,
-        BISHOP,
-        QUEEN,
-        KING,
-        BISHOP,
-        KNIGHT,
-        ROOK,
-      ];
+      const back: readonly PieceType[] = [ROOK, KNIGHT, BISHOP, QUEEN, KING, BISHOP, KNIGHT, ROOK];
 
       for (const [f, pieceType] of back.entries()) {
         const file = File(f);
-        Board.place(
-          ctx.board,
-          Position.create(file, RANK_1),
-          Square.create({ type: pieceType, color: WHITE }),
-        );
-        Board.place(
-          ctx.board,
-          Position.create(file, RANK_2),
-          Square.create({ type: PAWN, color: WHITE }),
-        );
-        Board.place(
-          ctx.board,
-          Position.create(file, RANK_7),
-          Square.create({ type: PAWN, color: BLACK }),
-        );
-        Board.place(
-          ctx.board,
-          Position.create(file, RANK_8),
-          Square.create({ type: pieceType, color: BLACK }),
-        );
+        Board.place(ctx.board, Position.create(file, RANK_1), Square.create({ type: pieceType, color: WHITE }));
+        Board.place(ctx.board, Position.create(file, RANK_2), Square.create({ type: PAWN, color: WHITE }));
+        Board.place(ctx.board, Position.create(file, RANK_7), Square.create({ type: PAWN, color: BLACK }));
+        Board.place(ctx.board, Position.create(file, RANK_8), Square.create({ type: pieceType, color: BLACK }));
       }
 
       ctx.sideToMove = WHITE;

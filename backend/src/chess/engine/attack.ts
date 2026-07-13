@@ -1,19 +1,13 @@
-import type { BoardContext } from "../core/state";
-import type { PieceColor } from "../core/piece";
-import type { IPieces } from "../piece/piece";
-
 import { Board, Square } from "../core/board";
+import type { PieceColor } from "../core/piece";
 import { BISHOP, QUEEN, ROOK } from "../core/piece";
-import { Position, File, Rank } from "../core/position";
+import { File, Position, Rank } from "../core/position";
+import type { BoardContext } from "../core/state";
 import { BishopDirections } from "../piece/bishop";
+import type { IPieces } from "../piece/piece";
 import { RookDirections } from "../piece/rook";
 
-export function isSquareAttackedImpl(
-  pieces: IPieces,
-  target: Position,
-  color: PieceColor,
-  ctx: BoardContext,
-): boolean {
+export function isSquareAttackedImpl(pieces: IPieces, target: Position, color: PieceColor, ctx: BoardContext): boolean {
   if (pieces.knight.isAttacking(color, target, ctx)) {
     return true;
   }

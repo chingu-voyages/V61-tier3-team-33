@@ -1,16 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  Piece,
-  PieceColor,
-  PAWN,
-  KNIGHT,
-  BISHOP,
-  ROOK,
-  QUEEN,
-  KING,
-  WHITE,
-  BLACK,
-} from "./piece";
+
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, Piece, PieceColor, QUEEN, ROOK, WHITE } from "./piece";
 import { RANK_1, RANK_8 } from "./position";
 
 describe("PieceColor", () => {

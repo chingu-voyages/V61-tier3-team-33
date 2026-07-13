@@ -1,17 +1,18 @@
 import { describe, expect, test } from "bun:test";
+
 import {
-  GameStatus,
-  IN_PROGRESS,
   CHECKMATE,
   DRAW,
   DrawReason,
+  FIFTY_MOVE_RULE,
+  GameStatus,
+  IN_PROGRESS,
+  INSUFFICIENT_MATERIAL,
   NO_DRAW_REASON,
   STALEMATE,
   THREEFOLD_REPETITION,
-  FIFTY_MOVE_RULE,
-  INSUFFICIENT_MATERIAL,
 } from "./game";
-import { WHITE, BLACK } from "./piece";
+import { BLACK, WHITE } from "./piece";
 
 describe("GameStatus", () => {
   test("IN_PROGRESS → 0", () => expect(IN_PROGRESS).toBe(GameStatus(0)));
@@ -40,21 +41,12 @@ describe("GameStatus", () => {
 describe("DrawReason", () => {
   test("NO_DRAW_REASON → 0", () => expect(NO_DRAW_REASON).toBe(DrawReason(0)));
   test("STALEMATE → 1", () => expect(STALEMATE).toBe(DrawReason(1)));
-  test("THREEFOLD_REPETITION → 2", () =>
-    expect(THREEFOLD_REPETITION).toBe(DrawReason(2)));
-  test("FIFTY_MOVE_RULE → 3", () =>
-    expect(FIFTY_MOVE_RULE).toBe(DrawReason(3)));
-  test("INSUFFICIENT_MATERIAL → 4", () =>
-    expect(INSUFFICIENT_MATERIAL).toBe(DrawReason(4)));
+  test("THREEFOLD_REPETITION → 2", () => expect(THREEFOLD_REPETITION).toBe(DrawReason(2)));
+  test("FIFTY_MOVE_RULE → 3", () => expect(FIFTY_MOVE_RULE).toBe(DrawReason(3)));
+  test("INSUFFICIENT_MATERIAL → 4", () => expect(INSUFFICIENT_MATERIAL).toBe(DrawReason(4)));
 
   test("constants are pairwise distinct", () => {
-    const all = [
-      NO_DRAW_REASON,
-      STALEMATE,
-      THREEFOLD_REPETITION,
-      FIFTY_MOVE_RULE,
-      INSUFFICIENT_MATERIAL,
-    ];
+    const all = [NO_DRAW_REASON, STALEMATE, THREEFOLD_REPETITION, FIFTY_MOVE_RULE, INSUFFICIENT_MATERIAL];
     const distinct = new Set(all as readonly number[]);
     expect(distinct.size).toBe(all.length);
   });
@@ -117,12 +109,7 @@ describe("GameResult", () => {
   });
 
   test("draw result has no winner and a non-zero draw reason", () => {
-    const reasons = [
-      STALEMATE,
-      THREEFOLD_REPETITION,
-      FIFTY_MOVE_RULE,
-      INSUFFICIENT_MATERIAL,
-    ];
+    const reasons = [STALEMATE, THREEFOLD_REPETITION, FIFTY_MOVE_RULE, INSUFFICIENT_MATERIAL];
     for (const reason of reasons) {
       const result = {
         status: DRAW,

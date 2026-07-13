@@ -1,16 +1,9 @@
 import { describe, expect, test } from "bun:test";
+
 import { Board, Square } from "../core/board";
 import { CASTLING, type Move } from "../core/move";
-import {
-  BISHOP,
-  KING,
-  KNIGHT,
-  QUEEN,
-  ROOK,
-  PieceColor,
-  WHITE,
-  BLACK,
-} from "../core/piece";
+import type { PieceColor } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, QUEEN, ROOK, WHITE } from "../core/piece";
 import {
   A4,
   A6,
@@ -26,11 +19,11 @@ import {
   E8,
   F1,
   F8,
+  FILE_C,
+  FILE_E,
   G1,
   G8,
   Position,
-  FILE_C,
-  FILE_E,
   RANK_2,
   RANK_6,
 } from "../core/position";
@@ -49,12 +42,7 @@ describe("Engine", () => {
     { kingPosition: E8, canCastleKingSide: true, canCastleQueenSide: true },
   ];
 
-  function expectCastling(
-    moves: Move[],
-    from: Position,
-    to: Position,
-    color: PieceColor,
-  ): void {
+  function expectCastling(moves: Move[], from: Position, to: Position, color: PieceColor): void {
     expect(moves).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -70,9 +58,7 @@ describe("Engine", () => {
   }
 
   function expectNoCastling(moves: Move[], from: Position, to: Position): void {
-    expect(
-      moves.find((m) => m.type === CASTLING && m.from === from && m.to === to),
-    ).toBeUndefined();
+    expect(moves.find((m) => m.type === CASTLING && m.from === from && m.to === to)).toBeUndefined();
   }
 
   function kingCtx(
@@ -108,11 +94,7 @@ describe("Engine", () => {
 
       test("friendly piece dispatches to correct piece type", () => {
         const ctx = TurnContext.create();
-        Board.place(
-          ctx.board,
-          D4,
-          Square.create({ type: KNIGHT, color: WHITE }),
-        );
+        Board.place(ctx.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
         const moves: Move[] = [];
         const result = engine.getPseudoLegalMoves(moves, D4, ctx);
         expect(result.length).toBeGreaterThan(0);

@@ -1,25 +1,12 @@
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-
-import { Knight } from "./knight";
-import { NORMAL } from "../core/move";
-import { SideState } from "../core/state";
-import { Board, Square } from "../core/board";
 import { describe, expect, test } from "bun:test";
+
+import { Board, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { NORMAL } from "../core/move";
 import type { Piece } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import type { Position } from "../core/position";
 import {
-  KNIGHT,
-  PAWN,
-  ROOK,
-  QUEEN,
-  BISHOP,
-  KING,
-  WHITE,
-  BLACK,
-} from "../core/piece";
-import {
-  Position,
-  NO_POSITION,
   A1,
   A4,
   A8,
@@ -57,7 +44,11 @@ import {
   H4,
   H7,
   H8,
+  NO_POSITION,
 } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import { SideState } from "../core/state";
+import { Knight } from "./knight";
 
 describe("Knight", () => {
   const knight = new Knight();
@@ -68,10 +59,7 @@ describe("Knight", () => {
     return { board };
   }
 
-  function moveCtx(
-    init: (b: Board) => void,
-    side: typeof WHITE | typeof BLACK,
-  ): MoveContext {
+  function moveCtx(init: (b: Board) => void, side: typeof WHITE | typeof BLACK): MoveContext {
     const board = Board.create();
     init(board);
     return {
@@ -85,35 +73,27 @@ describe("Knight", () => {
   describe("isAttacking", () => {
     test("a white knight on any of the 8 L-shape squares around E4 attacks E4", () => {
       for (const from of [C3, C5, D2, D6, F2, F6, G3, G5] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })));
         expect(knight.isAttacking(WHITE, E4, c)).toBe(true);
       }
     });
 
     test("a knight on a non-L-shape square does not attack E4", () => {
       for (const from of [D3, E6, H4, G6, H7] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })));
         expect(knight.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
 
     test("a knight of the wrong color is ignored", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, D6, Square.create({ type: KNIGHT, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, D6, Square.create({ type: KNIGHT, color: BLACK })));
       expect(knight.isAttacking(WHITE, E4, c)).toBe(false);
       expect(knight.isAttacking(BLACK, E4, c)).toBe(true);
     });
 
     test("a non-knight piece on an L-shape square does not trigger a knight attack", () => {
       for (const pt of [QUEEN, ROOK, BISHOP, KING, PAWN] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, D6, Square.create({ type: pt, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, D6, Square.create({ type: pt, color: WHITE })));
         expect(knight.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
@@ -124,53 +104,39 @@ describe("Knight", () => {
     });
 
     test("a knight sitting on the target square itself does not attack it", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E4, Square.create({ type: KNIGHT, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, E4, Square.create({ type: KNIGHT, color: WHITE })));
       expect(knight.isAttacking(WHITE, E4, c)).toBe(false);
     });
 
     test("corner A1 is attacked from B3 and C2 only", () => {
       for (const from of [B3, C2] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })));
         expect(knight.isAttacking(WHITE, A1, c)).toBe(true);
       }
-      const c = boardCtx((b) =>
-        Board.place(b, H8, Square.create({ type: KNIGHT, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, H8, Square.create({ type: KNIGHT, color: WHITE })));
       expect(knight.isAttacking(WHITE, A1, c)).toBe(false);
     });
 
     test("corner H8 is attacked from F7 and G6", () => {
       for (const from of [F7, G6] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })));
         expect(knight.isAttacking(WHITE, H8, c)).toBe(true);
       }
     });
 
     test("corner A8 is attacked from B6", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, B6, Square.create({ type: KNIGHT, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, B6, Square.create({ type: KNIGHT, color: WHITE })));
       expect(knight.isAttacking(WHITE, A8, c)).toBe(true);
     });
 
     test("corner H1 is attacked from F2", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, F2, Square.create({ type: KNIGHT, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, F2, Square.create({ type: KNIGHT, color: WHITE })));
       expect(knight.isAttacking(WHITE, H1, c)).toBe(true);
     });
 
     test("edge target A4 is attacked from its 4 L-shape squares", () => {
       for (const from of [B6, C5, B2, C3] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: KNIGHT, color: WHITE })));
         expect(knight.isAttacking(WHITE, A4, c)).toBe(true);
       }
     });
@@ -204,16 +170,7 @@ describe("Knight", () => {
   describe("attacks", () => {
     test("knight on center D4 threatens all 8 L-shape squares", () => {
       const c = boardCtx(() => {});
-      expect(knight.attacks([], D4, c)).toEqual([
-        E6,
-        E2,
-        C6,
-        C2,
-        F5,
-        F3,
-        B5,
-        B3,
-      ]);
+      expect(knight.attacks([], D4, c)).toEqual([E6, E2, C6, C2, F5, F3, B5, B3]);
     });
 
     test("knight on corner A1 threatens 2 squares", () => {
@@ -288,30 +245,17 @@ describe("Knight", () => {
 
     test("knight on edge A4 with an empty board has 4 moves", () => {
       const c = moveCtx(() => {}, WHITE);
-      expect(dests(knight.pseudoLegalMoves([], A4, c))).toEqual([
-        B6,
-        B2,
-        C5,
-        C3,
-      ]);
+      expect(dests(knight.pseudoLegalMoves([], A4, c))).toEqual([B6, B2, C5, C3]);
     });
 
     test("a square occupied by a friendly piece is excluded from the move list", () => {
-      const c = moveCtx(
-        (b) =>
-          Board.place(b, E6, Square.create({ type: KNIGHT, color: WHITE })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, E6, Square.create({ type: KNIGHT, color: WHITE })), WHITE);
       const moves = knight.pseudoLegalMoves([], D4, c);
       expect(dests(moves)).toEqual([E2, C6, C2, F5, F3, B5, B3]);
     });
 
     test("a square occupied by an enemy piece is included as a capture", () => {
-      const c = moveCtx(
-        (b) =>
-          Board.place(b, E6, Square.create({ type: KNIGHT, color: BLACK })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, E6, Square.create({ type: KNIGHT, color: BLACK })), WHITE);
       const moves = knight.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual(d4Attacks);
@@ -371,11 +315,7 @@ describe("Knight", () => {
     });
 
     test("a black knight treats white pieces as enemies (captures) and black as own", () => {
-      const c = moveCtx(
-        (b) =>
-          Board.place(b, E6, Square.create({ type: KNIGHT, color: WHITE })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, E6, Square.create({ type: KNIGHT, color: WHITE })), BLACK);
       const moves = knight.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual(d4Attacks);
@@ -386,11 +326,7 @@ describe("Knight", () => {
     });
 
     test("a black knight treats black pieces as own (excluded)", () => {
-      const c = moveCtx(
-        (b) =>
-          Board.place(b, E6, Square.create({ type: KNIGHT, color: BLACK })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, E6, Square.create({ type: KNIGHT, color: BLACK })), BLACK);
       const moves = knight.pseudoLegalMoves([], D4, c);
       expect(dests(moves)).toEqual([E2, C6, C2, F5, F3, B5, B3]);
     });

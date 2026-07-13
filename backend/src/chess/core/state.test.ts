@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
+
 import { Board } from "./board";
 import { Square } from "./board";
 import { NORMAL } from "./move";
-import { PAWN, ROOK, KNIGHT, WHITE, BLACK } from "./piece";
+import { BLACK, KNIGHT, PAWN, ROOK, WHITE } from "./piece";
 import {
   A1,
   A8,
   D1,
-  D8,
   E1,
   E2,
   E3,
@@ -34,11 +34,7 @@ import {
   RANK_6,
   RANK_7,
 } from "./position";
-import {
-  SideState,
-  MoveContext,
-  TurnContext,
-} from "./state";
+import { MoveContext, SideState, TurnContext } from "./state";
 
 describe("SideState", () => {
   describe("empty", () => {
@@ -182,14 +178,7 @@ describe("SideState", () => {
     });
 
     test("intermediate file (FILE_B..FILE_G) clears neither right", () => {
-      const middleFiles = [
-        FILE_B,
-        FILE_C,
-        FILE_D,
-        FILE_E,
-        FILE_F,
-        FILE_G,
-      ];
+      const middleFiles = [FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G];
       for (const file of middleFiles) {
         const side: SideState = {
           kingPosition: E1,
@@ -273,9 +262,7 @@ describe("MoveContext", () => {
 
     test("returns distinct sides for the two colors", () => {
       const ctx = buildCtx();
-      expect(MoveContext.sideOf(ctx, WHITE)).not.toBe(
-        MoveContext.sideOf(ctx, BLACK),
-      );
+      expect(MoveContext.sideOf(ctx, WHITE)).not.toBe(MoveContext.sideOf(ctx, BLACK));
     });
 
     test("returns the live reference (mutating the returned side affects the context)", () => {
@@ -647,7 +634,7 @@ describe("MoveContext", () => {
       MoveContext.setEnPassantTarget(ctx, {
         piece: { type: PAWN, color: BLACK },
         from: Position.create(FILE_E, RANK_7), // E7
-        to: Position.create(FILE_E, RANK_5),   // E5
+        to: Position.create(FILE_E, RANK_5), // E5
         type: NORMAL,
         promoteTo: null,
         captured: null,
@@ -689,7 +676,7 @@ describe("MoveContext", () => {
       MoveContext.setEnPassantTarget(ctx, {
         piece: { type: PAWN, color: WHITE },
         from: Position.create(FILE_D, RANK_2), // D2
-        to: Position.create(FILE_D, RANK_4),   // D4
+        to: Position.create(FILE_D, RANK_4), // D4
         type: NORMAL,
         promoteTo: null,
         captured: null,

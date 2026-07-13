@@ -1,10 +1,9 @@
 import type { TurnContext } from "../core/state";
-import type { IParser } from "./parser";
-
-import { FENError } from "../errors";
 import { TurnContext as TC } from "../core/state";
+import { FENError } from "../errors";
 import { decodeFEN } from "./decode";
 import { encodeFEN } from "./encode";
+import type { IParser } from "./parser";
 
 /**
  * FEN (Forsyth-Edwards Notation) — the standard chess position format.
@@ -24,10 +23,7 @@ import { encodeFEN } from "./encode";
 export class FEN implements IParser {
   decode(str: string): [TurnContext, null] | [null, FENError];
   decode(str: string, ctx: TurnContext): string | null;
-  decode(
-    str: string,
-    ctx?: TurnContext,
-  ): [TurnContext, null] | [null, FENError] | string | null {
+  decode(str: string, ctx?: TurnContext): [TurnContext, null] | [null, FENError] | string | null {
     if (ctx !== undefined) {
       return decodeFEN(str, ctx);
     }
