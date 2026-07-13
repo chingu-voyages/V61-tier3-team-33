@@ -1,13 +1,13 @@
+import type { GameError } from "../types";
 import {
-  GameOutcome,
-  IN_PROGRESS,
   type ClockState,
+  GameOutcome,
   type GameSnapshot,
+  IN_PROGRESS,
   type Move,
   type PieceColor,
   type Position,
 } from "../types";
-import type { MoveError, SelectError } from "../types";
 
 type WebSocket = unknown;
 
@@ -30,6 +30,9 @@ export const MOVE_REJECTED = "move:rejected" as const;
 export const UNDO_REQUESTED = "undo:requested" as const;
 export const UNDO_APPLIED = "undo:applied" as const;
 export const UNDO_DECLINED = "undo:declined" as const;
+export const UNDO_CANCELLED = "undo:cancelled" as const;
+export const UNDO_EXPIRED = "undo:expired" as const;
+export const UNDO_INVALIDATED = "undo:invalidated" as const;
 
 // Position selection (click-a-piece step before move:make) — emitted by Game
 export const POSITION_ACCEPTED = "position:accept" as const;
@@ -109,7 +112,7 @@ export type Notification =
       type: typeof MOVE_REJECTED;
       roomId: string;
       by: PieceColor;
-      reason: MoveError;
+      reason: GameError;
       from: Position;
       to: Position;
     }
@@ -117,6 +120,7 @@ export type Notification =
       type: typeof UNDO_REQUESTED;
       roomId: string;
       by: PieceColor;
+      /** When the opponent's accept window closes (existing consent timeout). */
       expiresAt: number;
     }
   | {
@@ -131,6 +135,18 @@ export type Notification =
       by: PieceColor;
     }
   | {
+      type: typeof UNDO_CANCELLED;
+      roomId: string;
+    }
+  | {
+      type: typeof UNDO_EXPIRED;
+      roomId: string;
+    }
+  | {
+      type: typeof UNDO_INVALIDATED;
+      roomId: string;
+    }
+  | {
       type: typeof POSITION_ACCEPTED;
       roomId: string;
       position: Position;
@@ -140,7 +156,7 @@ export type Notification =
       type: typeof POSITION_REJECTED;
       roomId: string;
       position: Position;
-      reason: SelectError;
+      reason: GameError;
     }
   | {
       type: typeof CLOCK_STARTED;
@@ -180,6 +196,9 @@ export type Notification =
 // Notification — the type system rejects Signals at that boundary.
 export type Event = Notification | Signal;
 
+/** Extract the specific Event variant for a given type string. */
+export type Events<T extends string> = Extract<Event, { type: T }>;
+
 /**
  * The single place that builds every Signal. Same rationale as
  * Notifications below: one spot owns each signal's exact shape instead of
@@ -214,11 +233,7 @@ export const Signals = {
  * for "what events exist, what do they carry, and how are they built."
  */
 export const Notifications = {
-  roomJoined(
-    roomId: string,
-    color: PieceColor,
-    state: GameSnapshot,
-  ): Notification {
+  roomJoined(roomId: string, color: PieceColor, state: GameSnapshot): Notification {
     return { type: ROOM_JOINED, roomId, color, state };
   },
 
@@ -231,11 +246,7 @@ export const Notifications = {
     return { type: ROOM_LEFT, roomId, color };
   },
 
-  gameEnded(
-    roomId: string,
-    result: GameOutcome,
-    winner: PieceColor | null,
-  ): Notification {
+  gameEnded(roomId: string, result: GameOutcome, winner: PieceColor | null): Notification {
     return { type: GAME_ENDED, roomId, result, winner };
   },
 
@@ -243,12 +254,7 @@ export const Notifications = {
    * Derives isGameOver/result from the post-move snapshot itself, so
    * callers just hand over the snapshot instead of recomputing it.
    */
-  moveMade(
-    roomId: string,
-    by: PieceColor,
-    move: Move,
-    snapshot: GameSnapshot,
-  ): Notification {
+  moveMade(roomId: string, by: PieceColor, move: Move, snapshot: GameSnapshot): Notification {
     const isGameOver = snapshot.resultStatus !== IN_PROGRESS;
 
     return {
@@ -264,21 +270,11 @@ export const Notifications = {
     };
   },
 
-  moveRejected(
-    roomId: string,
-    by: PieceColor,
-    reason: MoveError,
-    from: Position,
-    to: Position,
-  ): Notification {
+  moveRejected(roomId: string, by: PieceColor, reason: GameError, from: Position, to: Position): Notification {
     return { type: MOVE_REJECTED, roomId, by, reason, from, to };
   },
 
-  undoRequested(
-    roomId: string,
-    by: PieceColor,
-    expiresAt: number,
-  ): Notification {
+  undoRequested(roomId: string, by: PieceColor, expiresAt: number): Notification {
     return { type: UNDO_REQUESTED, roomId, by, expiresAt };
   },
 
@@ -290,35 +286,31 @@ export const Notifications = {
     return { type: UNDO_DECLINED, roomId, by };
   },
 
-  positionAccepted(
-    roomId: string,
-    position: Position,
-    moves: Position[],
-  ): Notification {
+  undoCancelled(roomId: string): Notification {
+    return { type: UNDO_CANCELLED, roomId };
+  },
+
+  undoExpired(roomId: string): Notification {
+    return { type: UNDO_EXPIRED, roomId };
+  },
+
+  undoInvalidated(roomId: string): Notification {
+    return { type: UNDO_INVALIDATED, roomId };
+  },
+
+  positionAccepted(roomId: string, position: Position, moves: Position[]): Notification {
     return { type: POSITION_ACCEPTED, roomId, position, moves };
   },
 
-  positionRejected(
-    roomId: string,
-    position: Position,
-    reason: SelectError,
-  ): Notification {
+  positionRejected(roomId: string, position: Position, reason: GameError): Notification {
     return { type: POSITION_REJECTED, roomId, position, reason };
   },
 
-  clockStarted(
-    roomId: string,
-    color: PieceColor,
-    remainingMs: number,
-  ): Notification {
+  clockStarted(roomId: string, color: PieceColor, remainingMs: number): Notification {
     return { type: CLOCK_STARTED, roomId, color, remainingMs };
   },
 
-  clockPaused(
-    roomId: string,
-    color: PieceColor,
-    remainingMs: number,
-  ): Notification {
+  clockPaused(roomId: string, color: PieceColor, remainingMs: number): Notification {
     return { type: CLOCK_PAUSED, roomId, color, remainingMs };
   },
 
@@ -327,11 +319,7 @@ export const Notifications = {
   },
 
   /** Emitted when a disconnected player's grace period begins. */
-  graceStarted(
-    roomId: string,
-    color: PieceColor,
-    deadlineMs: number,
-  ): Notification {
+  graceStarted(roomId: string, color: PieceColor, deadlineMs: number): Notification {
     return { type: GRACE_STARTED, roomId, color, deadlineMs };
   },
 

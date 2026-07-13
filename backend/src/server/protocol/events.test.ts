@@ -1,51 +1,52 @@
 import { describe, expect, it } from "bun:test";
-import { Signals, Notifications } from "./events";
+
 import {
-  CONNECTION_OPENED,
-  CONNECTION_CLOSED,
-  CONNECTION_RESUMED,
-  ROOM_JOINED,
-  GAME_STARTED,
-  ROOM_LEFT,
-  GAME_ENDED,
-  MOVE_MADE,
-  MOVE_REJECTED,
-  UNDO_REQUESTED,
-  UNDO_APPLIED,
-  UNDO_DECLINED,
-  POSITION_ACCEPTED,
-  POSITION_REJECTED,
-  CLOCK_STARTED,
-  CLOCK_PAUSED,
-  CLOCK_EXPIRED,
-  GRACE_STARTED,
-  GRACE_CANCELLED,
-  GRACE_EXPIRED,
-} from "./events";
-import {
-  WHITE,
+  ACTIVE,
   BLACK,
-  IN_PROGRESS,
   CHECKMATE,
   DRAW,
-  NO_DRAW_REASON,
-  STALEMATE,
-  RULES,
-  TIMEOUT,
-  RESIGNATION,
-  NORMAL,
-  PAWN,
-  QUEEN,
-  Position,
-  ILLEGAL_MOVE,
-  SELECT_NOT_YOUR_PIECE,
-  type Move,
   type GameSnapshot,
+  ILLEGAL_MOVE,
+  IN_PROGRESS,
+  type Move,
+  NO_DRAW_REASON,
+  NORMAL,
+  NOT_YOUR_PIECE,
+  PAWN,
+  Position,
+  RESIGNATION,
+  RULES,
+  STALEMATE,
+  WHITE,
 } from "../types";
+import { Notifications, Signals } from "./events";
+import {
+  CLOCK_EXPIRED,
+  CLOCK_PAUSED,
+  CLOCK_STARTED,
+  CONNECTION_CLOSED,
+  CONNECTION_OPENED,
+  CONNECTION_RESUMED,
+  GAME_ENDED,
+  GAME_STARTED,
+  GRACE_CANCELLED,
+  GRACE_EXPIRED,
+  GRACE_STARTED,
+  MOVE_MADE,
+  MOVE_REJECTED,
+  POSITION_ACCEPTED,
+  POSITION_REJECTED,
+  ROOM_JOINED,
+  ROOM_LEFT,
+  UNDO_APPLIED,
+  UNDO_DECLINED,
+  UNDO_REQUESTED,
+} from "./events";
 
 function snap(overrides?: Partial<GameSnapshot>): GameSnapshot {
   return {
-    status: 1 as any,
+    status: ACTIVE,
+    moveSeq: 0,
     fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     turn: WHITE,
     isCheck: false,
@@ -81,7 +82,7 @@ function aMove(overrides?: Partial<Move>): Move {
 
 describe("Signals", () => {
   it("connectionOpened builds a CONNECTION_OPENED signal with playerId, ws, and null roomId", () => {
-    const ws = "ws-1" as any;
+    const ws: unknown = "ws-1";
     const signal = Signals.connectionOpened("p1", ws);
 
     expect(signal).toEqual({
@@ -93,7 +94,7 @@ describe("Signals", () => {
   });
 
   it("connectionClosed builds a CONNECTION_CLOSED signal with playerId, ws, and null roomId", () => {
-    const ws = "ws-2" as any;
+    const ws: unknown = "ws-2";
     const signal = Signals.connectionClosed("p2", ws);
 
     expect(signal).toEqual({
@@ -105,7 +106,7 @@ describe("Signals", () => {
   });
 
   it("connectionResumed builds a CONNECTION_RESUMED signal with playerId, ws, and null roomId", () => {
-    const ws = "ws-3" as any;
+    const ws: unknown = "ws-3";
     const signal = Signals.connectionResumed("p3", ws);
 
     expect(signal).toEqual({
@@ -117,7 +118,7 @@ describe("Signals", () => {
   });
 
   it("all signals have roomId: null (never sent to clients)", () => {
-    const ws = "ws" as any;
+    const ws: unknown = "ws";
     const opened = Signals.connectionOpened("p", ws);
     const closed = Signals.connectionClosed("p", ws);
     const resumed = Signals.connectionResumed("p", ws);
@@ -130,7 +131,7 @@ describe("Signals", () => {
 
 describe("Notifications", () => {
   describe("room:joined", () => {
-    it("builds a ROOM_JOINED notification carrying roomId, color, and full state snapshot", () => {
+    it("builds a ROOM_JOINED notification carrying roomId, color, and state snapshot", () => {
       const state = snap();
       const event = Notifications.roomJoined("room-1", WHITE, state);
 
@@ -225,7 +226,10 @@ describe("Notifications", () => {
       const event = Notifications.moveMade("room-1", WHITE, move, state);
 
       expect(event.type).toBe(MOVE_MADE);
-      const ev = event as { isGameOver: boolean; result: { status: unknown; hasWinner: boolean; reason: unknown } | null };
+      const ev = event as {
+        isGameOver: boolean;
+        result: { status: unknown; hasWinner: boolean; reason: unknown } | null;
+      };
       expect(ev.isGameOver).toBe(true);
       expect(ev.result).not.toBeNull();
       expect(ev.result!.status).toBe(CHECKMATE);
@@ -341,13 +345,13 @@ describe("Notifications", () => {
 
   describe("position:reject", () => {
     it("builds a POSITION_REJECTED notification with rejection reason", () => {
-      const event = Notifications.positionRejected("room-1", E2 as Position, SELECT_NOT_YOUR_PIECE);
+      const event = Notifications.positionRejected("room-1", E2 as Position, NOT_YOUR_PIECE);
 
       expect(event).toEqual({
         type: POSITION_REJECTED,
         roomId: "room-1",
         position: E2,
-        reason: SELECT_NOT_YOUR_PIECE,
+        reason: NOT_YOUR_PIECE,
       });
     });
   });
@@ -418,4 +422,4 @@ describe("Notifications", () => {
       });
     });
   });
-})
+});
