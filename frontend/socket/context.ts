@@ -6,6 +6,7 @@ type Unsubscribe = () => void
 
 export interface Socket {
   status: SocketStatus
+  prevStatus: SocketStatus | null
   attempt: number
   send: (command: object) => void
   reconnect: () => void

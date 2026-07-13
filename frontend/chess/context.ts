@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, use } from "react"
-import type { ChessState } from "./store"
+import type { ChessState } from "./index"
 import type { Position } from "./core/position"
 import type { PieceType } from "./core/piece"
 

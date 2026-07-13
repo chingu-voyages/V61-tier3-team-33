@@ -12,6 +12,7 @@ describe("useSocketContext", () => {
   test("returns context value when provided", () => {
     const fakeSocket: Socket = {
       status: "open",
+      prevStatus: "connecting",
       attempt: 0,
       send: () => {},
       reconnect: () => {},

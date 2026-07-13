@@ -2,7 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react"
 import { ChessContext } from "./context"
-import { ChessStoreImpl } from "./store"
+import { Chess } from "./index"
 import { useSocketContext } from "@/socket/context"
 import { useSocketEvent } from "@/socket/use-event"
 import {
@@ -18,7 +18,7 @@ import {
 export function ChessProvider({ children }: { children: React.ReactNode }) {
   const { send } = useSocketContext()
 
-  const store = useMemo(() => new ChessStoreImpl(send), [send])
+  const store = useMemo(() => new Chess(send), [send])
 
   const state = useSyncExternalStore(
     store.subscribe,
