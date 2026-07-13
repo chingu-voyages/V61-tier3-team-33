@@ -1,21 +1,34 @@
 import { describe, expect, it } from "bun:test";
-import { JsonCodec } from "./json";
+
 import {
-  SESSION_HANDSHAKE,
-  SESSION_PONG,
+  type Command,
+  GAME_RESIGN,
+  MOVE_MAKE,
+  POSITION_SELECT,
   ROOM_JOIN,
   ROOM_LEAVE,
-  MOVE_MAKE,
-  UNDO_REQUEST,
+  SESSION_HANDSHAKE,
+  SESSION_PONG,
+  STATE_SYNC,
   UNDO_ACCEPT,
   UNDO_DECLINE,
-  GAME_RESIGN,
-  STATE_SYNC,
-  POSITION_SELECT,
-  type Command,
+  UNDO_REQUEST,
 } from "../protocol/commands";
 import { ROOM_JOINED } from "../protocol/events";
-import { HUMAN_VS_HUMAN, WHITE, EASY, DEFAULT, BULLET, BLITZ, SWIFT, STEADY, PATIENT, CASUAL } from "../types";
+import {
+  BLITZ,
+  BULLET,
+  CASUAL,
+  DEFAULT,
+  EASY,
+  type GameSnapshot,
+  HUMAN_VS_HUMAN,
+  PATIENT,
+  STEADY,
+  SWIFT,
+  WHITE,
+} from "../types";
+import { JsonCodec } from "./json";
 
 const codec = new JsonCodec();
 
@@ -49,15 +62,7 @@ describe("JsonCodec.decode", () => {
   });
 
   describe("no-field commands", () => {
-    const noFieldTypes = [
-      SESSION_PONG,
-      ROOM_LEAVE,
-      UNDO_REQUEST,
-      UNDO_ACCEPT,
-      UNDO_DECLINE,
-      GAME_RESIGN,
-      STATE_SYNC,
-    ];
+    const noFieldTypes = [SESSION_PONG, ROOM_LEAVE, UNDO_REQUEST, UNDO_ACCEPT, UNDO_DECLINE, GAME_RESIGN, STATE_SYNC];
 
     for (const type of noFieldTypes) {
       it(`decodes ${type} with no extra fields required`, () => {
@@ -121,15 +126,11 @@ describe("JsonCodec.decode", () => {
     });
 
     it("rejects a non-string roomId", () => {
-      expect(
-        codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, roomId: 5 }),
-      ).toBeNull();
+      expect(codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, roomId: 5 })).toBeNull();
     });
 
     it("rejects a non-number color", () => {
-      expect(
-        codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, color: "white" }),
-      ).toBeNull();
+      expect(codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, color: "white" })).toBeNull();
     });
 
     it("rejects a non-number difficulty", () => {
@@ -151,13 +152,13 @@ describe("JsonCodec.decode", () => {
             clock: fmt,
           });
           expect(result).not.toBeNull();
-          expect((result! as any).clock).toBe(fmt);
+          expect((result! as unknown as { clock: unknown }).clock).toBe(fmt);
         }
       });
 
       it("defaults clock to undefined when not provided", () => {
         const result = codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN });
-        expect((result as any).clock).toBeUndefined();
+        expect((result as unknown as { clock: unknown }).clock).toBeUndefined();
       });
 
       it("rejects a non-string clock", () => {
@@ -254,7 +255,7 @@ describe("JsonCodec.encode", () => {
       type: ROOM_JOINED,
       roomId: "room-1",
       color: WHITE,
-      state: {} as any,
+      state: {} as unknown as GameSnapshot,
     } as const;
     const encoded = codec.encode(event);
     expect(JSON.parse(encoded)).toEqual(event);
@@ -265,7 +266,7 @@ describe("JsonCodec.encode", () => {
       type: ROOM_JOINED,
       roomId: "room-1",
       color: WHITE,
-      state: {} as any,
+      state: {} as unknown as GameSnapshot,
     } as const;
     const roundTripped = JSON.parse(codec.encode(event));
     expect(roundTripped).toEqual(event);
