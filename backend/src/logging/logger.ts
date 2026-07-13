@@ -4,7 +4,6 @@ import { Format } from "./format";
 
 const MAX_INLINE_FIELDS = 300;
 
-
 export interface LogFields {
   [key: string]: unknown;
 }
