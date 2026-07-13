@@ -1,7 +1,7 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import { logger } from "./log";
-import { loggingConfig } from "./config";
-import type { LogLevel } from "./config";
+
+import { DEBUG, ERROR, INFO, JSON_FORMAT, loggingConfig, type LogLevel, WARN } from "./config";
+import { logger } from "./logger";
 
 describe("logger", () => {
   // logger.ts's own LEVEL_ORDER isn't exported, so it's reproduced here to
@@ -10,28 +10,23 @@ describe("logger", () => {
   // LOG_LEVEL/LOG_ENABLED/LOG_FORMAT are active when `bun test` runs,
   // instead of assuming one fixed environment.
   const LEVEL_ORDER: Record<LogLevel, number> = {
-    debug: 0,
-    info: 1,
-    warn: 2,
-    error: 3,
+    [DEBUG]: 0,
+    [INFO]: 1,
+    [WARN]: 2,
+    [ERROR]: 3,
   };
 
   function passesLevel(level: LogLevel): boolean {
-    return LEVEL_ORDER[level] >= LEVEL_ORDER[loggingConfig.level];
+    const a = LEVEL_ORDER[level];
+    const b = LEVEL_ORDER[loggingConfig.level];
+    return a !== undefined && b !== undefined && a >= b;
   }
 
   function withStreamSpies<T>(
-    fn: (spies: {
-      stdout: ReturnType<typeof spyOn>;
-      stderr: ReturnType<typeof spyOn>;
-    }) => T,
+    fn: (spies: { stdout: ReturnType<typeof spyOn>; stderr: ReturnType<typeof spyOn> }) => T,
   ): T {
-    const stdout = spyOn(process.stdout, "write").mockImplementation(
-      () => true,
-    );
-    const stderr = spyOn(process.stderr, "write").mockImplementation(
-      () => true,
-    );
+    const stdout = spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
       return fn({ stdout, stderr });
     } finally {
@@ -59,7 +54,7 @@ describe("logger", () => {
       withStreamSpies(({ stdout, stderr }) => {
         logger[level](`${level} message`);
 
-        if (loggingConfig.enabled && passesLevel(level)) {
+        if (loggingConfig.enabled && passesLevel(level as LogLevel)) {
           expect(stdout).toHaveBeenCalledTimes(1);
         } else {
           expect(stdout).not.toHaveBeenCalled();
@@ -74,7 +69,7 @@ describe("logger", () => {
     withStreamSpies(({ stdout, stderr }) => {
       logger.error("error message");
 
-      if (loggingConfig.enabled && passesLevel("error")) {
+      if (loggingConfig.enabled && passesLevel(ERROR)) {
         expect(stderr).toHaveBeenCalledTimes(1);
       } else {
         expect(stderr).not.toHaveBeenCalled();
@@ -87,7 +82,7 @@ describe("logger", () => {
     withStreamSpies(({ stdout }) => {
       logger.info("hello world", { userId: "u1" });
 
-      if (!loggingConfig.enabled || !passesLevel("info")) {
+      if (!loggingConfig.enabled || !passesLevel(INFO)) {
         expect(stdout).not.toHaveBeenCalled();
         return;
       }
@@ -95,7 +90,7 @@ describe("logger", () => {
       expect(stdout).toHaveBeenCalledTimes(1);
       const [written] = stdout.mock.calls[0] as [string];
 
-      if (loggingConfig.format === "json") {
+      if (loggingConfig.format === JSON_FORMAT) {
         const parsed = JSON.parse(written);
         expect(parsed.msg).toBe("hello world");
         expect(parsed.level).toBe("info");
@@ -114,7 +109,7 @@ describe("logger", () => {
       const child = logger.child({ module: "test-module" });
       child.info("child message");
 
-      if (!loggingConfig.enabled || !passesLevel("info")) {
+      if (!loggingConfig.enabled || !passesLevel(INFO)) {
         expect(stdout).not.toHaveBeenCalled();
         return;
       }
@@ -122,7 +117,7 @@ describe("logger", () => {
       expect(stdout).toHaveBeenCalledTimes(1);
       const [written] = stdout.mock.calls[0] as [string];
 
-      if (loggingConfig.format === "json") {
+      if (loggingConfig.format === JSON_FORMAT) {
         expect(JSON.parse(written).module).toBe("test-module");
       } else {
         expect(written).toContain("test-module");
@@ -135,7 +130,7 @@ describe("logger", () => {
       const child = logger.child({ userId: "context-value" });
       child.info("msg", { userId: "call-site-value" });
 
-      if (!loggingConfig.enabled || !passesLevel("info")) {
+      if (!loggingConfig.enabled || !passesLevel(INFO)) {
         expect(stdout).not.toHaveBeenCalled();
         return;
       }
@@ -153,11 +148,7 @@ describe("logger", () => {
       logger.child({ module: "child-only" });
       logger.info("parent message");
 
-      if (
-        !loggingConfig.enabled ||
-        !passesLevel("info") ||
-        loggingConfig.format !== "json"
-      ) {
+      if (!loggingConfig.enabled || !passesLevel(INFO) || loggingConfig.format !== JSON_FORMAT) {
         return;
       }
 
@@ -171,11 +162,7 @@ describe("logger", () => {
       const child = logger.child({ a: 1 }).child({ b: 2 });
       child.info("nested", { c: 3 });
 
-      if (
-        !loggingConfig.enabled ||
-        !passesLevel("info") ||
-        loggingConfig.format !== "json"
-      ) {
+      if (!loggingConfig.enabled || !passesLevel(INFO) || loggingConfig.format !== JSON_FORMAT) {
         return;
       }
 
