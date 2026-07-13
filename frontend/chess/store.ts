@@ -45,7 +45,8 @@ export class ChessStoreImpl implements ChessStore {
   private state: ChessState
   private listeners = new Set<Listener>()
   private chess: Chess
-  private pending: { from: Position; to: Position; snap: Snapshot } | null = null
+  private pending: { from: Position; to: Position; snap: Snapshot } | null =
+    null
   private sendFn: (cmd: object) => void
 
   constructor(send: (cmd: object) => void, fen?: string) {
@@ -96,7 +97,9 @@ export class ChessStoreImpl implements ChessStore {
   makeMove = (from: Position, to: Position): void => {
     if (this.pending) return
     const moves = this.chess.legalMoves(from)
-    const promotionMoves = moves.filter((m) => m.to === to && m.promoteTo !== null)
+    const promotionMoves = moves.filter(
+      (m) => m.to === to && m.promoteTo !== null
+    )
     if (promotionMoves.length > 0) {
       this.setState({ pendingPromotion: { from, to } })
       return
@@ -159,7 +162,11 @@ export class ChessStoreImpl implements ChessStore {
   }
 
   applyMove = (move: Move): void => {
-    if (this.pending && this.pending.from === move.from && this.pending.to === move.to) {
+    if (
+      this.pending &&
+      this.pending.from === move.from &&
+      this.pending.to === move.to
+    ) {
       this.pending = null
       this.setState({ pendingMove: null })
       return

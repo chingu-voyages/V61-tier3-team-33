@@ -84,7 +84,10 @@ function BoardSquareImpl({
     movingPieceColor === WHITE ? "bg-chess-w-fill" : "bg-chess-b-fill"
 
   // Stable per-square callback — only changes if position changes (never).
-  const handleClick = useCallback(() => onSquareClick(position), [onSquareClick, position])
+  const handleClick = useCallback(
+    () => onSquareClick(position),
+    [onSquareClick, position]
+  )
 
   return (
     <div
@@ -101,8 +104,17 @@ function BoardSquareImpl({
             key={`${piece.color}-${piece.type}`}
             initial={{ scale: isLastMoveTo ? 1.08 : 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0, transition: { duration: 0.12, ease: "easeOut" } }}
-            transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.6 }}
+            exit={{
+              scale: 0.9,
+              opacity: 0,
+              transition: { duration: 0.12, ease: "easeOut" },
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 380,
+              damping: 32,
+              mass: 0.6,
+            }}
           >
             {getPieceIcon(piece, { className: "w-full h-full" })}
           </motion.div>

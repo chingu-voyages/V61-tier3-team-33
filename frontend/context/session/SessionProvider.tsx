@@ -17,6 +17,18 @@ const TOKEN_INVALID_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
   "invalid-payload",
 ])
 
+// Only these mean the *session/connection* itself is broken and needs a
+// handshake retry. Everything else (not-in-game, room-not-found, game-full,
+// game-finished, ...) is a per-command error that the feature which sent
+// the command already handles — treating it as fatal here caused a stray
+// room:leave (e.g. from a stale UI) to spam an error toast and force a
+// full reconnect/handshake cycle.
+const SESSION_FATAL_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
+  "not-authenticated",
+  "invalid-payload",
+  "internal-error",
+])
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const socket = useSocketContext()
   const [session, setSession] = useState<SessionInfo | null>(null)
@@ -46,6 +58,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   })
 
   useSocketEvent(SESSION_ERROR, (msg) => {
+    if (!SESSION_FATAL_CODES.has(msg.code)) return
+
     inFlightRef.current = false
 
     if (TOKEN_INVALID_CODES.has(msg.code)) {
@@ -60,5 +74,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setHandshakeAttempt((n) => n + 1)
   })
 
-  return <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
+  return (
+    <SessionContext.Provider value={session}>
+      {children}
+    </SessionContext.Provider>
+  )
 }

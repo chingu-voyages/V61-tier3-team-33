@@ -14,6 +14,9 @@ import {
   GAME_ENDED,
   UNDO_REQUESTED,
   UNDO_DECLINED,
+  UNDO_CANCELLED,
+  UNDO_EXPIRED,
+  UNDO_INVALIDATED,
   ROOM_LEFT,
   GRACE_STARTED,
   GRACE_CANCELLED,
@@ -22,8 +25,7 @@ import {
 } from "@/socket/events"
 import { WHITE } from "@/core/piece"
 import { useSocketContext } from "@/socket/context"
-
-const TOAST_ID_CONN = "connection-status"
+import { SESSION_ERROR } from "@/socket/errors"
 
 const initialState: RoomState = {
   roomId: null,
@@ -35,69 +37,42 @@ const initialState: RoomState = {
 
 const CONNECTED_DISMISS_MS = 2_000
 
+function toastId(status: string): string {
+  return `connection-${status}`
+}
+
 function useConnectionToast() {
   const { status, reconnect } = useSocketContext()
-  const toastAlive = useRef(false)
+  const prevStatus = useRef<typeof status | null>(null)
   const hasEverOpened = useRef(false)
-  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const clearDismissTimer = () => {
-      if (!dismissTimer.current) return
-      clearTimeout(dismissTimer.current)
-      dismissTimer.current = null
+    const id = toastId(status)
+
+    if (prevStatus.current && prevStatus.current !== status) {
+      gooeyToast.dismiss(toastId(prevStatus.current))
     }
-
-    // Title-only toast; no lingering description/action from previous state.
-    const show = (
-      type: "info" | "warning" | "success" | "error",
-      title: string,
-      extra?: {
-        description?: string
-        action?: { label: string; onClick: () => void }
-      },
-    ) => {
-      const opts = { description: undefined, action: undefined, ...extra }
-
-      if (toastAlive.current) {
-        gooeyToast[type](title, {
-          id: TOAST_ID_CONN,
-          duration: Infinity,
-          showProgress: false,
-          onDismiss: () => {
-            toastAlive.current = false
-          },
-          ...opts,
-        })
-        return
-      }
-
-      gooeyToast[type](title, {
-        id: TOAST_ID_CONN,
-        duration: Infinity,
-        showProgress: false,
-        onDismiss: () => {
-          toastAlive.current = false
-        },
-        ...opts,
-      })
-      toastAlive.current = true
-    }
-
-    clearDismissTimer()
+    prevStatus.current = status
 
     switch (status) {
       case "connecting":
-        show("info", hasEverOpened.current ? "Reconnecting" : "Connecting")
+        gooeyToast.info(hasEverOpened.current ? "Reconnecting" : "Connecting", {
+          id,
+          duration: Infinity,
+        })
         break
 
       case "reconnecting":
-        show("warning", "Reconnecting")
+        gooeyToast.warning("Reconnecting", {
+          id,
+          duration: Infinity,
+        })
         break
 
       case "failed":
-        // Description/retry persist until user dismisses.
-        show("error", "Connection failed", {
+        gooeyToast.error("Connection failed", {
+          id,
+          duration: Infinity,
           description: "Unable to connect. Please refresh or try again.",
           action: { label: "Retry", onClick: () => reconnect() },
         })
@@ -105,21 +80,16 @@ function useConnectionToast() {
 
       case "open":
         hasEverOpened.current = true
-        show("success", "Connected")
-        dismissTimer.current = setTimeout(() => {
-          gooeyToast.dismiss(TOAST_ID_CONN)
-          toastAlive.current = false
-          dismissTimer.current = null
-        }, CONNECTED_DISMISS_MS)
+        gooeyToast.success("Connected", {
+          id,
+          duration: CONNECTED_DISMISS_MS,
+        })
         break
 
       case "closed":
-        gooeyToast.dismiss(TOAST_ID_CONN)
-        toastAlive.current = false
+        gooeyToast.dismiss(id)
         break
     }
-
-    return clearDismissTimer
   }, [status, reconnect])
 }
 
@@ -142,10 +112,27 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "UNDO_REQUESTED", by: msg.by, expiresAt: msg.expiresAt })
   })
 
-  useSocketEvent(UNDO_DECLINED, () => {
+  useSocketEvent(UNDO_DECLINED, (msg) => {
+    if (msg.by !== state.color) {
+      gooeyToast.info("You declined the undo request")
+    } else {
+      gooeyToast.info("Opponent declined the undo request")
+    }
     dispatch({ type: "UNDO_RESOLVED" })
   })
 
+  useSocketEvent(UNDO_CANCELLED, () => {
+    dispatch({ type: "UNDO_CANCELLED" })
+  })
+
+  useSocketEvent(UNDO_EXPIRED, () => {
+    gooeyToast.info("Undo request expired")
+    dispatch({ type: "UNDO_EXPIRED" })
+  })
+
+  useSocketEvent(UNDO_INVALIDATED, () => {
+    dispatch({ type: "UNDO_INVALIDATED" })
+  })
 
   useSocketEvent(UNDO_APPLIED, (msg) => {
     dispatch({ type: "UNDO_APPLIED", status: msg.state.status })
@@ -171,6 +158,30 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       gooeyToast.info(`${who} left the game`)
     }
     dispatch({ type: "ROOM_LEFT", color: msg.color })
+  })
+
+  // Self-heal: if the server says we're not in a game (e.g. room:leave
+  // arrives after the room is already gone, so no room:left event ever
+  // comes back), drop any stale room state instead of holding onto a
+  // finished game forever.
+  useSocketEvent(SESSION_ERROR, (msg) => {
+    if (msg.code === "not-in-game" || msg.code === "room-not-found") {
+      dispatch({ type: "ROOM_RESET" })
+      return
+    }
+
+    // Undo-specific rejections that don't warrant the confirm/accept
+    // dialogs already in flight — surface them as a toast instead.
+    const undoErrorMessages: Partial<Record<typeof msg.code, string>> = {
+      "no-history": "There's no move to undo yet",
+      "pending-conflict": "There's already a pending undo request",
+      "not-allowed": "Undo isn't allowed right now",
+      "game-not-found": "This game no longer exists",
+    }
+    const description = undoErrorMessages[msg.code]
+    if (description) {
+      gooeyToast.error(description)
+    }
   })
 
   useSocketEvent(GRACE_STARTED, (msg) => {

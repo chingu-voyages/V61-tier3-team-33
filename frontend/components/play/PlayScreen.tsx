@@ -25,7 +25,11 @@ interface PlayScreenProps {
 
 export function PlayScreen({ mode, roomId }: PlayScreenProps) {
   const router = useRouter()
-  const [phase, dispatch] = useReducer(playReducer, { mode, roomId }, createInitialPhase)
+  const [phase, dispatch] = useReducer(
+    playReducer,
+    { mode, roomId },
+    createInitialPhase
+  )
   const actions = useGameActions()
   const session = use(SessionContext)
   const joinSentRef = useRef(false)
@@ -33,7 +37,12 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
   const room = useRoom()
 
   useEffect(() => {
-    if (room.state.roomId && room.state.status !== null && room.state.status >= ACTIVE && phase.phase !== "play") {
+    if (
+      room.state.roomId &&
+      room.state.status !== null &&
+      room.state.status >= ACTIVE &&
+      phase.phase !== "play"
+    ) {
       dispatch({ type: "OPPONENT_JOINED" })
     }
   }, [room.state.roomId, room.state.status, phase.phase])
@@ -60,7 +69,11 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
         roomId: id,
         timeControl: tc,
       })
-      actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: id, clock: ClockFormat(tc.id) })
+      actions.joinRoom({
+        mode: HUMAN_VS_HUMAN,
+        roomId: id,
+        clock: ClockFormat(tc.id),
+      })
     },
     [actions, session]
   )
@@ -137,12 +150,7 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
   }
 
   if (phase.phase === "search") {
-    return (
-      <MatchSearch
-        timeControl={phase.timeControl}
-        onCancel={goHome}
-      />
-    )
+    return <MatchSearch timeControl={phase.timeControl} onCancel={goHome} />
   }
 
   return <View onLeave={goHome} />

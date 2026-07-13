@@ -17,7 +17,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <ChessThemeProvider>
         <TooltipProvider>
-          <GooeyToaster position="top-center" closeButton="top-right" showProgress />
+          <GooeyToaster
+            position="top-center"
+            closeButton="top-right"
+            showProgress
+          />
           <AudioProvider>
             <SocketProvider url={env.socketUrl}>
               <SessionProvider>

@@ -25,7 +25,10 @@ export class AudioClient {
   private audioCtor?: typeof AudioContext
   private buffers: Partial<Record<SoundName, AudioBuffer>> = {}
   private loadPromise: Promise<void> | null = null
-  private activeVoice: { source: AudioBufferSourceNode; gain: GainNode } | null = null
+  private activeVoice: {
+    source: AudioBufferSourceNode
+    gain: GainNode
+  } | null = null
   private playToken = 0
   private listeners: Set<Listener> = new Set()
   private state: AudioClientState = { ready: false }

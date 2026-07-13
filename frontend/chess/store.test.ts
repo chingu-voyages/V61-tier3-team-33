@@ -14,7 +14,9 @@ describe("ChessStore", () => {
   test("initializes with starting position", () => {
     const store = makeStore()
     const state = store.snapshot()
-    expect(state.fen).toBe("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    expect(state.fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    )
     expect(state.board.length).toBe(64)
     expect(state.selected).toBeNull()
     expect(state.legalMoves).toEqual([])
@@ -65,7 +67,9 @@ describe("ChessStore", () => {
 
   test("makeMove skips if from square is empty", () => {
     const sent: { type: string }[] = []
-    const store = new ChessStoreImpl((cmd) => sent.push(cmd as { type: string }))
+    const store = new ChessStoreImpl((cmd) =>
+      sent.push(cmd as { type: string })
+    )
     store.makeMove(E2, E4)
     const afterFirst = store.snapshot().fen
     // Second call no-ops; e2 empty
@@ -76,7 +80,9 @@ describe("ChessStore", () => {
 
   test("makeMove skips if there is already a pending move", () => {
     const sent: { type: string }[] = []
-    const store = new ChessStoreImpl((cmd) => sent.push(cmd as { type: string }))
+    const store = new ChessStoreImpl((cmd) =>
+      sent.push(cmd as { type: string })
+    )
     store.makeMove(E2, E4)
     const fen = store.snapshot().fen
     store.makeMove(0 as unknown as Position, 0 as unknown as Position)
@@ -106,7 +112,9 @@ describe("ChessStore", () => {
     const store = new ChessStoreImpl(() => {})
     store.applyMove(e4Move)
     const s = store.snapshot()
-    expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+    expect(s.fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    )
     expect(s.lastMove).toEqual({ from: E2, to: E4, type: MoveType(0) })
     expect(Square.isEmpty(Board.at(s.board, E2))).toBe(true)
   })
@@ -119,7 +127,9 @@ describe("ChessStore", () => {
     store.applyMove(e4Move)
     // Cleared pendingMove, no double-apply
     expect(store.snapshot().pendingMove).toBeNull()
-    expect(store.snapshot().fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+    expect(store.snapshot().fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    )
   })
 
   test("rejectMove reverts board and stores reason", () => {
@@ -129,23 +139,32 @@ describe("ChessStore", () => {
     store.rejectMove("illegal-move", E2, E4)
     const s = store.snapshot()
     // Board back to starting position
-    expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    expect(s.fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    )
     expect(s.moveRejection).toBe("illegal-move")
     expect(s.pendingMove).toBeNull()
   })
 
   test("black can select and move after opponent's move", () => {
     const sent: { type: string }[] = []
-    const store = new ChessStoreImpl((cmd) => sent.push(cmd as { type: string }))
+    const store = new ChessStoreImpl((cmd) =>
+      sent.push(cmd as { type: string })
+    )
     const e4: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: E2, to: E4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: E2,
+      to: E4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     store.applyMove(e4)
 
     const afterWhite = store.snapshot()
-    expect(afterWhite.fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+    expect(afterWhite.fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    )
 
     store.select(E7)
     expect(store.snapshot().selected).toBe(E7)
@@ -153,13 +172,18 @@ describe("ChessStore", () => {
 
     store.makeMove(E7, E5)
     const afterBlack = store.snapshot()
-    expect(afterBlack.fen).toBe("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2")
+    expect(afterBlack.fen).toBe(
+      "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2"
+    )
     expect(sent.filter((c) => c.type === "move:make").length).toBe(1)
   })
 
   test("makeMove intercepts promotion and confirmPromotion applies it", () => {
     const sent: object[] = []
-    const store = new ChessStoreImpl((cmd) => sent.push(cmd), "8/P7/8/8/8/8/8/8 w - - 0 1")
+    const store = new ChessStoreImpl(
+      (cmd) => sent.push(cmd),
+      "8/P7/8/8/8/8/8/8 w - - 0 1"
+    )
     const fenBefore = store.snapshot().fen
 
     store.select(A7)
@@ -170,7 +194,9 @@ describe("ChessStore", () => {
     expect(store.snapshot().pendingPromotion).toEqual({ from: A7, to: A8 })
     expect(store.snapshot().pendingMove).toBeNull()
     expect(store.snapshot().fen).toBe(fenBefore)
-    expect(sent.filter((c) => (c as { type: string }).type === "move:make").length).toBe(0)
+    expect(
+      sent.filter((c) => (c as { type: string }).type === "move:make").length
+    ).toBe(0)
 
     store.confirmPromotion(QUEEN)
     const state = store.snapshot()
@@ -179,6 +205,11 @@ describe("ChessStore", () => {
     expect(Square.isEmpty(Board.at(state.board, A7))).toBe(true)
     const piece = Square.decode(Board.at(state.board, A8))
     expect(piece).toEqual({ color: WHITE, type: QUEEN })
-    expect(sent).toContainEqual({ type: "move:make", from: A7, to: A8, promoteTo: QUEEN })
+    expect(sent).toContainEqual({
+      type: "move:make",
+      from: A7,
+      to: A8,
+      promoteTo: QUEEN,
+    })
   })
 })

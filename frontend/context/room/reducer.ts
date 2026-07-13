@@ -35,7 +35,11 @@ export type RoomAction =
       expiresAt: number
     }
   | { type: "UNDO_RESOLVED" }
+  | { type: "UNDO_CANCELLED" }
+  | { type: "UNDO_EXPIRED" }
+  | { type: "UNDO_INVALIDATED" }
   | { type: "ROOM_LEFT"; color: PieceColor }
+  | { type: "ROOM_RESET" }
 
 export function roomReducer(state: RoomState, action: RoomAction): RoomState {
   switch (action.type) {
@@ -45,15 +49,16 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         roomId: action.roomId,
         color: action.color,
         status: action.status,
-        result: action.status === FINISHED
-          ? {
-              status: action.state.resultStatus,
-              winner: action.state.winner,
-              hasWinner: action.state.hasWinner,
-              drawReason: action.state.drawReason,
-              reason: action.state.endReason,
-            }
-          : null,
+        result:
+          action.status === FINISHED
+            ? {
+                status: action.state.resultStatus,
+                winner: action.state.winner,
+                hasWinner: action.state.hasWinner,
+                drawReason: action.state.drawReason,
+                reason: action.state.endReason,
+              }
+            : null,
       }
     case "GAME_STARTED":
       return {
@@ -80,6 +85,12 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
       }
     case "UNDO_RESOLVED":
       return { ...state, pendingUndo: null }
+    case "UNDO_CANCELLED":
+      return { ...state, pendingUndo: null }
+    case "UNDO_EXPIRED":
+      return { ...state, pendingUndo: null }
+    case "UNDO_INVALIDATED":
+      return { ...state, pendingUndo: null }
     case "ROOM_LEFT":
       if (action.color !== state.color) return state
       return {
@@ -87,6 +98,19 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         roomId: null,
         color: null,
         status: null,
+        result: null,
+        pendingUndo: null,
+      }
+    case "ROOM_RESET":
+      // Self-heal: server says we're not in a game (e.g. a stale leave
+      // arrived after the room was already gone), but local state still
+      // thinks we are. Drop it so a fresh /play mount doesn't resurrect
+      // the old finished game.
+      return {
+        roomId: null,
+        color: null,
+        status: null,
+        result: null,
         pendingUndo: null,
       }
   }

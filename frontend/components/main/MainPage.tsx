@@ -32,10 +32,16 @@ export function MainPage() {
       <div className="flex flex-col items-center gap-2 text-center">
         <div className="flex items-center gap-4">
           <div className="[&_svg]:-scale-x-100">
-            {getPieceIcon({ type: KNIGHT, color: WHITE }, { className: "size-32" })}
+            {getPieceIcon(
+              { type: KNIGHT, color: WHITE },
+              { className: "size-32" }
+            )}
           </div>
           <div>
-            {getPieceIcon({ type: KNIGHT, color: BLACK }, { className: "size-32" })}
+            {getPieceIcon(
+              { type: KNIGHT, color: BLACK },
+              { className: "size-32" }
+            )}
           </div>
         </div>
         <h1 className="text-3xl font-bold tracking-tight">

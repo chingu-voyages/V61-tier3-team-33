@@ -25,7 +25,11 @@ import {
   IconCrown,
   IconX,
 } from "@tabler/icons-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { ClockDisplay } from "@/components/board/ClockDisplay"
 import { getPieceIcon } from "../pieces"
 import { FINISHED } from "@/socket/types"
@@ -38,10 +42,22 @@ interface ViewProps {
 
 export function View({ onLeave }: ViewProps) {
   const { state, actions } = useRoom()
-  const { state: chessState, makeMove, select, confirmPromotion, cancelPromotion } = useChess()
+  const {
+    state: chessState,
+    makeMove,
+    select,
+    confirmPromotion,
+    cancelPromotion,
+  } = useChess()
   const [flipped, setFlipped] = useState(false)
   const [showResign, setShowResign] = useState(false)
-  const { prime: primeAudio, preload: preloadAudio, playMove, playCapture } = useSoundContext()
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false)
+  const {
+    prime: primeAudio,
+    preload: preloadAudio,
+    playMove,
+    playCapture,
+  } = useSoundContext()
   const lastPlayedSeq = useRef<number>(0)
   const prevBoardRef = useRef(chessState.board)
 
@@ -59,12 +75,19 @@ export function View({ onLeave }: ViewProps) {
     lastPlayedSeq.current = chessState.moveSeq
     const move = chessState.lastMove
     if (move) {
-      const wasCapture = Square.decode(ChessBoard.at(prevBoardRef.current, move.to)) !== null
+      const wasCapture =
+        Square.decode(ChessBoard.at(prevBoardRef.current, move.to)) !== null
       if (wasCapture) playCapture()
       else playMove()
     }
     prevBoardRef.current = chessState.board
-  }, [chessState.moveSeq, chessState.lastMove, chessState.board, playMove, playCapture])
+  }, [
+    chessState.moveSeq,
+    chessState.lastMove,
+    chessState.board,
+    playMove,
+    playCapture,
+  ])
 
   const onSquareClickRef = useRef<(pos: Position) => void>(() => {})
   useEffect(() => {
@@ -83,10 +106,15 @@ export function View({ onLeave }: ViewProps) {
     }
   })
   // Stable ref — avoids re-rendering Board's memoized squares on every move.
-  const onSquareClick = useCallback((pos: Position) => onSquareClickRef.current(pos), [])
+  const onSquareClick = useCallback(
+    (pos: Position) => onSquareClickRef.current(pos),
+    []
+  )
 
   const promotionColor: PieceColor | null = chessState.pendingPromotion
-    ? Square.pieceColor(ChessBoard.at(chessState.board, chessState.pendingPromotion.from))
+    ? Square.pieceColor(
+        ChessBoard.at(chessState.board, chessState.pendingPromotion.from)
+      )
     : null
 
   const PROMOTION_PIECES: PieceType[] = [QUEEN, ROOK, BISHOP, KNIGHT]
@@ -96,6 +124,26 @@ export function View({ onLeave }: ViewProps) {
     actions.resign()
   }, [actions])
 
+  const confirmUndo = useCallback(() => {
+    setShowUndoConfirm(false)
+    actions.requestUndo()
+  }, [actions])
+
+  const cancelUndo = useCallback(() => {
+    actions.cancelUndo()
+  }, [actions])
+
+  const acceptUndo = useCallback(() => {
+    actions.acceptUndo()
+  }, [actions])
+
+  const declineUndo = useCallback(() => {
+    actions.declineUndo()
+  }, [actions])
+
+  const showUndoRequest = state.pendingUndo !== null && state.pendingUndo.by !== state.color
+
+  const isMyUndoPending = state.pendingUndo?.by === state.color
   const isFinished = state.status === FINISHED && state.result !== null
 
   const resultText = useMemo(() => {
@@ -119,54 +167,81 @@ export function View({ onLeave }: ViewProps) {
   const boardFlipped = baseFlipped !== flipped
 
   const promotionColumn = chessState.pendingPromotion
-    ? (boardFlipped ? 8 - Position.file(chessState.pendingPromotion.to) : Position.file(chessState.pendingPromotion.to) + 1)
+    ? boardFlipped
+      ? 8 - Position.file(chessState.pendingPromotion.to)
+      : Position.file(chessState.pendingPromotion.to) + 1
     : undefined
 
   const promotionTargetRow = chessState.pendingPromotion
-    ? (boardFlipped ? Position.rank(chessState.pendingPromotion.to) + 1 : 8 - Position.rank(chessState.pendingPromotion.to))
+    ? boardFlipped
+      ? Position.rank(chessState.pendingPromotion.to) + 1
+      : 8 - Position.rank(chessState.pendingPromotion.to)
     : undefined
 
   // Anchors on promotion square, extends 4 squares toward center (chess.com style).
   const promotionAnchoredAtTop = promotionTargetRow === 1
-  const promotionStyle = promotionColumn !== undefined
-    ? {
-        gridColumn: promotionColumn,
-        gridRow: promotionAnchoredAtTop ? "1 / 5" : "5 / 9",
-      }
-    : undefined
+  const promotionStyle =
+    promotionColumn !== undefined
+      ? {
+          gridColumn: promotionColumn,
+          gridRow: promotionAnchoredAtTop ? "1 / 5" : "5 / 9",
+        }
+      : undefined
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6 lg:p-6">
-      <div className="flex w-fit min-h-0 flex-1 flex-col items-center gap-3 self-center lg:w-auto lg:flex-none lg:self-auto">
-        <ClockDisplay color={flipped ? myColor : oppColor} label={flipped ? "You" : "Opponent"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+    <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6 lg:p-6">
+      <div className="flex min-h-0 w-fit flex-1 flex-col items-center gap-3 self-center lg:w-auto lg:flex-none lg:self-auto">
+        <ClockDisplay
+          color={flipped ? myColor : oppColor}
+          label={flipped ? "You" : "Opponent"}
+          clock={chessState.clock}
+          clockReceivedAt={chessState.clockReceivedAt}
+        />
 
         <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
-          <Board board={chessState.board} view={{ selected: chessState.selected, legalMoves: chessState.legalMoves, lastMove: chessState.lastMove, flipped: boardFlipped }} onSquareClick={onSquareClick} />
-          {chessState.pendingPromotion && promotionColor !== null && promotionStyle && (
-            <div
-              className="absolute inset-0 z-10 grid"
-              style={{ gridTemplateColumns: "repeat(8, 1fr)", gridTemplateRows: "repeat(8, 1fr)" }}
-            >
+          <Board
+            board={chessState.board}
+            view={{
+              selected: chessState.selected,
+              legalMoves: chessState.legalMoves,
+              lastMove: chessState.lastMove,
+              flipped: boardFlipped,
+            }}
+            onSquareClick={onSquareClick}
+          />
+          {chessState.pendingPromotion &&
+            promotionColor !== null &&
+            promotionStyle && (
               <div
-                className="col-span-full row-span-full bg-black/40"
-                onClick={cancelPromotion}
-              />
-              <div
-                className={`z-20 flex overflow-hidden rounded-md bg-card shadow-2xl ring-1 ring-black/10 ${promotionAnchoredAtTop ? "flex-col" : "flex-col-reverse"}`}
-                style={promotionStyle}
+                className="absolute inset-0 z-10 grid"
+                style={{
+                  gridTemplateColumns: "repeat(8, 1fr)",
+                  gridTemplateRows: "repeat(8, 1fr)",
+                }}
               >
-                {PROMOTION_PIECES.map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => confirmPromotion(type)}
-                    className="flex flex-1 cursor-pointer items-center justify-center border-b p-1.5 transition-colors last:border-b-0 hover:bg-accent"
-                  >
-                    {getPieceIcon({ type, color: promotionColor }, { className: "size-full" })}
-                  </button>
-                ))}
+                <div
+                  className="col-span-full row-span-full bg-black/40"
+                  onClick={cancelPromotion}
+                />
+                <div
+                  className={`z-20 flex overflow-hidden rounded-md bg-card shadow-2xl ring-1 ring-black/10 ${promotionAnchoredAtTop ? "flex-col" : "flex-col-reverse"}`}
+                  style={promotionStyle}
+                >
+                  {PROMOTION_PIECES.map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => confirmPromotion(type)}
+                      className="flex flex-1 cursor-pointer items-center justify-center border-b p-1.5 transition-colors last:border-b-0 hover:bg-accent"
+                    >
+                      {getPieceIcon(
+                        { type, color: promotionColor },
+                        { className: "size-full" }
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
           {isFinished && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/60 backdrop-blur-sm">
               {state.result!.hasWinner ? (
@@ -182,7 +257,12 @@ export function View({ onLeave }: ViewProps) {
           )}
         </div>
 
-        <ClockDisplay color={flipped ? oppColor : myColor} label={flipped ? "Opponent" : "You"} clock={chessState.clock} clockReceivedAt={chessState.clockReceivedAt} />
+        <ClockDisplay
+          color={flipped ? oppColor : myColor}
+          label={flipped ? "Opponent" : "You"}
+          clock={chessState.clock}
+          clockReceivedAt={chessState.clockReceivedAt}
+        />
       </div>
 
       {!isFinished && (
@@ -190,7 +270,11 @@ export function View({ onLeave }: ViewProps) {
           <Tooltip>
             <TooltipTrigger
               render={
-                <Button variant="outline" size="icon" onClick={() => setFlipped((f) => !f)}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setFlipped((f) => !f)}
+                >
                   <IconFlipHorizontal className="size-4" />
                 </Button>
               }
@@ -200,17 +284,33 @@ export function View({ onLeave }: ViewProps) {
           <Tooltip>
             <TooltipTrigger
               render={
-                <Button variant="outline" size="icon" onClick={actions.requestUndo}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    if (isMyUndoPending) {
+                      cancelUndo()
+                    } else {
+                      setShowUndoConfirm(true)
+                    }
+                  }}
+                >
                   <IconArrowBackUp className="size-4" />
                 </Button>
               }
             />
-            <TooltipContent side="right">Request undo</TooltipContent>
+            <TooltipContent side="right">
+              {isMyUndoPending ? "Cancel undo request" : "Request undo"}
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger
               render={
-                <Button variant="outline" size="icon" onClick={() => setShowResign(true)}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowResign(true)}
+                >
                   <IconFlag className="size-4" />
                 </Button>
               }
@@ -236,6 +336,40 @@ export function View({ onLeave }: ViewProps) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showUndoConfirm} onOpenChange={setShowUndoConfirm}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Request undo</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to request an undo?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button variant="default" onClick={confirmUndo}>
+              Send request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUndoRequest}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Undo request</DialogTitle>
+            <DialogDescription>
+              Your opponent has requested an undo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button variant="outline" onClick={declineUndo}>
+              Decline
+            </Button>
+            <Button variant="default" onClick={acceptUndo}>
+              Accept
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

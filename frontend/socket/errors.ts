@@ -9,6 +9,10 @@ export type ErrorCode =
   | "game-full"
   | "game-finished"
   | "internal-error"
+  | "no-history"
+  | "pending-conflict"
+  | "not-allowed"
+  | "game-not-found"
 
 export interface ErrorReply {
   type: typeof SESSION_ERROR

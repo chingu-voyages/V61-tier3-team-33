@@ -217,7 +217,10 @@ export function getSocketClient(
   }
 
   // Recreate if destroyed (test teardown / hot reload).
-  if (!globalThis._chessSocketClient || globalThis._chessSocketClient.isDestroyed) {
+  if (
+    !globalThis._chessSocketClient ||
+    globalThis._chessSocketClient.isDestroyed
+  ) {
     resetSocketClient()
     globalThis._chessSocketClient = new SocketClient(url, options)
   }

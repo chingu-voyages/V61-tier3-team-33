@@ -4,7 +4,10 @@ import { useEffect, useState } from "react"
 import type { ClockState } from "@/socket/types"
 import { WHITE, BLACK } from "@/core/piece"
 
-export function useClock(clock: ClockState | null, receivedAt: number | null): ClockState | null {
+export function useClock(
+  clock: ClockState | null,
+  receivedAt: number | null
+): ClockState | null {
   const [now, setNow] = useState<number>(0)
 
   useEffect(() => {
@@ -17,8 +20,14 @@ export function useClock(clock: ClockState | null, receivedAt: number | null): C
 
   const elapsed = now > 0 ? now - receivedAt : 0
   return {
-    whiteMs: Math.max(0, clock.whiteMs - (clock.active === WHITE ? elapsed : 0)),
-    blackMs: Math.max(0, clock.blackMs - (clock.active === BLACK ? elapsed : 0)),
+    whiteMs: Math.max(
+      0,
+      clock.whiteMs - (clock.active === WHITE ? elapsed : 0)
+    ),
+    blackMs: Math.max(
+      0,
+      clock.blackMs - (clock.active === BLACK ? elapsed : 0)
+    ),
     active: clock.active,
   }
 }

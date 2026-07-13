@@ -21,7 +21,12 @@ interface ClockDisplayProps {
   clockReceivedAt: number | null
 }
 
-export function ClockDisplay({ color, label, clock, clockReceivedAt }: ClockDisplayProps) {
+export function ClockDisplay({
+  color,
+  label,
+  clock,
+  clockReceivedAt,
+}: ClockDisplayProps) {
   const live = useClock(clock, clockReceivedAt)
   const ms = color === WHITE ? live?.whiteMs : live?.blackMs
   const isActive = live !== null && live.active === color
@@ -30,7 +35,8 @@ export function ClockDisplay({ color, label, clock, clockReceivedAt }: ClockDisp
     <div
       className={cn(
         "flex w-full items-center justify-between rounded-md px-2 py-1 text-sm text-muted-foreground transition-all duration-300",
-        isActive && "bg-chess-selected-fill/15 ring-1 ring-chess-selected-border-on-light dark:ring-chess-selected-border-on-dark",
+        isActive &&
+          "bg-chess-selected-fill/15 ring-1 ring-chess-selected-border-on-light dark:ring-chess-selected-border-on-dark"
       )}
     >
       <div className="flex items-center gap-2">

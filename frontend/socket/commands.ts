@@ -9,6 +9,7 @@ export const MOVE_MAKE = "move:make" as const
 export const UNDO_REQUEST = "undo:request" as const
 export const UNDO_ACCEPT = "undo:accept" as const
 export const UNDO_DECLINE = "undo:decline" as const
+export const UNDO_CANCEL = "undo:cancel" as const
 export const GAME_RESIGN = "game:resign" as const
 export const STATE_SYNC = "state:sync" as const
 export const POSITION_SELECT = "position:select" as const
@@ -22,6 +23,7 @@ export type Command =
   | { type: typeof UNDO_REQUEST }
   | { type: typeof UNDO_ACCEPT }
   | { type: typeof UNDO_DECLINE }
+  | { type: typeof UNDO_CANCEL }
   | { type: typeof GAME_RESIGN }
   | { type: typeof STATE_SYNC }
   | ({ type: typeof POSITION_SELECT } & SelectInput)
@@ -53,6 +55,9 @@ export const Commands = {
   },
   declineUndo(): Command {
     return { type: UNDO_DECLINE }
+  },
+  cancelUndo(): Command {
+    return { type: UNDO_CANCEL }
   },
   resign(): Command {
     return { type: GAME_RESIGN }

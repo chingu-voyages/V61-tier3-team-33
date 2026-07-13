@@ -15,9 +15,10 @@ interface BoardProps {
 export function Board({ board, view, onSquareClick }: BoardProps) {
   // Standard chessboard. Promotion overlays rendered by parent in absolute layer.
 
-  const movingPieceColor = view.selected !== null
-    ? Square.decode(TBoard.at(board, view.selected))?.color
-    : undefined
+  const movingPieceColor =
+    view.selected !== null
+      ? Square.decode(TBoard.at(board, view.selected))?.color
+      : undefined
 
   let squares: React.ReactNode[] = []
   for (const { value, position } of TBoard.squares(board)) {
@@ -38,7 +39,7 @@ export function Board({ board, view, onSquareClick }: BoardProps) {
     squares = squares.reverse()
   }
   return (
-    <div className="aspect-square h-full max-h-[80vh] max-w-full min-h-72 min-w-72">
+    <div className="aspect-square h-full max-h-[80vh] min-h-72 max-w-full min-w-72">
       <div className="grid h-full w-full grid-cols-8 grid-rows-8">
         {squares}
       </div>
