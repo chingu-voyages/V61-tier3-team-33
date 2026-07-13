@@ -1,32 +1,44 @@
-import type { Occupant } from "./occupant";
-import type { Codec } from "../codec/codec";
+import { logger as rootLogger } from "../../logging/logger";
+import { getCodec } from "../codec/codec";
 import type { Notification } from "../protocol/events";
 import type { WebSocket } from "../types";
 import { HUMAN } from "../types";
+import type { Occupant } from "./occupant";
 
-/**
- * A human player at a color slot. Holds the live socket and sends
- * events over it — it does I/O, so it lives outside `domain/`.
- */
+const log = rootLogger.child({ module: "Human" });
+
 export class Human implements Occupant {
   readonly kind = HUMAN;
 
   constructor(
     readonly playerId: string,
     private ws: WebSocket,
-    private protocol: Codec,
-  ) {}
-
-  /** {@inheritDoc} */
-  notify(event: Notification): void {
-    this.ws.send(this.protocol.encode(event));
+  ) {
+    // log human occupant creation
+    log.info("[Human.constructor:init]", { playerId, wsId: ws.id });
   }
 
-  /**
-   * Returns a new `Human` bound to a different socket, e.g. on reconnect.
-   * This instance is unchanged — `Human` is immutable.
-   */
+  /** Returns the existing Human with a new socket, or creates a fresh one. */
+  static from(ws: WebSocket, playerId: string, occupant: Occupant | null): Human {
+    // decide whether to replace existing occupant or create new one
+    const isReplacement = occupant instanceof Human;
+    log.info("[Human.from:resolved]", { playerId, wsId: ws.id, isReplacement });
+    return isReplacement ? occupant.replaceSocket(ws) : new Human(playerId, ws);
+  }
+
+  notify(event: Notification): void {
+    // log and send notification to the player
+    log.info("[Human.notify:sending]", {
+      playerId: this.playerId,
+      wsId: this.ws.id,
+      eventType: event.type,
+    });
+    this.ws.send(getCodec().encode(event));
+  }
+
   replaceSocket(ws: WebSocket): Human {
-    return new Human(this.playerId, ws, this.protocol);
+    // log socket replacement and return new Human instance
+    log.info("[Human.replaceSocket:replacing]", { playerId: this.playerId, oldWsId: this.ws.id, newWsId: ws.id });
+    return new Human(this.playerId, ws);
   }
 }
