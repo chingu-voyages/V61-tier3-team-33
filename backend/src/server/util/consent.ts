@@ -3,7 +3,7 @@ import { CONSENT_ACCEPT, CONSENT_DECLINE, CONSENT_EXPIRE, CONSENT_REQUEST, type 
 
 const log = rootLogger.child({ module: "ConsentManager" });
 
-const REQUEST_TIMEOUT_MS = 30_000; // 30 s — undo/draw requests auto-expire
+const REQUEST_TIMEOUT_MS = 30 * 1000; // undo/draw requests auto-expire
 
 type PendingEntry<TRequester> = {
   requester: TRequester;
