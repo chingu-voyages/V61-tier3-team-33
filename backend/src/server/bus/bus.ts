@@ -1,41 +1,20 @@
-import type { Brand } from "../../chess/core/brand";
-import type { Event } from "../protocol/events";
-import { logger as rootLogger } from "../../logging/log";
+import { logger as rootLogger } from "../../logging/logger";
+import type { Event, Events } from "../protocol/events";
+import { DEFERRED, Priority } from "../types/priority";
 
 const log = rootLogger.child({ module: "Hub" });
 
 // Handler that receives every event, regardless of type.
-export type EventHandler = (
-  roomId: string | null,
-  event: Event,
-) => Promise<void> | void;
+export type EventHandler = (roomId: string | null, event: Event) => Promise<void> | void;
 
 // Handler narrowed to only the event shape matching a given `type`.
-export type Handler<T extends string> = (
-  roomId: string | null,
-  event: Extract<Event, { type: T }>,
-) => Promise<void> | void;
+export type Handler<T extends string> = (roomId: string | null, event: Events<T>) => Promise<void> | void;
 
 // Called when a subscriber throws or rejects.
 export type ErrorHandler = (err: unknown) => void;
 
 // Call to stop receiving events.
 export type Unsubscribe = () => void;
-
-/**
- * Event delivery priority.
- *
- * - `FAST` (0) — run synchronously, same tick. Use only for the handful of
- *   handlers where latency directly affects game rules/clocks
- *   (e.g. notifying the players actually in a room).
- * - `DEFERRED` (1) — run on a macrotask (setTimeout 0), yielding to the event
- *   loop between each handler. Use for large fan-out: spectators, chat,
- *   logging, tournament feeds, etc. This is the default.
- */
-export type Priority = Brand<number, "Priority">;
-export const Priority = (value: number): Priority => value as Priority;
-export const FAST: Priority = Priority(0);
-export const DEFERRED: Priority = Priority(1);
 
 // One event type's subscribers, split by lane so emit() never has to branch per-item.
 // Tuple indexed by Priority value (0 = fast, 1 = deferred).
@@ -64,11 +43,7 @@ export interface Subscriber {
    * @param priority — delivery lane; `FAST` runs synchronously, `DEFERRED` runs on a macrotask
    * @returns a function that unsubscribes the handler
    */
-  on<T extends string>(
-    type: T,
-    handler: Handler<T>,
-    priority?: Priority,
-  ): Unsubscribe;
+  on<T extends string>(type: T, handler: Handler<T>, priority?: Priority): Unsubscribe;
 
   /**
    * Subscribes to every event type.
@@ -86,16 +61,20 @@ export class Hub implements Publisher, Subscriber {
   // handlers that hear everything
   private wild: HandlerBucket = [new Set(), new Set()];
 
-  constructor(
-    private onError: ErrorHandler = (e) => console.error("[Hub]", e),
-  ) {}
+  constructor(private onError: ErrorHandler = (e) => console.error("[Hub]", e)) {}
 
   /** {@inheritDoc} */
   emit(event: Event): void {
     const roomId = event.roomId;
 
-    log.info("[HUB-emit]", { type: event.type, roomId, hasFast: Boolean(this.typed.get(event.type)?.[0].size), hasDeferred: Boolean(this.typed.get(event.type)?.[1].size) });
+    log.info("[Hub.emit:start]", {
+      type: event.type,
+      roomId,
+      hasFast: Boolean(this.typed.get(event.type)?.[0].size),
+      hasDeferred: Boolean(this.typed.get(event.type)?.[1].size),
+    });
 
+    // dispatch to typed subscribers
     const [fastWild, deferredWild] = this.wild;
     const bucket = this.typed.get(event.type);
 
@@ -113,14 +92,15 @@ export class Hub implements Publisher, Subscriber {
     for (const h of deferredWild) {
       setTimeout(() => this.run(roomId, event, h), 0);
     }
+
+    log.info("[Hub.emit:emitted]", { type: event.type, roomId });
   }
 
   /** {@inheritDoc} */
-  on<T extends string>(
-    type: T,
-    handler: Handler<T>,
-    priority: Priority = DEFERRED,
-  ): Unsubscribe {
+  on<T extends string>(type: T, handler: Handler<T>, priority: Priority = DEFERRED): Unsubscribe {
+    log.info("[Hub.on:subscribing]", { type, priority: Priority.label(priority) });
+
+    // register handler for event type
     const broad = handler as EventHandler;
     let bucket = this.typed.get(type);
     if (!bucket) {
@@ -129,18 +109,25 @@ export class Hub implements Publisher, Subscriber {
     }
     const set = bucket[priority];
     set?.add(broad);
-    log.info("[HUB-subscribe]", { type, priority: priority === 0 ? 'FAST' : 'DEFERRED', count: set?.size ?? 0 });
+    log.info("[Hub.on:subscribed]", { type, priority: Priority.label(priority), count: set?.size ?? 0 });
     return () => {
       set?.delete(broad);
-      log.info("[HUB-unsubscribe]", { type, count: set?.size ?? 0 });
+      log.info("[Hub.off:unsubscribed]", { type, count: set?.size ?? 0 });
     };
   }
 
   /** {@inheritDoc} */
   onAny(handler: EventHandler, priority: Priority = DEFERRED): Unsubscribe {
+    log.info("[Hub.onAny:subscribing]", { priority: Priority.label(priority) });
+
+    // register wildcard handler
     const set = this.wild[priority];
     set?.add(handler);
-    return () => set?.delete(handler);
+    log.info("[Hub.onAny:subscribed]", { priority: Priority.label(priority), count: set?.size ?? 0 });
+    return () => {
+      set?.delete(handler);
+      log.info("[Hub.offAny:unsubscribed]", { count: set?.size ?? 0 });
+    };
   }
 
   // Run a handler, catching sync throws and async rejections so one bad handler can't break emit.
@@ -148,11 +135,7 @@ export class Hub implements Publisher, Subscriber {
   // FAST-lane ones, are synchronous, and that wrapper allocates a Promise on
   // every single dispatch for no benefit. We only touch .catch() when the
   // handler actually returned something thenable.
-  private run(
-    roomId: string | null,
-    event: Event,
-    handler: EventHandler,
-  ): void {
+  private run(roomId: string | null, event: Event, handler: EventHandler): void {
     try {
       const result = handler(roomId, event);
       if (isThenable(result)) result.catch(this.onError);
@@ -164,9 +147,5 @@ export class Hub implements Publisher, Subscriber {
 
 // Duck-type check: avoids importing `Promise` types just to see if we should `.catch()`.
 function isThenable(value: unknown): value is Promise<void> {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    typeof (value as any).then === "function"
-  );
+  return value !== null && typeof value === "object" && typeof (value as Record<string, unknown>).then === "function";
 }
