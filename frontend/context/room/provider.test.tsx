@@ -122,3 +122,36 @@ describe("useConnectionToast", () => {
     expect(errorSpy).not.toHaveBeenCalled()
   })
 })
+
+describe("undo error toasts", () => {
+  test.each([
+    ["no-history", "There's no move to undo yet"],
+    ["pending-conflict", "There's already a pending undo request"],
+    ["not-allowed", "Undo isn't allowed right now"],
+    ["not-your-turn", "It's not your turn to request an undo"],
+    ["game-not-found", "This game no longer exists"],
+  ] as const)("shows toast for %s error", (code, expectedMessage) => {
+    const errorSpy = spyOn(gooeyToast, "error")
+
+    const { rerender } = renderHook(() => null, { wrapper: createWrapper() })
+
+    // wait for open
+    act(() => {
+      FakeSocket.instances[0].triggerOpen()
+    })
+    rerender()
+
+    errorSpy.mockClear()
+
+    // send a session:error with the given code
+    act(() => {
+      FakeSocket.instances[0].triggerMessage({
+        type: "session:error",
+        code,
+        message: expectedMessage,
+      })
+    })
+
+    expect(errorSpy).toHaveBeenCalledWith(expectedMessage)
+  })
+})

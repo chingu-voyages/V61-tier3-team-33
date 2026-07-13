@@ -12,6 +12,7 @@ export type ErrorCode =
   | "no-history"
   | "pending-conflict"
   | "not-allowed"
+  | "not-your-turn"
   | "game-not-found"
 
 export interface ErrorReply {

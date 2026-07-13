@@ -49,17 +49,31 @@ function useConnectionToast() {
   useEffect(() => {
     const id = toastId(status)
 
-    if (prevStatus.current && prevStatus.current !== status) {
-      gooeyToast.dismiss(toastId(prevStatus.current))
+    // Track if we're retrying from failed state
+    const isRetrying = prevStatus.current === "failed" && status === "connecting"
+
+    // Don't dismiss "failed" toast when transitioning to "connecting" (retry)
+    // Keep it visible until connection succeeds ("open") or user manually dismisses
+    const shouldDismissPrevToast =
+      prevStatus.current &&
+      prevStatus.current !== status &&
+      !isRetrying
+
+    if (shouldDismissPrevToast) {
+      gooeyToast.dismiss(toastId(prevStatus.current!))
     }
     prevStatus.current = status
 
     switch (status) {
       case "connecting":
-        gooeyToast.info(hasEverOpened.current ? "Reconnecting" : "Connecting", {
-          id,
-          duration: Infinity,
-        })
+        // Don't show "connecting" toast if we're retrying from failed -
+        // keep the "failed" toast with retry button visible
+        if (!isRetrying) {
+          gooeyToast.info(hasEverOpened.current ? "Reconnecting" : "Connecting", {
+            id,
+            duration: Infinity,
+          })
+        }
         break
 
       case "reconnecting":
@@ -80,6 +94,8 @@ function useConnectionToast() {
 
       case "open":
         hasEverOpened.current = true
+        // Dismiss the "failed" toast if it's still showing (connection recovered)
+        gooeyToast.dismiss(toastId("failed"))
         gooeyToast.success("Connected", {
           id,
           duration: CONNECTED_DISMISS_MS,
@@ -176,6 +192,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       "no-history": "There's no move to undo yet",
       "pending-conflict": "There's already a pending undo request",
       "not-allowed": "Undo isn't allowed right now",
+      "not-your-turn": "It's not your turn to request an undo",
       "game-not-found": "This game no longer exists",
     }
     const description = undoErrorMessages[msg.code]

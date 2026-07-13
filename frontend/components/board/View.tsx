@@ -52,6 +52,8 @@ export function View({ onLeave }: ViewProps) {
   const [flipped, setFlipped] = useState(false)
   const [showResign, setShowResign] = useState(false)
   const [showUndoConfirm, setShowUndoConfirm] = useState(false)
+  const [agreedToUndoTerms, setAgreedToUndoTerms] = useState(false)
+  const [agreedToOpponentUndoTerms, setAgreedToOpponentUndoTerms] = useState(false)
   const {
     prime: primeAudio,
     preload: preloadAudio,
@@ -126,6 +128,7 @@ export function View({ onLeave }: ViewProps) {
 
   const confirmUndo = useCallback(() => {
     setShowUndoConfirm(false)
+    setAgreedToUndoTerms(false)
     actions.requestUndo()
   }, [actions])
 
@@ -134,14 +137,25 @@ export function View({ onLeave }: ViewProps) {
   }, [actions])
 
   const acceptUndo = useCallback(() => {
+    setAgreedToOpponentUndoTerms(false)
     actions.acceptUndo()
   }, [actions])
 
   const declineUndo = useCallback(() => {
+    setAgreedToOpponentUndoTerms(false)
     actions.declineUndo()
   }, [actions])
 
   const showUndoRequest = state.pendingUndo !== null && state.pendingUndo.by !== state.color
+
+  // reset opponent agreement when a new undo request arrives
+  const prevExpiresAt = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (state.pendingUndo && state.pendingUndo.expiresAt !== prevExpiresAt.current) {
+      prevExpiresAt.current = state.pendingUndo.expiresAt
+      setAgreedToOpponentUndoTerms(false)
+    }
+  }, [state.pendingUndo])
 
   const isMyUndoPending = state.pendingUndo?.by === state.color
   const isFinished = state.status === FINISHED && state.result !== null
@@ -341,11 +355,26 @@ export function View({ onLeave }: ViewProps) {
           <DialogHeader>
             <DialogTitle>Request undo</DialogTitle>
             <DialogDescription>
-              Are you sure you want to request an undo?
+              By requesting an undo, you agree to the following conditions:
             </DialogDescription>
           </DialogHeader>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>Only the player who just moved may request an undo</li>
+            <li>Undoing will reverse the last move played</li>
+            <li>If the game ended by checkmate or stalemate, undoing will reopen the game</li>
+            <li>Once accepted, the game state will be restored to before the last move</li>
+          </ul>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={agreedToUndoTerms}
+              onChange={(e) => setAgreedToUndoTerms(e.target.checked)}
+              className="size-4 rounded border-input accent-primary"
+            />
+            I understand and agree to these conditions
+          </label>
           <DialogFooter showCloseButton>
-            <Button variant="default" onClick={confirmUndo}>
+            <Button variant="default" disabled={!agreedToUndoTerms} onClick={confirmUndo}>
               Send request
             </Button>
           </DialogFooter>
@@ -353,18 +382,32 @@ export function View({ onLeave }: ViewProps) {
       </Dialog>
 
       <Dialog open={showUndoRequest}>
-        <DialogContent showCloseButton={false}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Undo request</DialogTitle>
             <DialogDescription>
-              Your opponent has requested an undo.
+              Your opponent has requested an undo. By accepting, you agree to the following conditions:
             </DialogDescription>
           </DialogHeader>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>Undoing will reverse the last move played</li>
+            <li>If the game ended by checkmate or stalemate, undoing will reopen the game</li>
+            <li>Once accepted, the game state will be restored to before the last move</li>
+          </ul>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={agreedToOpponentUndoTerms}
+              onChange={(e) => setAgreedToOpponentUndoTerms(e.target.checked)}
+              className="size-4 rounded border-input accent-primary"
+            />
+            I agree to the terms above
+          </label>
           <DialogFooter showCloseButton>
             <Button variant="outline" onClick={declineUndo}>
               Decline
             </Button>
-            <Button variant="default" onClick={acceptUndo}>
+            <Button variant="default" disabled={!agreedToOpponentUndoTerms} onClick={acceptUndo}>
               Accept
             </Button>
           </DialogFooter>
