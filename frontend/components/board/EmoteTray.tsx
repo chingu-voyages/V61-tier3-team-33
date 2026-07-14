@@ -44,12 +44,12 @@ export function EmoteTray({ onSend }: EmoteTrayProps) {
       </button>
 
       {open && !onCooldown && (
-        <div className="absolute bottom-full mb-2 left-0 flex gap-1.5 rounded-xl border border-border bg-card p-2 shadow-lg z-20">
+        <div className="absolute bottom-full mb-2 right-0 w-max flex gap-1 rounded-xl border border-border bg-card p-2 shadow-lg z-20">
           {EMOTES.map(emote => (
             <button
               key={emote}
               onClick={() => handleSend(emote)}
-              className="text-xl transition-transform hover:scale-125 active:scale-110 rounded-md p-1 hover:bg-accent"
+              className="text-xl transition-transform hover:scale-125 active:scale-110 rounded-md p-2 hover:bg-accent"
               title={emote}
             >
               {emote}

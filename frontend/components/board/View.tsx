@@ -154,7 +154,7 @@ export function View({ onLeave }: ViewProps) {
       <div className="flex w-fit min-h-0 flex-1 flex-col items-center gap-3 self-center lg:w-auto lg:flex-none lg:self-auto">
         <div className="relative w-full">
           {(flipped ? sentEmote : receivedEmote) !== null && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 pointer-events-none z-20">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
               <EmoteOverlay
                 key={flipped ? sentEmoteKey : emoteKey}
                 emote={(flipped ? sentEmote : receivedEmote) as string}
@@ -210,7 +210,7 @@ export function View({ onLeave }: ViewProps) {
         <div className="flex w-full items-center justify-between">
           <div className="relative flex-1">
             {(flipped ? receivedEmote : sentEmote) !== null && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 translate-y-1/2 pointer-events-none z-20">
                 <EmoteOverlay
                   key={flipped ? emoteKey : sentEmoteKey}
                   emote={(flipped ? receivedEmote : sentEmote) as string}
