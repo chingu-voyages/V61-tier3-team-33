@@ -15,6 +15,7 @@ import {
   ok,
   PENDING_CONFLICT,
   type PieceColor,
+  UNDO_INACTIVE,
   WHITE,
 } from "../../types";
 import { CONSENT_REQUEST } from "../../types/consent";
@@ -44,14 +45,14 @@ describe("UndoCommand", () => {
       expect(broadcast).toHaveBeenCalledWith(Notifications.undoRequested("room-1", WHITE, expect.any(Number)));
     });
 
-    it("returns err(NOT_ALLOWED) when game not active", () => {
+    it("returns err(UNDO_INACTIVE) when game not active", () => {
       const game = { id: "room-1", broadcast: mock(() => {}), isActive: false } as unknown as Game;
       const games: GameReader = { get: mock((): Game => game), findWaiting: mock(() => null) };
       const cmd = new UndoCommand(games, new ConsentManager());
 
       const result = cmd.request({ playerId: "p1", roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN });
 
-      expect(result).toEqual(err(NOT_ALLOWED));
+      expect(result).toEqual(err(UNDO_INACTIVE));
     });
 
     it("returns err(PENDING_CONFLICT) when already pending", () => {
@@ -224,7 +225,7 @@ describe("UndoCommand", () => {
       expect(result).toEqual(err(PENDING_CONFLICT));
     });
 
-    it("propagates NOT_ALLOWED from Game.undo() instead of applying it, when the match ended by resignation/timeout/abandonment", async () => {
+    it("propagates UNDO_INACTIVE from Game.undo() instead of applying it, when the match ended by resignation/timeout/abandonment", async () => {
       const broadcast = mock(() => {});
       const game = {
         id: "room-1",
@@ -233,7 +234,7 @@ describe("UndoCommand", () => {
         canUndo: true,
         moveSeq: 1,
         turn: BLACK,
-        undo: mock(() => Promise.resolve(err(NOT_ALLOWED))),
+        undo: mock(() => Promise.resolve(err(UNDO_INACTIVE))),
         snapshot: mock(() => ({})),
       } as unknown as Game;
       const games: GameReader = { get: mock((): Game => game), findWaiting: mock(() => null) };
@@ -246,7 +247,7 @@ describe("UndoCommand", () => {
 
       const result = await cmd.accept({ playerId: "p2", roomId: "room-1", color: BLACK, mode: HUMAN_VS_HUMAN });
 
-      expect(result).toEqual(err(NOT_ALLOWED));
+      expect(result).toEqual(err(UNDO_INACTIVE));
       // broadcast was called once for undo:requested, but NOT for undo:applied
       expect(broadcast).toHaveBeenCalledTimes(1);
     });

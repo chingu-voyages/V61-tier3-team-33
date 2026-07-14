@@ -27,7 +27,7 @@ import {
 } from "@/socket/events"
 import { WHITE } from "@/core/piece"
 import { useSocketContext } from "@/socket/context"
-import { SESSION_ERROR, ROOM_RESET_CODES, UNDO_ERROR_MESSAGES } from "@/socket/errors"
+import { SESSION_ERROR, ROOM_RESET_CODES, UNDO_ERROR_MESSAGES, ERROR_MESSAGES } from "@/socket/errors"
 
 const initialState: RoomState = {
   roomId: null,
@@ -156,7 +156,13 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const description = UNDO_ERROR_MESSAGES[msg.code]
+    const undoDescription = UNDO_ERROR_MESSAGES[msg.code]
+    if (undoDescription) {
+      gooeyToast.error(undoDescription)
+      return
+    }
+
+    const description = ERROR_MESSAGES[msg.code]
     if (description) {
       gooeyToast.error(description)
     }

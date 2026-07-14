@@ -11,6 +11,7 @@ import {
   ok,
   PENDING_CONFLICT,
   type Result,
+  UNDO_INACTIVE,
 } from "../../types";
 import { BLACK, type PieceColor, type PlayerContext, WHITE } from "../../types";
 import { CONSENT_ACCEPT, CONSENT_DECLINE, CONSENT_EXPIRE, CONSENT_REQUEST } from "../../types/consent";
@@ -51,7 +52,7 @@ export class UndoCommand {
     // validate game is active
     if (!game.isActive) {
       log.warn("[UndoCommand.request:game-inactive]", { playerId: ctx.playerId });
-      return err(NOT_ALLOWED);
+      return err(UNDO_INACTIVE);
     }
 
     // nothing to undo yet

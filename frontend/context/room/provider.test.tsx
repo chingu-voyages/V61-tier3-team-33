@@ -5,6 +5,19 @@ import { resetSocketClient } from "@/socket/client"
 import { FakeSocket } from "@/socket/fake"
 import { RoomProvider } from "./provider"
 import { gooeyToast } from "@/components/ui/goey-toaster"
+import {
+  GAME_NOT_FOUND,
+  INVALID_MODE,
+  NO_HISTORY,
+  NOT_ALLOWED,
+  NOT_SEATED,
+  NOT_YOUR_TURN,
+  PENDING_CONFLICT,
+  RATE_LIMITED,
+  ROOM_FULL,
+  SESSION_ERROR,
+  UNDO_INACTIVE,
+} from "@/socket/errors"
 
 beforeEach(() => {
   FakeSocket.instances = []
@@ -125,11 +138,16 @@ describe("useConnectionToast", () => {
 
 describe("undo error toasts", () => {
   test.each([
-    ["no-history", "There's no move to undo yet"],
-    ["pending-conflict", "There's already a pending undo request"],
-    ["not-allowed", "Undo isn't allowed right now"],
-    ["not-your-turn", "It's not your turn to request an undo"],
-    ["game-not-found", "This game no longer exists"],
+    [NO_HISTORY, "There are no moves to undo yet"],
+    [PENDING_CONFLICT, "There's already a pending undo request"],
+    [NOT_ALLOWED, "Cannot request undo again without a move in between"],
+    [NOT_YOUR_TURN, "It's not your turn to request an undo"],
+    [GAME_NOT_FOUND, "This game no longer exists"],
+    [UNDO_INACTIVE, "You cannot undo — the game is not active"],
+    [NOT_SEATED, "You cannot resign — you are not seated in this game"],
+    [RATE_LIMITED, "Please wait a moment before requesting an undo again"],
+    [ROOM_FULL, "The room is full."],
+    [INVALID_MODE, "Cannot join in the current game state."],
   ] as const)("shows toast for %s error", (code, expectedMessage) => {
     const errorSpy = spyOn(gooeyToast, "error")
 
@@ -146,7 +164,7 @@ describe("undo error toasts", () => {
     // send a session:error with the given code
     act(() => {
       FakeSocket.instances[0].triggerMessage({
-        type: "session:error",
+        type: SESSION_ERROR,
         code,
         message: expectedMessage,
       })

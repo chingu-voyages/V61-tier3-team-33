@@ -54,11 +54,11 @@ import {
   ILLEGAL_MOVE,
   INVALID_MODE,
   NO_HISTORY,
-  NOT_ALLOWED,
   NOT_YOUR_PIECE,
   NOT_YOUR_TURN,
   ROOM_FULL,
   SQUARE_EMPTY,
+  UNDO_INACTIVE,
 } from "../../types";
 import { Game } from "./game";
 
@@ -723,7 +723,7 @@ describe("Game", () => {
 
       const result = await game.undo();
 
-      expect(result).toEqual({ ok: false, error: NOT_ALLOWED });
+      expect(result).toEqual({ ok: false, error: UNDO_INACTIVE });
       // status/endReason must be untouched — no silent reopen
       expect(game.status).toBe(FINISHED);
       expect(game.endReason).toBe(RESIGNATION);
@@ -738,7 +738,7 @@ describe("Game", () => {
 
       const result = await game.undo();
 
-      expect(result).toEqual({ ok: false, error: NOT_ALLOWED });
+      expect(result).toEqual({ ok: false, error: UNDO_INACTIVE });
       expect(game.status).toBe(FINISHED);
     });
 
@@ -751,7 +751,7 @@ describe("Game", () => {
 
       const result = await game.undo();
 
-      expect(result).toEqual({ ok: false, error: NOT_ALLOWED });
+      expect(result).toEqual({ ok: false, error: UNDO_INACTIVE });
       expect(game.status).toBe(FINISHED);
     });
   });

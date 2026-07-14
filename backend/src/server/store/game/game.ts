@@ -36,7 +36,7 @@ import {
   ILLEGAL_MOVE,
   INVALID_MODE,
   NO_HISTORY,
-  NOT_ALLOWED,
+  NOT_SEATED,
   NOT_YOUR_PIECE,
   NOT_YOUR_TURN,
   ok,
@@ -44,6 +44,7 @@ import {
   ROOM_FULL,
   type RoomError,
   SQUARE_EMPTY,
+  UNDO_INACTIVE,
 } from "../../types";
 import { Mutex } from "../../util/mutex";
 
@@ -282,7 +283,7 @@ export class Game {
 
       // reject if the color is not seated
       if (!this.slots.has(by)) {
-        return err(NOT_ALLOWED);
+        return err(NOT_SEATED);
       }
 
       // stop the clock and mark the game as finished
@@ -363,7 +364,7 @@ export class Game {
         return err(NO_HISTORY);
       }
       if (this.status === FINISHED && this.endReason !== RULES) {
-        return err(NOT_ALLOWED);
+        return err(UNDO_INACTIVE);
       }
 
       try {

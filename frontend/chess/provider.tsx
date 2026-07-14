@@ -5,6 +5,8 @@ import { ChessContext } from "./context"
 import { Chess } from "./index"
 import { useSocketContext } from "@/socket/context"
 import { useSocketEvent } from "@/socket/use-event"
+import { gooeyToast } from "@/components/ui/goey-toaster"
+import { ERROR_MESSAGES } from "@/socket/errors"
 import {
   ROOM_JOINED,
   GAME_STARTED,
@@ -54,14 +56,22 @@ export function ChessProvider({ children }: { children: React.ReactNode }) {
 
   useSocketEvent(MOVE_REJECTED, (msg) => {
     store.rejectMove(msg.reason, msg.from, msg.to)
+    const description = ERROR_MESSAGES[msg.reason]
+    if (description) {
+      gooeyToast.error(description)
+    }
   })
 
   useSocketEvent(POSITION_ACCEPTED, (msg) => {
     store.selectAccepted(msg.position, msg.moves)
   })
 
-  useSocketEvent(POSITION_REJECTED, () => {
+  useSocketEvent(POSITION_REJECTED, (msg) => {
     store.selectRejected()
+    const description = ERROR_MESSAGES[msg.reason]
+    if (description) {
+      gooeyToast.error(description)
+    }
   })
 
   useSocketEvent(UNDO_APPLIED, (msg) => {

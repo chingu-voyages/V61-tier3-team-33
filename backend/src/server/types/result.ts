@@ -36,6 +36,8 @@ export const NOT_YOUR_PIECE = GameError("not-your-piece");
 export const NO_HISTORY = GameError("no-history");
 export const PENDING_CONFLICT = GameError("pending-conflict");
 export const NOT_ALLOWED = GameError("not-allowed");
+export const UNDO_INACTIVE = GameError("undo-inactive");
+export const NOT_SEATED = GameError("not-seated");
 export const RATE_LIMITED = GameError("rate-limited");
 
 export type GameError =
@@ -49,6 +51,8 @@ export type GameError =
   | typeof NO_HISTORY
   | typeof PENDING_CONFLICT
   | typeof NOT_ALLOWED
+  | typeof UNDO_INACTIVE
+  | typeof NOT_SEATED
   | typeof RATE_LIMITED;
 
 // StrategyError — engine/strategy issues
@@ -107,8 +111,15 @@ export const ErrorMessages: Record<string, string> = {
   [GAME_OVER]: "The game is already over.",
   [GAME_NOT_FOUND]: "That game no longer exists.",
   [NO_HISTORY]: "There's no move to undo.",
-  [NOT_ALLOWED]: "That action isn't allowed right now.",
-  [PENDING_CONFLICT]: "There's already a pending request.",
+  [NOT_YOUR_TURN]: "It's not your turn.",
+  [ILLEGAL_MOVE]: "That move is not legal.",
+  [SQUARE_EMPTY]: "That square is empty.",
+  [NOT_YOUR_PIECE]: "That piece belongs to your opponent.",
+  [NO_HISTORY]: "There are no moves to undo.",
+  [NOT_ALLOWED]: "Cannot request undo again without a move in between.",
+  [UNDO_INACTIVE]: "You cannot undo — the game is not active.",
+  [NOT_SEATED]: "You cannot resign — you are not seated in this game.",
+  [PENDING_CONFLICT]: "There's already a pending undo request.",
   [RATE_LIMITED]: "Please wait a moment before requesting an undo again.",
   [INTERNAL_ERROR]: "An unexpected error occurred.",
 };
