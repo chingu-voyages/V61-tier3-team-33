@@ -5,7 +5,7 @@ import { Notifications } from "../../protocol/events";
 import type { Game } from "../../store/game/game";
 import type { GameStore } from "../../store/game/game-store";
 import type { JoinInput } from "../../types";
-import { err, HUMAN, HUMAN_VS_HUMAN, INVALID_MODE, ok, ROOM_FULL, WHITE } from "../../types";
+import { err, HUMAN, HUMAN_VS_HUMAN, INVALID_MODE, ok, ROOM_FULL, ROOM_NOT_FOUND, WHITE } from "../../types";
 import { JoinCommand } from "./join";
 
 function makeOccupant(): Occupant {
@@ -66,7 +66,7 @@ describe("JoinCommand", () => {
     expect(result).toEqual(err(ROOM_FULL));
   });
 
-  it("creates a new game with a server-generated ID when an explicit roomId does not match any game (screening)", async () => {
+  it("creates a new game with a server-generated ID when create=true, ignoring any roomId", async () => {
     const game = {
       id: crypto.randomUUID(),
       nextColor: mock(() => WHITE),
@@ -78,7 +78,9 @@ describe("JoinCommand", () => {
     } as unknown as Game;
     const games: GameStore = {
       get: mock((): Game | null => null),
-      findWaiting: mock(() => { throw new Error("should not reach matchmaking when roomId is supplied"); }),
+      findWaiting: mock(() => {
+        throw new Error("should not reach matchmaking when create=true");
+      }),
       create: mock(() => game),
       commit: mock(() => {}),
       drop: mock(() => {}),
@@ -88,12 +90,38 @@ describe("JoinCommand", () => {
     };
     const cmd = new JoinCommand(games);
 
-    const result = await cmd.run({ mode: HUMAN_VS_HUMAN, roomId: "screening-id" }, makeOccupant());
+    const result = await cmd.run(
+      { mode: HUMAN_VS_HUMAN, create: true, roomId: "ignored-screening-id" },
+      makeOccupant(),
+    );
 
     expect(result).toEqual(ok({ gameId: game.id, color: WHITE }));
-    expect(games.get).toHaveBeenCalledWith("screening-id");
-    expect(games.create).toHaveBeenCalledWith(undefined, HUMAN_VS_HUMAN, expect.any(Object));
+    expect(games.get).not.toHaveBeenCalled();
+    expect(games.create).toHaveBeenCalledWith(expect.anything(), HUMAN_VS_HUMAN, expect.anything());
     expect(games.findWaiting).not.toHaveBeenCalled();
+  });
+
+  it("returns err(ROOM_NOT_FOUND) when an explicit roomId (invite link) doesn't match any game", async () => {
+    const games: GameStore = {
+      get: mock((): Game | null => null),
+      findWaiting: mock(() => {
+        throw new Error("should not reach matchmaking when roomId is supplied");
+      }),
+      create: mock(() => {
+        throw new Error("should not create a phantom room for a missing invite");
+      }),
+      commit: mock(() => {}),
+      drop: mock(() => {}),
+      sweep: mock(() => 0),
+      startSweeping: mock(() => {}),
+      stopSweeping: mock(() => {}),
+    };
+    const cmd = new JoinCommand(games);
+
+    const result = await cmd.run({ mode: HUMAN_VS_HUMAN, roomId: "stale-invite-id" }, makeOccupant());
+
+    expect(result).toEqual(err(ROOM_NOT_FOUND));
+    expect(games.get).toHaveBeenCalledWith("stale-invite-id");
   });
 
   it("propagates game.join error when join fails", async () => {

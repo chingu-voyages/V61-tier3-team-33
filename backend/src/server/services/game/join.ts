@@ -16,32 +16,29 @@ export class JoinCommand {
   async run(input: JoinInput, occupant: Occupant): Promise<Result<JoinSuccess, RoomError>> {
     const format = input.clock ?? BLITZ;
 
-    // resolve game: existing room, waiting queue, or create new
-    let game = input.roomId === undefined ? null : this.games.get(input.roomId);
+    // resolve game: explicit create, existing room, waiting queue, or fresh match
+    let game: ReturnType<GameStore["get"]>;
 
-    // roomId provided but room doesn't exist — screening ID (has clock) or stale invite
-    if (game === null && input.roomId !== undefined) {
-      if (input.clock !== undefined) {
-        // screening roomId from createRoom flow — create fresh game
-        game = this.games.create(crypto.randomUUID(), input.mode, createClock(format));
-        log.info("[JoinCommand.run:created]", { gameId: game.id });
-      } else {
-        // invite link to a nonexistent room — reject
+    if (input.create) {
+      // friend-invite flow — always spin up a brand-new room, ignore any roomId
+      game = this.games.create(crypto.randomUUID(), input.mode, createClock(format));
+      log.info("[JoinCommand.run:created]", { gameId: game.id });
+    } else if (input.roomId !== undefined) {
+      // explicit room requested (invite link, reconnect) — must already exist
+      game = this.games.get(input.roomId);
+      if (game === null) {
         log.warn("[JoinCommand.run:room-not-found]", { roomId: input.roomId });
         return err(ROOM_NOT_FOUND);
       }
-    }
-
-    // matchmake: no explicit roomId, find a waiting opponent
-    if (game === null && input.roomId === undefined) {
+    } else {
+      // matchmaking: no explicit roomId, find a waiting opponent
       game = this.games.findWaiting(input.mode, format);
-      if (game) log.info("[JoinCommand.run:matched]", { gameId: game.id });
-    }
-
-    // no match found — create a fresh one
-    if (game === null) {
-      game = this.games.create(crypto.randomUUID(), input.mode, createClock(format));
-      log.info("[JoinCommand.run:created]", { gameId: game.id });
+      if (game) {
+        log.info("[JoinCommand.run:matched]", { gameId: game.id });
+      } else {
+        game = this.games.create(crypto.randomUUID(), input.mode, createClock(format));
+        log.info("[JoinCommand.run:created]", { gameId: game.id });
+      }
     }
 
     // assign color

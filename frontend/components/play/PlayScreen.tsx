@@ -63,9 +63,9 @@ export function PlayScreen({ mode, roomId, modeExplicit = false }: PlayScreenPro
     (tc: TimeControl) => {
       pendingCreateRef.current = true
       dispatch({ type: "CREATE_ROOM", timeControl: tc })
-      // Screening ID prevents matchmaking — backend ignores it and
-      // generates its own canonical ID, returned in room:joined.
-      actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: crypto.randomUUID(), clock: ClockFormat(tc.id) })
+      // Explicit create intent — backend always assigns its own canonical
+      // id, returned in room:joined. No client-generated roomId involved.
+      actions.joinRoom({ mode: HUMAN_VS_HUMAN, create: true, clock: ClockFormat(tc.id) })
     },
     [actions]
   )

@@ -10,6 +10,7 @@ import {
   NOT_YOUR_TURN,
   PENDING_CONFLICT,
   Position,
+  ROOM_NOT_FOUND,
   type WebSocket,
   WS_OPEN,
 } from "../types";
@@ -816,6 +817,63 @@ describe("Mediator integration", () => {
     mediator.handle(wsW, { type: "undo:request" });
     await settle();
     expect(lastSentOfType(wsB, "undo:requested")).toBeTruthy();
+  });
+
+  // ── Flow 37: Friend-invite create + join by link ──
+  it("37: create=true makes a room, and a second player joins it by roomId", async () => {
+    const wsHost = makeSocket();
+    handshake(mediator, wsHost);
+    mediator.handle(wsHost, { type: "room:join", mode: HUMAN_VS_HUMAN, create: true, clock: BLITZ });
+    await settle();
+
+    const hostJoined = lastSentOfType(wsHost, "room:joined") as RawMessage | undefined;
+    expect(hostJoined).toBeTruthy();
+    const roomId = hostJoined!.roomId as string;
+
+    const wsFriend = makeSocket();
+    handshake(mediator, wsFriend);
+    mediator.handle(wsFriend, { type: "room:join", mode: HUMAN_VS_HUMAN, roomId });
+    await settle();
+
+    const friendJoined = lastSentOfType(wsFriend, "room:joined") as RawMessage | undefined;
+    expect(friendJoined).toBeTruthy();
+    expect(friendJoined!.roomId).toBe(roomId);
+    expect(lastSentOfType(wsHost, "game:started")).toBeTruthy();
+    expect(lastSentOfType(wsFriend, "game:started")).toBeTruthy();
+  });
+
+  // ── Flow 38: Stale/unknown invite link is rejected, not silently recreated ──
+  it("38: joining a roomId that doesn't exist returns ROOM_NOT_FOUND instead of creating a phantom room", async () => {
+    const ws = makeSocket();
+    handshake(mediator, ws);
+    mediator.handle(ws, { type: "room:join", mode: HUMAN_VS_HUMAN, roomId: "nonexistent-room-id" });
+    await settle();
+
+    const reply = lastSent(ws) as unknown as ErrorReply;
+    expect(reply.type).toBe("session:error");
+    expect(reply.code).toBe(ROOM_NOT_FOUND);
+    expect(lastSentOfType(ws, "room:joined")).toBeUndefined();
+  });
+
+  // ── Flow 39: Host abandons an invite before anyone joins ── link dies immediately ──
+  it("39: host leaving an un-started invite room drops it immediately, so the same link then 404s", async () => {
+    const wsHost = makeSocket();
+    handshake(mediator, wsHost);
+    mediator.handle(wsHost, { type: "room:join", mode: HUMAN_VS_HUMAN, create: true, clock: BLITZ });
+    await settle();
+    const roomId = (lastSentOfType(wsHost, "room:joined") as RawMessage).roomId as string;
+
+    mediator.handle(wsHost, { type: "room:leave" });
+    await settle();
+
+    const wsLate = makeSocket();
+    handshake(mediator, wsLate);
+    mediator.handle(wsLate, { type: "room:join", mode: HUMAN_VS_HUMAN, roomId });
+    await settle();
+
+    const reply = lastSent(wsLate) as unknown as ErrorReply;
+    expect(reply.type).toBe("session:error");
+    expect(reply.code).toBe(ROOM_NOT_FOUND);
   });
 
   // ── Flow 36: Same-token simultaneous handshake from two sockets ──

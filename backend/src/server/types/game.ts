@@ -83,6 +83,7 @@ export interface JoinInput {
   color?: PieceColor;
   difficulty?: Difficulty;
   clock?: ClockFormat;
+  create?: boolean;
 }
 
 export const WS_OPEN = 1;

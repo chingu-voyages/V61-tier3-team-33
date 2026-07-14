@@ -106,7 +106,7 @@ export const ErrorMessages: Record<string, string> = {
   [NOT_AUTHENTICATED]: "Session not found.",
   [ROOM_FULL]: "The room is full.",
   [INVALID_MODE]: "Cannot join in the current game state.",
-  [ROOM_NOT_FOUND]: "Room not found.",
+  [ROOM_NOT_FOUND]: "This invite link is no longer valid — the game may have expired or the host left.",
   [NOT_IN_GAME]: "You are not in a game.",
   [GAME_OVER]: "The game is already over.",
   [GAME_NOT_FOUND]: "That game no longer exists.",
