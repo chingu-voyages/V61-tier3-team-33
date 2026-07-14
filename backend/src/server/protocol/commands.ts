@@ -23,6 +23,7 @@ export const STATE_SYNC = "state:sync" as const;
 // The click-a-piece step before move:make — routed to GameService, answered
 // with position:accept (legal destinations) or position:reject.
 export const POSITION_SELECT = "position:select" as const;
+export const EMOTE_SEND = "emote:send" as const;
 
 export type Command =
   | { type: typeof SESSION_HANDSHAKE; token?: string }
@@ -36,14 +37,15 @@ export type Command =
   | { type: typeof UNDO_CANCEL }
   | { type: typeof GAME_RESIGN }
   | { type: typeof STATE_SYNC }
-  | { type: typeof POSITION_SELECT; position: Position };
+  | { type: typeof POSITION_SELECT; position: Position }
+  | { type: typeof EMOTE_SEND; emote: string };
 
 export const Command = {
   isValid(cmd: unknown): cmd is Command {
     return cmd !== null;
   },
 
-  /** Truncated description of raw input for logging — never send secrets. */
+  /** Truncated description of raw input for debugging — never send secrets. */
   describe(raw: unknown): string {
     return typeof raw === "string" ? raw.slice(0, 200) : typeof raw;
   },

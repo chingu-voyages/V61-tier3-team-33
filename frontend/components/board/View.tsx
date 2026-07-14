@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useReducer } from "react"
+import { useCallback, useReducer, useState } from "react"
 import Image from "next/image"
 import { useRoom } from "@/context/room/context"
 import { useChess } from "@/chess/context"
@@ -35,8 +35,12 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
 import { ClockDisplay } from "./ClockDisplay"
+import { EmoteTray } from "./EmoteTray"
+import { EmoteOverlay } from "./EmoteOverlay"
 import { FINISHED } from "@/socket/types"
 import { useEventCallback } from "./use-event-callback"
+import { useSocketEvent } from "@/socket/use-event"
+import { EMOTE_RECEIVED } from "@/socket/events"
 import { viewReducer, initialViewState } from "./view-reducer"
 import { PromotionOverlay } from "./PromotionOverlay"
 import { useUndoRequest } from "./use-undo-request"
@@ -58,6 +62,16 @@ export function View({ onLeave }: ViewProps) {
   const [view, dispatch] = useReducer(viewReducer, initialViewState)
   const { showUndoRequest, isMyUndoPending } = useUndoRequest(state, dispatch)
   const { isFinished, resultText } = useGameResult(state)
+
+  const [receivedEmote, setReceivedEmote] = useState<string | null>(null)
+  const [emoteKey, setEmoteKey] = useState(0)
+  const [sentEmote, setSentEmote] = useState<string | null>(null)
+  const [sentEmoteKey, setSentEmoteKey] = useState(0)
+
+  useSocketEvent(EMOTE_RECEIVED, (e) => {
+    setReceivedEmote(e.emote)
+    setEmoteKey(k => k + 1)
+  })
 
   // Stable identity so Board's memoized squares don't re-render on every
   // move, while still reading the latest chess/room state on each click.
@@ -111,7 +125,15 @@ export function View({ onLeave }: ViewProps) {
       <div className="flex min-h-0 flex-1 flex-col items-center self-center sm:self-stretch">
         <div className="flex w-full mx-auto min-h-0 flex-1 flex-col items-center gap-3" style={{ maxWidth: "80vh" }}>
         <div className="flex w-full items-center gap-2">
-          <div className="min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1">
+            {(view.flipped ? sentEmote : receivedEmote) !== null && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 pointer-events-none z-20">
+                <EmoteOverlay
+                  key={view.flipped ? sentEmoteKey : emoteKey}
+                  emote={(view.flipped ? sentEmote : receivedEmote) as string}
+                />
+              </div>
+            )}
             <ClockDisplay
               color={view.flipped ? myColor : oppColor}
               label={view.flipped ? "You" : "Opponent"}
@@ -203,12 +225,31 @@ export function View({ onLeave }: ViewProps) {
           )}
         </div>
 
-        <ClockDisplay
-          color={view.flipped ? oppColor : myColor}
-          label={view.flipped ? "Opponent" : "You"}
-          clock={chessState.clock}
-          clockReceivedAt={chessState.clockReceivedAt}
-        />
+        <div className="flex w-full items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            {(view.flipped ? receivedEmote : sentEmote) !== null && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 pointer-events-none z-20">
+                <EmoteOverlay
+                  key={view.flipped ? emoteKey : sentEmoteKey}
+                  emote={(view.flipped ? receivedEmote : sentEmote) as string}
+                />
+              </div>
+            )}
+            <ClockDisplay
+              color={view.flipped ? oppColor : myColor}
+              label={view.flipped ? "Opponent" : "You"}
+              clock={chessState.clock}
+              clockReceivedAt={chessState.clockReceivedAt}
+            />
+          </div>
+          {state.status !== FINISHED && (
+            <EmoteTray onSend={(emote) => {
+              actions.sendEmote(emote)
+              setSentEmote(emote)
+              setSentEmoteKey(k => k + 1)
+            }} />
+          )}
+        </div>
       </div>
       </div>
 

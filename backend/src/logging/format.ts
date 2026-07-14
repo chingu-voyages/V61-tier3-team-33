@@ -35,6 +35,7 @@ export const Format = Object.assign(
       clock: "\x1b[33m",
       grace: "\x1b[33m",
       connection: "\x1b[35m",
+      emote: "\x1b[95m",
     } as Record<EventFamily, string>,
 
     LEVEL_COLOR: {

@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils"
 import { formatClock } from "./helpers"
 
 
-
 interface ClockDisplayProps {
   color: PieceColor
   label: string
@@ -25,7 +24,7 @@ export function ClockDisplay({
 }: ClockDisplayProps) {
   const live = useClock(clock, clockReceivedAt)
   const ms = color === WHITE ? live?.whiteMs : live?.blackMs
-  const isActive = live !== null && live.active === color
+  const isActive = live?.active === color
 
   return (
     <div
@@ -40,7 +39,12 @@ export function ClockDisplay({
           <span className="inline-block size-2 animate-pulse rounded-full bg-chess-check-fill" />
         )}
         {getPieceIcon({ type: KNIGHT, color }, { className: "size-5" })}
-        <span className="font-medium text-foreground">{label}</span>
+        <span className={["font-medium text-sm", isActive ? "text-foreground" : "text-muted-foreground"].join(" ")}>
+          {label}
+        </span>
+        {isActive && (
+          <span className="size-2 rounded-full bg-primary animate-pulse" />
+        )}
       </div>
       <span className="tabular-nums">{formatClock(ms)}</span>
     </div>

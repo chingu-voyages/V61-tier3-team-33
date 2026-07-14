@@ -4,6 +4,7 @@ import { Human } from "../occupant/human";
 import { Auth } from "../protocol/auth";
 import type { Command } from "../protocol/commands";
 import {
+  EMOTE_SEND,
   GAME_RESIGN,
   MOVE_MAKE,
   POSITION_SELECT,
@@ -113,6 +114,9 @@ export class Mediator {
         break;
       case POSITION_SELECT:
         this.selectPosition(ws, ctx, cmd.position);
+        break;
+      case EMOTE_SEND:
+        this.emoteSend(ws, ctx, cmd.emote);
         break;
       default:
         log.warn("[Mediator.handle:unknown-cmd]", { cmdType: (cmd as { type: string }).type });
@@ -397,8 +401,25 @@ export class Mediator {
     log.info("[Mediator.selectPosition:selected]", { playerId: ctx.playerId });
   }
 
+  private emoteSend(ws: WebSocket, ctx: PlayerContext, emote: string): void {
+    log.info("[Mediator.emoteSend:start]", { playerId: ctx.playerId, emote });
+
+    if (!Context.inGame(ctx)) {
+      log.warn("[Mediator.emoteSend:not-in-game]", { playerId: ctx.playerId });
+      Reply.error(ws, NOT_IN_GAME);
+      return;
+    }
+
+    this.emote.run(ctx, emote);
+    log.info("[Mediator.emoteSend:sent]", { playerId: ctx.playerId });
+  }
+
   private get game() {
     return this.services.game;
+  }
+
+  private get emote() {
+    return this.services.emote;
   }
 
   private get connection() {

@@ -37,6 +37,8 @@ export const GRACE_STARTED = "grace:started" as const
 export const GRACE_CANCELLED = "grace:cancelled" as const
 export const GRACE_EXPIRED = "grace:expired" as const
 
+export const EMOTE_RECEIVED = "emote:received" as const
+
 export type GameEvent =
   | {
       type: typeof ROOM_JOINED
@@ -155,6 +157,12 @@ export type GameEvent =
       type: typeof GRACE_EXPIRED
       roomId: string
       color: PieceColor
+    }
+  | {
+      type: typeof EMOTE_RECEIVED
+      roomId: string
+      from: PieceColor
+      emote: string
     }
 
 /** Every message shape the client can receive. Add a variant above for new server messages. */

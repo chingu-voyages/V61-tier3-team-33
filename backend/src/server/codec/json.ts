@@ -16,6 +16,7 @@ import {
   UNDO_CANCEL,
   UNDO_DECLINE,
   UNDO_REQUEST,
+  EMOTE_SEND,
 } from "../protocol/commands";
 import {
   AI_VS_AI,
@@ -131,6 +132,11 @@ const decoders: Record<Command["type"], Decoder> = {
   [POSITION_SELECT]: (raw) => {
     if (!isValidPosition(raw.position)) return null;
     return { type: POSITION_SELECT, position: raw.position } as Command;
+  },
+
+  [EMOTE_SEND]: (raw) => {
+    if (typeof raw.emote !== "string") return null;
+    return { type: EMOTE_SEND, emote: raw.emote };
   },
 };
 
