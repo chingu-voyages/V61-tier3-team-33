@@ -1,7 +1,7 @@
 import { logger as rootLogger } from "../../../logging/logger";
 import { Notifications } from "../../protocol/events";
 import type { GameReader } from "../../store/game/game-store";
-import { err, type GameError, ok, type Result } from "../../types";
+import { err, GAME_NOT_FOUND, type GameError, ok, type Result } from "../../types";
 import { type GameOutcome, type PlayerContext } from "../../types";
 
 const log = rootLogger.child({ module: "ResignCommand" });
@@ -13,7 +13,11 @@ export class ResignCommand {
     log.info("[ResignCommand.run:start]", { playerId: ctx.playerId });
 
     // get game
-    const game = this.games.get(ctx.roomId!)!;
+    const game = this.games.get(ctx.roomId!);
+    if (!game) {
+      log.warn("[ResignCommand.run:game-not-found]", { playerId: ctx.playerId });
+      return err(GAME_NOT_FOUND);
+    }
 
     // execute resign
     const result = await game.resign(ctx.color!);

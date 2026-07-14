@@ -125,6 +125,18 @@ export class Game {
   /** Remove the occupant from the given slot and notify listeners. */
   leave(color: PieceColor): void {
     log.info("[Game.leave:start]", { id: this.id, color, occupant: this.slots.get(color)?.playerId });
+
+    // if the game is active, leaving is treated as abandonment
+    if (this.status === ACTIVE) {
+      this.timer.dispose();
+      this.abandonedBy = color;
+      this.status = FINISHED;
+      this.endReason = ABANDONED;
+      this.finishedAt = Date.now();
+      const outcome = this.outcome();
+      this.broadcast(Notifications.gameEnded(this.id, outcome, outcome.winner));
+    }
+
     this.broadcast(Notifications.roomLeft(this.id, color));
     this.slots.delete(color);
     log.info("[Game.leave:done]", { id: this.id, slotsRemaining: this.slots.size });
@@ -234,12 +246,12 @@ export class Game {
       }
 
       try {
-        // stop the current colour's timer
-        this.timer.stop(color);
+        // apply the move first; if illegal, the error is caught before touching the clock
+        const applied = this.chess.move(input.from, input.to, input.promoteTo);
         log.info("[Game.move:executing]", { id: this.id, color, from: input.from, to: input.to });
 
-        // apply the move and advance the sequence
-        const applied = this.chess.move(input.from, input.to, input.promoteTo);
+        // stop the current colour's timer (only after a legal move)
+        this.timer.stop(color);
         this.moveSeq++;
 
         // end the game if the move is decisive

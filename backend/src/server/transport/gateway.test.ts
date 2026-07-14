@@ -4,7 +4,7 @@ import { setCodec } from "../codec/codec";
 import { JsonCodec } from "../codec/json";
 import type { Command } from "../protocol/commands";
 import { HUMAN_VS_HUMAN, type WebSocket, WHITE, WS_OPEN } from "../types";
-import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../types";
+import { INVALID_PAYLOAD, NOT_IMPLEMENTED, ROOM_NOT_FOUND } from "../types";
 import { Gateway } from "./gateway";
 
 type GatewayPrivate = { handleMessage(ws: WebSocket, data: unknown): void; handleClose(ws: WebSocket): void };
@@ -105,6 +105,20 @@ describe("Gateway handleMessage", () => {
 
       expect(sent(ws)).toHaveLength(1);
     });
+
+    it("rejects a join request with out-of-domain numeric values", () => {
+      const { gw } = realGateway();
+      const ws = makeSocket();
+
+      (gw as unknown as GatewayPrivate).handleMessage(ws, {
+        type: "room:join",
+        mode: 99,
+        color: 42,
+      });
+
+      const reply = lastSent(ws);
+      expect(reply).toMatchObject({ type: "session:error", code: INVALID_PAYLOAD });
+    });
   });
 
   describe("error path — unknown command type", () => {
@@ -192,6 +206,23 @@ describe("Gateway handleMessage", () => {
       const bStarted = lastEventOfType(wsB, "game:started");
       expect(bStarted).toBeTruthy();
     });
+  });
+
+  it("returns room-not-found instead of matchmaking when an explicit room is absent", async () => {
+    const { gw } = realGateway();
+    const waitingPlayer = makeSocket();
+
+    handshake(gw, waitingPlayer);
+    join(gw, waitingPlayer);
+    await drain();
+
+    const joiner = makeSocket();
+    handshake(gw, joiner);
+    join(gw, joiner, { roomId: "missing-room" });
+    await drain();
+
+    const reply = lastSent(joiner);
+    expect(reply).toMatchObject({ type: "session:error", code: ROOM_NOT_FOUND });
   });
 
   describe("auto-rejoin on reconnect", () => {

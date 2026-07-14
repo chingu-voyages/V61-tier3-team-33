@@ -5,7 +5,7 @@ import { Notifications } from "../../protocol/events";
 import type { Game } from "../../store/game/game";
 import type { GameStore } from "../../store/game/game-store";
 import type { JoinInput } from "../../types";
-import { err, HUMAN, HUMAN_VS_HUMAN, INVALID_MODE, ok, ROOM_FULL, WHITE } from "../../types";
+import { err, HUMAN, HUMAN_VS_HUMAN, INVALID_MODE, ok, ROOM_FULL, ROOM_NOT_FOUND, WHITE } from "../../types";
 import { JoinCommand } from "./join";
 
 function makeOccupant(): Occupant {
@@ -64,6 +64,30 @@ describe("JoinCommand", () => {
     const result = await cmd.run({ mode: HUMAN_VS_HUMAN }, makeOccupant());
 
     expect(result).toEqual(err(ROOM_FULL));
+  });
+
+  it("returns err(ROOM_NOT_FOUND) when explicit roomId does not match any game", async () => {
+    const games: GameStore = {
+      get: mock((): Game | null => null),
+      findWaiting: mock(() => {
+        throw new Error("should not reach matchmaking when roomId is supplied");
+      }),
+      create: mock(() => {
+        throw new Error("should not create a game when roomId is supplied");
+      }),
+      commit: mock(() => {}),
+      drop: mock(() => {}),
+      sweep: mock(() => 0),
+      startSweeping: mock(() => {}),
+      stopSweeping: mock(() => {}),
+    };
+    const cmd = new JoinCommand(games);
+
+    const result = await cmd.run({ mode: HUMAN_VS_HUMAN, roomId: "missing-room" }, makeOccupant());
+
+    expect(result).toEqual(err(ROOM_NOT_FOUND));
+    expect(games.get).toHaveBeenCalledWith("missing-room");
+    // findWaiting and create should never be called
   });
 
   it("propagates game.join error when join fails", async () => {

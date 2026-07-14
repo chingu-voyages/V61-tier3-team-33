@@ -133,12 +133,30 @@ describe("JsonCodec.decode", () => {
       expect(codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, color: "white" })).toBeNull();
     });
 
+    it("rejects an out-of-range mode", () => {
+      expect(codec.decode({ type: ROOM_JOIN, mode: 99 })).toBeNull();
+    });
+
+    it("rejects an out-of-range color", () => {
+      expect(codec.decode({ type: ROOM_JOIN, mode: HUMAN_VS_HUMAN, color: 42 })).toBeNull();
+    });
+
     it("rejects a non-number difficulty", () => {
       expect(
         codec.decode({
           type: ROOM_JOIN,
           mode: HUMAN_VS_HUMAN,
           difficulty: "easy",
+        }),
+      ).toBeNull();
+    });
+
+    it("rejects an out-of-range difficulty", () => {
+      expect(
+        codec.decode({
+          type: ROOM_JOIN,
+          mode: HUMAN_VS_HUMAN,
+          difficulty: 42,
         }),
       ).toBeNull();
     });
@@ -243,6 +261,28 @@ describe("JsonCodec.decode", () => {
           from: 12,
           to: 28,
           promoteTo: "queen",
+        }),
+      ).toBeNull();
+    });
+
+    it("rejects an out-of-range promoteTo", () => {
+      expect(
+        codec.decode({
+          type: MOVE_MAKE,
+          from: 12,
+          to: 28,
+          promoteTo: 99,
+        }),
+      ).toBeNull();
+    });
+
+    it("rejects promoteTo as PAWN (0) which is not a valid promotion piece", () => {
+      expect(
+        codec.decode({
+          type: MOVE_MAKE,
+          from: 12,
+          to: 28,
+          promoteTo: 0,
         }),
       ).toBeNull();
     });

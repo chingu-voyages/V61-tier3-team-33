@@ -1,7 +1,7 @@
 import { logger as rootLogger } from "../../../logging/logger";
 import { Notifications } from "../../protocol/events";
 import type { GameReader } from "../../store/game/game-store";
-import { err, type GameError, GameOutcome, ok, type Result } from "../../types";
+import { err, GAME_NOT_FOUND, type GameError, GameOutcome, ok, type Result } from "../../types";
 import { type Move, type MoveInput, type PlayerContext } from "../../types";
 
 const log = rootLogger.child({ module: "MoveCommand" });
@@ -15,7 +15,11 @@ export class MoveCommand {
     log.info("[MoveCommand.run:start]", { playerId: ctx.playerId, from: input.from, to: input.to });
 
     // get game
-    const game = this.games.get(ctx.roomId!)!;
+    const game = this.games.get(ctx.roomId!);
+    if (!game) {
+      log.warn("[MoveCommand.run:game-not-found]", { playerId: ctx.playerId, from: input.from, to: input.to });
+      return err(GAME_NOT_FOUND);
+    }
 
     // execute move
     const result = await game.move(ctx.color!, input);

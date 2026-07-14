@@ -1,7 +1,7 @@
 import { logger as rootLogger } from "../../../logging/logger";
 import { Notifications } from "../../protocol/events";
 import type { GameReader } from "../../store/game/game-store";
-import { err, type GameError, ok, type Result } from "../../types";
+import { err, GAME_NOT_FOUND, type GameError, ok, type Result } from "../../types";
 import { type PlayerContext, type Position } from "../../types";
 
 const log = rootLogger.child({ module: "SelectPositionCommand" });
@@ -13,7 +13,11 @@ export class SelectPositionCommand {
     log.info("[SelectPositionCommand.run:start]", { playerId: ctx.playerId, position });
 
     // get game
-    const game = this.games.get(ctx.roomId!)!;
+    const game = this.games.get(ctx.roomId!);
+    if (!game) {
+      log.warn("[SelectPositionCommand.run:game-not-found]", { playerId: ctx.playerId, position });
+      return err(GAME_NOT_FOUND);
+    }
 
     // execute selection
     const result = game.selectPosition(ctx.color!, position);

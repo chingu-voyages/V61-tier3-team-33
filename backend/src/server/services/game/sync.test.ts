@@ -3,8 +3,7 @@ import { describe, expect, it, mock } from "bun:test";
 import { Notifications } from "../../protocol/events";
 import type { Game } from "../../store/game/game";
 import type { GameReader } from "../../store/game/game-store";
-import type { GameSnapshot, PlayerContext } from "../../types";
-import { HUMAN_VS_HUMAN, ok, WHITE } from "../../types";
+import { err, GAME_NOT_FOUND, type GameSnapshot, HUMAN_VS_HUMAN, ok, type PlayerContext, WHITE } from "../../types";
 import { SyncCommand } from "./sync";
 
 describe("SyncCommand", () => {
@@ -23,5 +22,18 @@ describe("SyncCommand", () => {
 
     expect(result).toEqual(ok());
     expect(notify).toHaveBeenCalledWith(WHITE, Notifications.roomJoined("room-1", WHITE, snapshot));
+  });
+
+  it("returns GAME_NOT_FOUND when the game has been swept", () => {
+    const games: GameReader = {
+      get: mock((): Game | null => null),
+      findWaiting: mock(() => null),
+    };
+    const cmd = new SyncCommand(games);
+    const ctx: PlayerContext = { playerId: "p1", roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN };
+
+    const result = cmd.run(ctx);
+
+    expect(result).toEqual(err(GAME_NOT_FOUND));
   });
 });

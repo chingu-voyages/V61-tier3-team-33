@@ -399,18 +399,31 @@ describe("Game", () => {
       expect(game.isEmpty).toBe(true);
     });
 
-    it("allows the last occupant to leave without crashing (EC35)", () => {
+    it("ends the game when leaving during ACTIVE status", () => {
       const publisher = makePublisher();
       const timer = makeMockTimer();
       const game = makeGame(publisher, timer);
       seatBothPlayers(game); // game becomes ACTIVE, timer started
-      game.leave(WHITE);
-      game.leave(BLACK); // last occupant leaves
 
-      expect(game.isEmpty).toBe(true);
-      expect(game.isActive).toBe(true); // leave doesn't change status
-      // Game should still be accessible for queries
-      expect(game.nextColor()).toBe(WHITE);
+      game.leave(WHITE);
+
+      expect(game.isFinished).toBe(true);
+      expect(game.status).toBe(FINISHED);
+      expect(game.endReason).toBe(ABANDONED);
+      expect(game.isFull).toBe(false);
+      expect(timer.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it("broadcasts GAME_ENDED when leaving during ACTIVE status", () => {
+      const publisher = makePublisher();
+      const timer = makeMockTimer();
+      const game = makeGame(publisher, timer);
+      seatBothPlayers(game);
+      (publisher.emit as ReturnType<typeof mock>).mockClear();
+
+      game.leave(WHITE);
+
+      expect(publisher.emit).toHaveBeenCalledWith(expect.objectContaining({ type: "game:ended" }));
     });
   });
 
@@ -641,14 +654,14 @@ describe("Game", () => {
       expect(result).toEqual({ ok: false, error: GAME_OVER });
     });
 
-    it("returns err(NOT_ALLOWED) when the color is not seated", async () => {
+    it("returns err(GAME_OVER) when the color is not seated because leave ends the game", async () => {
       const game = makeGame();
       seatBothPlayers(game);
-      game.leave(WHITE); // remove WHITE — game is still ACTIVE
+      game.leave(WHITE); // ends the game via abandonment
 
       const result = await game.resign(WHITE);
 
-      expect(result).toEqual({ ok: false, error: NOT_ALLOWED });
+      expect(result).toEqual({ ok: false, error: GAME_OVER });
     });
   });
 
@@ -963,6 +976,17 @@ describe("Game", () => {
       expect(timer.startNext).not.toHaveBeenCalled();
     });
 
+    it("keeps the current clock running after an illegal move", async () => {
+      const timer = makeStatefulTimer();
+      const game = makeGame(undefined, timer);
+      seatBothPlayers(game);
+
+      const result = await game.move(WHITE, { from: E2, to: E5 });
+
+      expect(result).toEqual({ ok: false, error: ILLEGAL_MOVE });
+      expect(game.snapshot().clock?.active).toBe(WHITE);
+    });
+
     it("does not start opponent timer on game-ending move", async () => {
       const timer = makeMockTimer();
       const game = makeGame(undefined, timer);
@@ -1147,15 +1171,16 @@ describe("Game", () => {
     it("handles abandon when the opponent slot is empty", async () => {
       const game = makeGame();
       seatBothPlayers(game);
-      game.leave(BLACK); // opponent leaves — game is still ACTIVE but only WHITE remains
+      game.leave(BLACK); // ends the game via abandonment — opponent already left
 
+      // Game is already finished from leave; abandon is a no-op
       await game.abandon(WHITE);
 
       expect(game.isFinished).toBe(true);
       expect(game.endReason).toBe(ABANDONED);
       const snap = game.snapshot();
-      expect(snap.hasWinner).toBe(false);
-      expect(snap.winner).toBe(WHITE); // dummy default, not meaningful when hasWinner=false
+      expect(snap.hasWinner).toBe(true);
+      expect(snap.winner).toBe(WHITE);
     });
 
     it("is a no-op if game is not ACTIVE (WAITING)", async () => {
@@ -1168,16 +1193,17 @@ describe("Game", () => {
       expect(game.status).toBe(WAITING);
     });
 
-    it("is a no-op when the color is not seated even if the game is ACTIVE", async () => {
+    it("is a no-op when the color is not seated because the game already ended via leave", async () => {
       const game = makeGame();
       seatBothPlayers(game);
-      game.leave(WHITE); // remove WHITE — game is still ACTIVE
+      game.leave(WHITE); // ends the game via abandonment
 
       await game.abandon(WHITE);
 
-      // game should remain ACTIVE since WHITE (the abandon-by color) isn't seated
-      expect(game.isFinished).toBe(false);
-      expect(game.status).toBe(ACTIVE);
+      // game was already finished by leave
+      expect(game.isFinished).toBe(true);
+      expect(game.status).toBe(FINISHED);
+      expect(game.endReason).toBe(ABANDONED);
     });
   });
 
@@ -1185,20 +1211,13 @@ describe("Game", () => {
     it("broadcasts even when no occupants are seated", async () => {
       const publisher = makePublisher();
       const game = makeGame(publisher, makeMockTimer());
-      game.join(WHITE, makeOccupant("p1"));
-      game.join(BLACK, makeOccupant("p2"));
-      game.leave(WHITE);
-      game.leave(BLACK); // both occupants gone, game still ACTIVE
+      seatBothPlayers(game);
 
-      await game.expire();
+      await game.expire(); // finish the game first
 
       expect(game.isFinished).toBe(true);
       expect(game.endReason).toBe(TIMEOUT);
-      expect(publisher.emit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "game:ended",
-        }),
-      );
+      expect(publisher.emit).toHaveBeenCalledWith(expect.objectContaining({ type: "game:ended" }));
     });
 
     it("is a no-op if already finished with no occupants", async () => {

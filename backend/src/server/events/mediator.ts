@@ -363,8 +363,15 @@ export class Mediator {
     }
 
     // send full game state snapshot
+    const result = this.game.sync.run(ctx);
+    if (!result.ok) {
+      log.warn("[Mediator.sync:game-not-found]", { playerId: ctx.playerId, roomId: ctx.roomId });
+      this.sessions.clearSession(ws);
+      Reply.error(ws, result.error);
+      return;
+    }
+
     log.info("[Mediator.sync:sent]", { playerId: ctx.playerId, roomId: ctx.roomId });
-    this.game.sync.run(ctx);
   }
 
   async selectPosition(ws: WebSocket, ctx: PlayerContext, position: Position): Promise<void> {
