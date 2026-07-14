@@ -178,29 +178,31 @@ WebSocket message arrives
                                 → service.emote.send.run(ctx, cmd)
 ```
 
-Error responses are sent immediately via `Reply.error(ws, code, message)` — a direct `ws.send()` that bypasses the Hub and Codec.
+Error responses are sent immediately via `Reply.error(ws, code)` — the codec encodes the reply and sends it directly over the socket, bypassing the Hub.
 
-Side-effect events (connection closed, clock expired, grace expired) are handled by `Mediator.setup()` which subscribes to the Hub:
+Side-effect events (connection closed, clock expired, grace expired) are handled by `Mediator.setup()` which subscribes to the Hub. Some events are emitted by command classes before reaching the Mediator:
 
 ```
-Hub.emit(Signals.connectionClosed(playerId))
-  → Mediator.onConnectionClosed
-    → games.get(roomId)?.pauseClock(playerId)
-    → grace.start(playerId)
+CloseCommand.run(ws)
+  → sessions.drop(ws)                             # remove socket binding
+  → publisher.emit(Signals.connectionClosed(id, ws))
+  → grace.start(id, color, timeout, cb)            # start grace timer
+    → ... on timeout ...
+    → publisher.emit(Notifications.graceExpired(roomId, color))
 
-Hub.emit(Notifications.graceExpired(...))
+Hub receives grace:expired
   → Mediator.onGraceExpired
-    → games.get(roomId)?.abandon()
+    → games.get(roomId)?.abandon()                 # forfeit disconnected player
 
-Hub.emit(Notifications.clockExpired(...))
+Hub receives clock:expired
   → Mediator.onClockExpired
-    → games.get(roomId)?.expire()
+    → games.get(roomId)?.expire()                  # flag timeout loss
 
-Hub.emit(Notifications.gameEnded(...))
+Hub receives game:ended
   → Mediator.onGameEnded
     → clears pending undo state
 
-Hub.emit(Notifications.moveMade(...))
+Hub receives move:made
   → Mediator.onMoveMade
     → invalidates pending undo
 ```
@@ -232,11 +234,12 @@ On connection, the server assigns a unique socket ID. The client must complete a
 {
   "type": "session:handshake",
   "playerId": "uuid",
-  "token": "uuid"
+  "token": "uuid",
+  "roomId": null
 }
 ```
 
-The client should cache `playerId` and `token` for the WebSocket's lifetime.
+The client should cache `playerId` and `token` for the WebSocket's lifetime. `roomId` is non-null when resuming an existing game session after reconnection.
 
 ### Keepalive
 
@@ -426,10 +429,10 @@ Broadcast when the game finishes.
   "type": "game:ended",
   "roomId": "uuid",
   "result": {
-    "status": "CHECKMATE",
+    "status": 1,
     "winner": 0,
     "hasWinner": true,
-    "drawReason": "NO_DRAW_REASON",
+    "drawReason": 0,
     "reason": 0
   },
   "winner": 0
@@ -624,7 +627,7 @@ Emitted when the grace period expires without reconnection. The game is then aba
 
 ## Replies (Server → Client)
 
-Replies bypass the `Codec` and `Hub` — they are hand-serialized `JSON.stringify` sent directly over the socket. Used only for session-level responses.
+Replies are session-level responses that bypass the `Hub`. They use the Codec for serialization, then send directly over the socket.
 
 ### HandshakeReply
 
@@ -634,7 +637,8 @@ Sent in response to `session:handshake`. See [Connection](#connection).
 {
   "type": "session:handshake",
   "playerId": "uuid",
-  "token": "uuid"
+  "token": "uuid",
+  "roomId": null
 }
 ```
 
@@ -663,18 +667,18 @@ Session-level errors returned via `ErrorReply`:
 | `not-authenticated` | Command requires a handshake |
 | `not-in-game` | Command requires an active game session |
 | `room-not-found` | Referenced room does not exist |
-| `game-full` | Room already has two players |
-| `game-finished` | Game is over, no more moves accepted |
+| `room-full` | Room already has two players |
+| `invalid-mode` | Room is not in a joinable state |
 | `internal-error` | Unexpected server failure |
 
-Game-level move rejection errors are returned via `move:rejected` / `position:reject` notifications with typed error codes:
+Game-level errors are returned via `move:rejected` / `position:reject` notifications or `session:error` replies with typed error codes:
 
 | Domain | Error values |
 |---|---|
 | `MoveError` | `not-your-turn`, `illegal-move`, `game-over`, `square-empty` |
 | `SelectError` | `game-over`, `not-your-turn`, `square-empty`, `not-your-piece` |
-| `JoinError` | `room-full`, `invalid-mode` |
-| `UndoError` | `no-history`, `pending-conflict`, `not-allowed` |
+| `RoomError` | `room-full`, `invalid-mode`, `room-not-found` |
+| `UndoError` | `no-history`, `pending-conflict`, `not-allowed`, `undo-inactive`, `not-seated`, `rate-limited` |
 
 ---
 
@@ -778,7 +782,7 @@ New capabilities that don't fit existing commands (chat, replays, analytics, tou
 2. **Create a command class** in `services/<domain>/`:
    ```ts
    export class ChatSendCommand {
-     constructor(private hub: Publisher, private sessions: SessionStore) {}
+     constructor(private publisher: Publisher, private sessions: SessionStore) {}
      run(ctx: PlayerContext, message: string): Result<void, ChatError> { ... }
    }
    ```
@@ -811,20 +815,29 @@ Swap implementations at the composition root — no other code changes.
 
 ## Extension: Mediator (new side-effect hooks)
 
-New side-effects (e.g. analytics tracking, tournament bracket advancement, achievement unlocking) can be added by subscribing to the Hub:
+New side-effects (e.g. analytics tracking, tournament bracket advancement, achievement unlocking) are added by subscribing to the Hub.
+
+**Inside Mediator.setup()** — use the private `this.on()` helper, which delegates to `this.hub.on()`:
 
 ```ts
-// In Mediator.setup() or a standalone service:
-this.on(Notifications.gameEnded, (event) => {
-  analytics.record({ roomId: event.roomId, result: event.result })
-}, DEFERRED)
+// In Mediator.setup():
+this.on(GAME_ENDED, this.onGameEnded.bind(this), FAST)
 ```
 
-Or subscribe from outside the Mediator entirely:
+**Outside the Mediator** (standalone service) — subscribe directly on the Hub instance:
 
 ```ts
-const analyticsService = new AnalyticsService(hub)
-// hub.onAny((event) => analyticsService.record(event))
+const hub = new Hub()
+
+// Subscribe to a specific event type:
+const unsub = hub.on(GAME_ENDED, (roomId, event) => {
+  analytics.record({ roomId, result: event.result })
+})
+
+// Or subscribe to all events:
+hub.onAny((roomId, event) => {
+  analytics.record({ roomId, event, timestamp: Date.now() })
+}, DEFERRED)
 ```
 
 This is the same pattern used by the grace-period system — no existing code needs to change.
