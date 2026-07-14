@@ -1,6 +1,6 @@
-# Chess — Multiplayer Online Chess
+# Chingu Chess
 
-A real-time multiplayer chess application with server-authoritative game logic, WebSocket communication, and a rich React frontend. Built as a [Chingu](https://chingu.io) Voyage 61 project.
+A real-time multiplayer online chess game with server-authoritative game logic, WebSocket communication, and a rich React frontend. Built as a [Chingu](https://chingu.io) Voyage 61 project.
 
 ## Overview
 
