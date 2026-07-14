@@ -805,10 +805,31 @@ class RedisSessionStore implements SessionReader, SessionWriter { ... }
 Each store interface is a pair of `Reader`+`Writer` interfaces:
 
 ```ts
-interface GameReader { get(id): Game | null; findWaiting(mode, format): Game | null }
-interface GameWriter { create(...): Game; commit(id, game): void; drop(id): void; sweep(): number }
-interface SessionReader { getBySocket(ws): Session | null; getByToken(token): Session | null; getByPlayerId(id): Session | null }
-interface SessionWriter { set(session): void; drop(ws): void }
+interface GameReader {
+  get(id: string): Game | null
+  findWaiting(mode: Mode, format: ClockFormat): Game | null
+}
+interface GameWriter {
+  create(id?: string, mode?: Mode, clock?: Clock): Game
+  commit(id: string, game: Game): void
+  drop(id: string): void
+  sweep(): number
+  startSweeping(intervalMs: number): void
+  stopSweeping(): void
+}
+
+interface SessionReader {
+  bySocket(ws: WebSocket): Session | null
+  byToken(token: string): Session | null
+  byPlayerId(playerId: string): Session | null
+}
+interface SessionWriter {
+  open(ws: WebSocket, playerId: string): Session
+  resume(token: string, ws: WebSocket): Session | null
+  resumeOrOpen(ws: WebSocket, token?: string): Session
+  drop(ws: WebSocket): void
+  bind(ws: WebSocket, patch: Partial<Session>): void
+}
 ```
 
 Swap implementations at the composition root — no other code changes.
