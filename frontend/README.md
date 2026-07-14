@@ -103,17 +103,55 @@ socket/             WebSocket client and protocol
 ├── use-action.ts   useGameActions hook — memoized command dispatchers for all game actions
 └── fake.ts         FakeSocket — simulated WebSocket for tests
 
-chess/              Pure chess logic (no React dependency)
-├── index.ts        Chess store — public API (snapshot, subscribe, makeMove, select, confirmMove, applyMove, …)
+chess/              Duplicated from backend/src/chess — enables offline AI play on desktop
+│                   without a server round-trip. The backend is always authoritative
+│                   in multiplayer; the local engine provides instant feedback.
+├── index.ts        Chess store — public API (snapshot, subscribe, makeMove, select, …)
 ├── context.ts      ChessContext + useChess() hook
-├── provider.tsx    ChessProvider — listens to socket events, drives the store, plays audio cues
-├── core/           Core types — Board, Piece, Move, Position, GameResult, FEN, hash, theme
-├── engine/         Move generation — pseudo-legal → legal filtering, apply/undo, attack detection
+├── provider.tsx    ChessProvider — listens to socket events, drives the store
+├── core/           Core types and primitives
+│   ├── board.ts    8×8 grid representation
+│   ├── brand.ts    Branded type utility
+│   ├── fen.ts      FEN-related types
+│   ├── game.ts     GameResult, GameStatus, DrawReason
+│   ├── hash.ts     Zobrist hash type
+│   ├── history.ts  Move history with snapshots
+│   ├── move.ts     Move type, MoveType enum
+│   ├── piece.ts    Piece, PieceColor, PieceType
+│   ├── position.ts Position (branded 0–63), square constants A1–H8
+│   ├── reason.ts   EndReason branded type
+│   ├── state.ts    ChessState (board + hash + metadata)
+│   └── theme.ts    Board theme definitions
+├── engine/         Move generation and application
+│   ├── engine.ts   IEngine interface
+│   ├── default.ts  Default engine implementation
+│   ├── move.ts     Legal move generation
+│   ├── apply.ts    Apply a move to the board
+│   ├── undo.ts     Undo a move
+│   ├── attack.ts   Attack detection (is square attacked?)
+│   └── psuedo.ts   Pseudo-legal move generation
 ├── fen/            FEN string parser/serializer
-├── piece/          Per-piece-type move generators — pawn, knight, bishop, rook, queen, king
-├── rules/          Check/checkmate/stalemate detection, game result computation
-├── hasher/         Zobrist hashing for position identification
-└── tracker/        Position repetition tracker (threefold repetition detection)
+│   ├── decode.ts   FEN → board state
+│   ├── encode.ts   Board state → FEN
+│   └── index.ts    Re-exports
+├── piece/          Per-piece-type move generators
+│   ├── piece.ts    IPiece interface
+│   ├── default.ts  Default implementation factory
+│   ├── pawn.ts, knight.ts, bishop.ts, rook.ts, queen.ts, king.ts
+├── rules/          Game rule evaluation
+│   ├── rules.ts    IRules interface
+│   ├── default.ts  Check/checkmate/stalemate/draw detection
+│   └── index.ts    Re-exports
+├── hasher/         Zobrist hashing
+│   ├── hasher.ts   IHasher interface
+│   ├── default.ts  Default hasher
+│   ├── zobrist.ts  Zobrist hash table computation
+│   └── index.ts    Re-exports
+└── tracker/        Position repetition tracking
+    ├── tracker.ts  ITracker interface
+    ├── default.ts  In-memory tracker
+    ├── position.ts Position-count map
+    └── index.ts    Re-exports
 
 hooks/              Shared React hooks
 ├── use-clock.ts    Real-time chess clock countdown (requestAnimationFrame)

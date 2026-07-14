@@ -67,7 +67,18 @@ src/
 │   ├── http/        # HTTP auth routes (register, login, logout, Google OAuth)
 │   ├── players/     # Player profile stores (name, rating, stats)
 │   └── auth/        # Identity — authentication, auth tokens, Google OAuth
-├── chess/           # Chess engine core (move gen, FEN, Zobrist hashing, rules, tracking)
+├── chess/           # Chess engine core — move gen, FEN, Zobrist hashing, rules, tracking
+│   ├── chess.ts     Chess class (orchestrator — config, move, undo, state)
+│   ├── config.ts    Engine configuration
+│   ├── errors.ts    Chess-specific errors (IllegalMoveError, FENError, NothingToUndoError)
+│   ├── core/        Branded types: Piece, Position, Move, GameResult, …
+│   ├── engine/      Legal move generation, apply/undo, attack detection
+│   ├── hasher/      Zobrist hashing for position identification
+│   ├── history/     Move stack with snapshots (supports undo)
+│   ├── parser/      FEN decode/encode
+│   ├── piece/       Per-piece-type move generators (pawn, knight, bishop, rook, queen, king)
+│   ├── rules/       Check/checkmate/stalemate/draw rule evaluation
+│   └── tracker/     Position repetition tracking (threefold repetition)
 └── logging/         # App logger and bus-backed event log
 ```
 
