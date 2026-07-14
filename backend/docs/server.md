@@ -12,27 +12,52 @@ All communication uses JSON messages with a mandatory `type` field (colon-delimi
 
 ## Module map
 
-Modules are grouped by role, not by a strict stack. Dependencies are explicit — interfaces are injected at the composition root (`Gateway`), so what depends on what is a runtime wiring decision, not a compile-time layer.
+Modules are grouped by role, not by a strict stack. Dependencies are explicit — interfaces are injected at the composition root so wiring is a runtime decision, not a compile-time layer.
 
 ```
   ┌─────────────────────────────────────────────────────────────────────────┐
   │                         Composition Root                                │
   │  transport/gateway.ts — instantiates and wires every module             │
-  │  Reads config, creates Hub, Sessions, Games, GameService, etc.          │
+  │  Creates Mediator → ServiceRegistry → command classes, stores, Hub     │
   │  Injects dependencies via constructor arguments — no global singletons  │
   └─────────────────────────────────────────────────────────────────────────┘
 
    ┌───────────────────────────────────────────────────────────────────────┐
-   │                       Application Modules                             │
+   │                    Mediator (events/mediator.ts)                      │
+   │                                                                       │
+   │  Central command dispatcher. Every WebSocket message arrives here:    │
+   │  switch(cmd.type) → handler method → service command → Hub emit      │
+   │                                                                       │
+   │  Also subscribes to Hub events (connection closed, clock expired,     │
+   │  grace expired, game ended, move made) for cross-cutting side effects.│
+   │                                                                       │
+   │  ⚠ Will grow large — planned to split into domain-specific mediators │
+   └───────────────────────────────────────────────────────────────────────┘
+
+   ┌───────────────────────────────────────────────────────────────────────┐
+   │                    Service Registry (services/registry.ts)            │
+   │                                                                       │
+   │  Groups all command classes into typed facades:                       │
+   │    registry.game    — join, leave, move, resign, undo, sync, select   │
+   │    registry.emote   — emote send                                      │
+   │    registry.connection — identify, close, pong                        │
+   │                                                                       │
+   │  Each command is a class with a single .run() method returning Result │
+   └───────────────────────────────────────────────────────────────────────┘
+
+   ┌───────────────────────────────────────────────────────────────────────┐
+   │                         Application Modules                           │
    │                                                                       │
    │  transport/        gateway.ts, connections.ts                         │
    │                    WebSocket lifecycle, message routing, outbound     │
    │                    delivery, disconnect grace (owns Grace timer)      │
    │                                                                       │
-   │  services/         game-service.ts, game-facade.ts                    │
-   │                    Orchestration layer — routes commands to the       │
-   │                    correct game, manages undo handshake, handles      │
-   │                    grace expiry, dispatches notifications via Hub     │
+   │  services/         game/ (registry, join, leave, move, undo,          │
+   │                    resign, sync, select-position),                    │
+   │                    emote/ (send),                                     │
+   │                    connection/ (identify, close, pong)                │
+   │                    Orchestration layer — thin command classes,        │
+   │                    no shared GameService god-class                    │
    │                                                                       │
    │  session/          session.ts, sessions.ts, session-store.ts          │
    │                    Player identity — token-based resume/reconnect,    │
@@ -67,6 +92,10 @@ Modules are grouped by role, not by a strict stack. Dependencies are explicit �
    │                     Infrastructure Modules                            │
    │  (Cross-cutting — depended on by multiple modules above)              │
    │                                                                       │
+   │  events/           mediator.ts, hub.ts                                │
+   │                    Mediator: command dispatcher + side-effect events   │
+   │                    Hub: pub/sub event bus with FAST/DEFERRED lanes    │
+   │                                                                       │
    │  protocol/         commands.ts, events.ts, replies.ts, errors.ts      │
    │                    Wire message shapes and string constants.          │
    │                    No serialization logic — pure type definitions     │
@@ -75,19 +104,22 @@ Modules are grouped by role, not by a strict stack. Dependencies are explicit �
    │                    Swappable wire format. Codec interface             │
    │                    (decode/encode), JsonCodec implementation          │
    │                                                                       │
-   │  bus/              hub.ts                                             │
-   │                    In-process event bus. Two priority lanes:          │
-   │                    FAST (sync) and DEFERRED (macrotask). Typed        │
-   │                    dispatch + wildcard handlers. Error isolation      │
-   │                                                                       │
-   │  types/            chess.ts, game.ts, result.ts, clock.ts             │
+   │  types/            chess.ts, game.ts, result.ts, clock.ts,            │
+   │                    consent.ts, priority.ts, context.ts                │
    │                    Branded primitives and shared domain types.        │
    │                    Pure definitions, no logic                         │
    │                                                                       │
-   │  util/             grace.ts, retry.ts, mutex.ts                       │
-   │                    Infrastructure utilities — disconnect grace        │
-   │                    period, async retry with exponential backoff,      │
-   │                    exclusive async lock                               │
+   │  store/            game/games.ts, game/game-store.ts                  │
+   │                    session/sessions.ts, session/session-store.ts      │
+   │                    In-memory data access with Reader + Writer pattern │
+   │                    GameStore: games Map + waiting queue + sweeping    │
+   │                    SessionStore: triple-indexed (socket, token, ID)   │
+   │                                                                       │
+   │  util/             switcher.ts, grace.ts, retry.ts, mutex.ts,         │
+   │                    consent.ts                                         │
+   │                    Three-phase room switching, disconnect grace       │
+   │                    period, async retry with backoff, exclusive lock,  │
+   │                    consent manager for undo/draw handshakes           │
    └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -96,18 +128,20 @@ Modules are grouped by role, not by a strict stack. Dependencies are explicit �
 | Module | Depends on |
 |---|---|
 | **Transport** (gateway) | everything — it's the composition root |
-| **Transport** (connections) | `types/`, `protocol/`, `codec/`, `bus/`, `session/`, `util/` (Grace) |
-| **Services** | `types/`, `protocol/`, `codec/`, `bus/`, `session/`, `game/`, `occupant/`, `clock/`, `util/` |
-| **Session** | `types/` |
-| **Game** | `types/`, `protocol/`, `bus/`, `occupant/`, `clock/`, `util/`, `chess/core` |
+| **Transport** (connections) | `types/`, `protocol/`, `codec/`, `events/`, `session/`, `util/` |
+| **Mediator** | `types/`, `protocol/`, `codec/`, `events/`, `session/`, `services/`, `store/`, `util/` |
+| **Services** | `types/`, `protocol/`, `events/`, `codec/`, `session/`, `game/`, `occupant/`, `clock/`, `store/`, `util/` |
+| **Session** | `types/`, `store/` |
+| **Game** | `types/`, `protocol/`, `events/`, `occupant/`, `clock/`, `util/`, `chess/core` |
 | **Occupant** | `types/`, `protocol/`, `codec/` |
-| **Clock** | `types/`, `protocol/`, `bus/` |
+| **Clock** | `types/`, `protocol/`, `events/` |
 | **Players** | `types/` |
 | **Credential** | (none) |
 | **Protocol** | `types/` |
 | **Codec** | `protocol/` |
-| **Bus** | `protocol/` (Event types) |
+| **Events** (Hub) | `protocol/` (Event types) |
 | **Types** | `chess/core` |
+| **Store** | `session/`, `game/`, `types/` |
 | **Util** | `types/`, `protocol/` |
 
 ### Data flow
@@ -115,20 +149,60 @@ Modules are grouped by role, not by a strict stack. Dependencies are explicit �
 ```
 WebSocket message arrives
   → Gateway.handleMessage(ws, raw)
-    → codec.decode(raw)                   # parse + validate raw bytes → Command
-      → switch(command.type)               # route by type string
-        ├── session:*   → Connections.identify / pong
-        ├── room:*      → GameService.join / leave
-        ├── move:make   → GameService.move
-        ├── undo:*      → GameService.requestUndo / accept / decline
-        ├── game:resign → GameService.resign
-        ├── state:sync  → GameService.sync
-        └── position:*  → GameService.selectPosition
-          → Game.<action>                  # chess logic, occupant dispatch
-            → publisher.emit(event)        # Bus → subscribers (logging, etc.)
-            → occupant.notify(event)       # deliver to player's socket
-              → codec.encode(event)        # serialize
-                → ws.send(json)            # send to client
+    → getCodec().decode(raw)             # parse + validate raw bytes → Command
+      → Command.isValid(cmd)             # shape guard
+        → mediator.handle(ws, cmd)
+          → Auth.resolve(ws)             # resolve session → PlayerContext
+            → switch(cmd.type)
+              ├── session:*   → mediator.identify / pong
+              │                 → service.connection.identify / pong
+              ├── room:join   → mediator.join
+              │                 → service.game.join.run(ctx, cmd)
+              ├── room:leave  → mediator.leave
+              │                 → service.game.leave.run(ctx)
+              ├── move:make   → mediator.move
+              │                 → service.game.move.run(ctx, cmd)
+              │                   → Game.move(color, input)  [mutex-guarded]
+              │                     → publisher.emit(Notifications.moveMade(...))
+              │                       → occupant.notify(event)
+              │                         → codec.encode(event) → ws.send(json)
+              ├── undo:*      → mediator.*Undo
+              │                 → service.game.undo.run(ctx, command)
+              ├── game:resign → mediator.resign
+              │                 → service.game.resign.run(ctx)
+              ├── state:sync  → mediator.sync
+              │                 → service.game.sync.run(ctx)
+              ├── position:*  → mediator.selectPosition
+              │                 → service.game.selectPosition.run(ctx, cmd)
+              └── emote:send  → mediator.emoteSend
+                                → service.emote.send.run(ctx, cmd)
+```
+
+Error responses are sent immediately via `Reply.error(ws, code, message)` — a direct `ws.send()` that bypasses the Hub and Codec.
+
+Side-effect events (connection closed, clock expired, grace expired) are handled by `Mediator.setup()` which subscribes to the Hub:
+
+```
+Hub.emit(Signals.connectionClosed(playerId))
+  → Mediator.onConnectionClosed
+    → games.get(roomId)?.pauseClock(playerId)
+    → grace.start(playerId)
+
+Hub.emit(Notifications.graceExpired(...))
+  → Mediator.onGraceExpired
+    → games.get(roomId)?.abandon()
+
+Hub.emit(Notifications.clockExpired(...))
+  → Mediator.onClockExpired
+    → games.get(roomId)?.expire()
+
+Hub.emit(Notifications.gameEnded(...))
+  → Mediator.onGameEnded
+    → clears pending undo state
+
+Hub.emit(Notifications.moveMade(...))
+  → Mediator.onMoveMade
+    → invalidates pending undo
 ```
 
 ---
@@ -268,6 +342,23 @@ Select a square to see legal destinations (the click-a-piece step before `move:m
   "position": 12
 }
 ```
+
+### `emote:send`
+
+Send an emote to the opponent.
+
+```json
+{
+  "type": "emote:send",
+  "emote": "👍"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `emote` | `string` | One of: `👍`, `😅`, `🤔`, `🎉`, `😤`, `⚡` |
+
+Subject to a 7-second per-player per-game cooldown.
 
 ---
 
@@ -480,6 +571,18 @@ Emitted when a player runs out of time.
 }
 ```
 
+### `emote:received`
+
+Delivered to the opponent when an emote is sent.
+
+```json
+{
+  "type": "emote:received",
+  "roomId": "uuid",
+  "emote": "👍"
+}
+```
+
 ### `grace:started`
 
 Emitted when a disconnected player enters their grace period.
@@ -537,7 +640,7 @@ Sent in response to `session:handshake`. See [Connection](#connection).
 
 ### ErrorReply
 
-Sent when a session-level action fails (before the command reaches `GameService`).
+Sent when a session-level action fails (before the command reaches a service).
 
 ```json
 {
@@ -614,133 +717,164 @@ When a player disconnects during an active game, a grace timer starts. If the pl
 
 # Extensibility
 
-The architecture has explicit seams for common extensions.
+The architecture has explicit seams for common extensions. Each extension point maps to a specific file or pattern.
 
-**Rule of thumb:** Only extend `GameService` for features that directly orchestrate game logic (moves, undo, resign, sync). Everything else — spectators, chat, notifications, analytics, replays — should be a standalone service that subscribes to the Hub and/or handles its own commands. Each service is testable in isolation and gets wired into the Gateway at the composition root.
+## Adding a new command
 
-## Spectator mode
-
-To add read-only spectators:
-
-1. **Create `SpectatorService`** that subscribes to the Hub for each room a spectator joins:
+1. **Add a constant** in `protocol/commands.ts`:
+   ```ts
+   export const DRAW_OFFER = "draw:offer" as const
    ```
-   export class SpectatorService {
-     constructor(private hub: Hub, private codec: Codec) {}
+   Add the shape to the `Command` union type.
 
-     spectate(ws: WebSocket, roomId: RoomId) {
-       const unsub = this.hub.onRoom(roomId, (event) => {
-         this.codec.encode(event).then((raw) => ws.send(raw));
-       });
-       ws.on("close", () => unsub());
-     }
+2. **Add a notification event** in `protocol/events.ts` if the response needs a new event type.
+
+3. **Create a command class** in `services/`:
+   ```ts
+   // services/draw/offer.ts
+   export class DrawOfferCommand {
+     constructor(private games: GameStore, private publisher: Publisher) {}
+     run(ctx: PlayerContext): Result<void, DrawError> { ... }
    }
    ```
-   No changes to `Occupant`, `OccupantKind`, or `GameService` — spectators are purely Hub subscribers, not occupants.
 
-2. **Add a `room:spectate` command** in `commands.ts` (takes a `roomId`, no `mode`/`color`).
-
-3. **Wire in `gateway.ts`**:
-   ```
-   const spectatorService = new SpectatorService(hub, codec);
-   gateway.on("room:spectate", (ws, cmd) => spectatorService.spectate(ws, cmd.roomId));
+4. **Add to ServiceRegistry** (`services/registry.ts`):
+   ```ts
+   readonly draw: { offer: DrawOfferCommand }
    ```
 
-   Outbound events flow through the Hub — spectators receive the same notifications as occupants but cannot send moves or game commands.
-
-## Chat system
-
-Chat messages are not game state — they should be handled as a **separate service**, not in `GameService`.
-
-1. **Add chat commands** in `protocol/commands.ts`:
-   ```
-   export const CHAT_SEND = "chat:send" as const;
-   // Command union: | { type: typeof CHAT_SEND; roomId: string; message: string }
+5. **Add a case + handler** in `events/mediator.ts`:
+   ```ts
+   case DRAW_OFFER: return this.drawOffer(ws, ctx, cmd)
    ```
 
-2. **Add chat events** in `protocol/events.ts`:
-   ```
-   export const CHAT_RECEIVED = "chat:received" as const;
-   // Notification: | { type: typeof CHAT_RECEIVED; roomId: string; playerId: string; message: string }
-   ```
+6. **Wire in the Gateway** — though the Gateway delegates to Mediator, no Gateway change is needed since all commands route through `mediator.handle()`.
 
-3. **Create a `ChatService`** that:
-   - Subscribes to `CHAT_SEND` via a Hub handler
-   - Broadcasts `CHAT_RECEIVED` to the room's occupants
-   - Can optionally persist messages, filter profanity, rate-limit
-
-4. **Wire `ChatService` in `Gateway`**:
-   ```
-   const chatService = new ChatService(hub, sessions);
-   gateway.on(CHAT_SEND, (ws, cmd) => chatService.handle(ws, cmd));
-   ```
-
-Since chat is not part of `GameService`, it doesn't affect game logic and can be developed, tested, and deployed independently.
-
-## Notification system
-
-For push-style notifications (invites, friend requests, tournament alerts):
-
-1. **Define notification commands/events** in `protocol/` following the existing pattern.
-
-2. **Create a `NotificationService`** that:
-   - Maintains a registry of playerId → socket mappings (reuses `SessionStore`)
-   - Sends notifications via `Reply.send()` (hand-serialized, bypasses `Hub` and `Codec`)
-   - Can be expanded to support offline delivery when the player is disconnected
-
-3. **Wire in `Gateway`** alongside existing services.
-
-## New game modes (Chess960, Bughouse)
-
-1. **Add a `Mode` value** in `types/game.ts`:
-   ```
-   export const CHESS_960: Mode = Mode(3);
-   ```
-
-2. **Extend `Game`** — branch on `mode` in the constructor to:
-   - Vary the starting position (randomize back rank for Chess960)
-   - Vary the rules (captured pieces can be dropped for Bughouse)
-
-3. **Extend `GameService.join`** to accept the new mode in `room:join`.
-
-4. **Games waiting-queue** already partitions by `(mode, format)` — no matchmaking change needed.
-
-## New clock formats (Fischer, Bronstein, Byoyomi)
+## Extension: Clock (new time-control strategies)
 
 1. **Create a strategy class** in `clock/` implementing the `Clock` interface:
-   ```
+   ```ts
    export class FischerClock implements Clock { ... }
    ```
+   Choose a base class (`MoveClock` for per-move reset, `MatchClock` for match-length).
 
 2. **Add a `ClockFormat` value** in `types/clock.ts`:
-   ```
-   export const FISCHER = ClockFormat("fischer");
+   ```ts
+   export const FISCHER = ClockFormat("fischer")
    ```
 
 3. **Register in `clock/factory.ts`** so `createClock(FISCHER)` returns the new strategy.
 
-## New wire formats (MsgPack, CBOR)
+4. **Test your strategy** — timer tests use mock strategies and cover the full lifecycle.
 
-1. **Create a codec file** in `codec/` implementing the `Codec` interface:
+See [chess.md](chess.md) for the clock reference and step-by-step guide.
+
+## Extension: Service (new domain capabilities)
+
+New capabilities that don't fit existing commands (chat, replays, analytics, tournament management) should be written as standalone services:
+
+1. **Define commands/events** in `protocol/` following existing patterns.
+
+2. **Create a command class** in `services/<domain>/`:
+   ```ts
+   export class ChatSendCommand {
+     constructor(private hub: Publisher, private sessions: SessionStore) {}
+     run(ctx: PlayerContext, message: string): Result<void, ChatError> { ... }
+   }
    ```
-   export class MsgPackCodec implements Codec { ... }
-   ```
 
-2. **Swap in `Gateway`**:
-   ```
-   const gateway = new Gateway(new MsgPackCodec(), ...);
-   ```
+3. **Register in `ServiceRegistry`** — add a field and wire it in the constructor.
 
-The rest of the system (commands, events, services, game logic) is unchanged — the `Codec` interface is the only seam.
+4. **Wire in `Mediator`** — add a `case` and handler method.
 
-## New sinks for events (analytics, tournament feed, replay archive)
+Services are testable in isolation. They receive dependencies through their constructor and interact with the rest of the system through the Hub and stores.
 
-Subscribe to the `Hub` using `hub.onAny(handler)` or `hub.on(eventType, handler)`. The handler receives `(roomId, event)`. This is the same pattern used by `EventLog` and the grace-period system — no existing code needs to change.
+## Extension: Store (persistent backends)
 
-```typescript
-hub.onAny((roomId, event) => {
-  analytics.record({ roomId, event, timestamp: Date.now() });
-}, DEFERRED);
+Swap the in-memory stores for persistent backends (Redis, SQLite, Postgres):
+
+```ts
+class RedisGameStore implements GameReader, GameWriter { ... }
+class RedisSessionStore implements SessionReader, SessionWriter { ... }
 ```
+
+Each store interface is a pair of `Reader`+`Writer` interfaces:
+
+```ts
+interface GameReader { get(id): Game | null; findWaiting(mode, format): Game | null }
+interface GameWriter { create(...): Game; commit(id, game): void; drop(id): void; sweep(): number }
+interface SessionReader { getBySocket(ws): Session | null; getByToken(token): Session | null; getByPlayerId(id): Session | null }
+interface SessionWriter { set(session): void; drop(ws): void }
+```
+
+Swap implementations at the composition root — no other code changes.
+
+## Extension: Mediator (new side-effect hooks)
+
+New side-effects (e.g. analytics tracking, tournament bracket advancement, achievement unlocking) can be added by subscribing to the Hub:
+
+```ts
+// In Mediator.setup() or a standalone service:
+this.on(Notifications.gameEnded, (event) => {
+  analytics.record({ roomId: event.roomId, result: event.result })
+}, DEFERRED)
+```
+
+Or subscribe from outside the Mediator entirely:
+
+```ts
+const analyticsService = new AnalyticsService(hub)
+// hub.onAny((event) => analyticsService.record(event))
+```
+
+This is the same pattern used by the grace-period system — no existing code needs to change.
+
+---
+
+# Future concerns
+
+## Mediator god-object
+
+The `Mediator` currently handles **all** command routing and **all** side-effect subscriptions. As features grow, it will accumulate:
+
+- Every new command type adds a `case` and a handler method
+- Every new side-effect adds a `setup()` subscription
+
+This is already visible with the current set: room commands, move commands, undo commands, resign, sync, select, emote, plus event subscriptions for connection, clock, grace, game-end, and move-made.
+
+**Planned split:** Decompose into domain-specific mediators:
+
+```ts
+class GameMediator {
+  constructor(private gameService: CommandRegistry) {}
+  handle(cmd: GameCommand): Result { ... }
+}
+
+class RoomMediator {
+  constructor(private roomService: RoomCommands) {}
+  handle(cmd: RoomCommand): Result { ... }
+}
+
+class MainMediator {
+  private mediators = [new GameMediator(...), new RoomMediator(...), ...]
+  handle(ws, cmd): void {
+    const m = this.mediators.find(m => m.canHandle(cmd))
+    m?.handle(cmd)
+  }
+}
+```
+
+This keeps the switch statement small, isolates handler logic per domain, and makes each sub-mediator independently testable.
+
+## Other known evolutions
+
+| Concern | Plan |
+|---|---|
+| **Singleton game store** | Replace in-memory `Map` with a persistent backend (Redis) via `GameReader`/`GameWriter` interfaces |
+| **Session TTL** | Move session expiry from periodic sweep to Redis TTL or a dedicated expiry service |
+| **Cross-room notifications** | Tournament/friend-list events need a user-level subscription layer beyond per-room Hub subscriptions |
+| **Rate limiting** | Add a `RateLimiter` utility and apply per-command in the Mediator or as a Hub middleware |
+| **Observability** | Add structured logging middleware in the Hub (FAST lane) to record every event with timing |
 
 ---
 
@@ -775,14 +909,16 @@ This guarantees synchronisation — both players always observe the exact same p
 
 2. **Parse, don't validate** — The `Codec` layer fully validates raw input into a typed `Command`. Code past the decode boundary never re-checks structure.
 
-3. **Interface-based injection** — All significant collaborators (`Codec`, `SessionStore`, `GameStore`, `Publisher`, `Subscriber`, `Occupant`, `Clock`, `Timer`) are interfaces. Concrete implementations are injected at the composition root (`Gateway`).
+3. **Interface-based injection** — All significant collaborators (`Codec`, `SessionStore`, `GameStore`, `Publisher`, `Subscriber`, `Occupant`, `Clock`, `Timer`) are interfaces. Concrete implementations are injected at the composition root.
 
-4. **Event-driven internals** — The `Hub` decouples producers from consumers. `Game` emits events without knowing who listens. `GameService` subscribes to connection and clock events without knowing who emits them.
+4. **Event-driven internals** — The `Hub` decouples producers from consumers. `Game` emits events without knowing who listens. Services subscribe to clock, connection, and game events without knowing who emits them.
 
-5. **Separation of concerns** — Transport owns sockets. Services own orchestration. Game owns chess logic. Protocol owns message shapes. Codec owns serialization. Bus owns dispatch.
+5. **Thin command classes** — Each command is a single-responsibility class with a `.run()` method returning `Result<T, E>`. No shared god-class orchestrates all game operations.
 
-6. **Result types over exceptions** — Fallible operations return `Result<T, E>` (discriminated union) instead of throwing.
+6. **Separation of concerns** — Transport owns sockets. Mediator owns routing. Services own orchestration. Game owns chess logic. Protocol owns message shapes. Codec owns serialization. Hub owns dispatch. Store owns persistence.
 
-7. **Branded types** — Distinct concepts (Lifecycle, Mode, Position, PieceColor) are branded to prevent type confusion.
+7. **Result types over exceptions** — Fallible operations return `Result<T, E>` (discriminated union) instead of throwing.
 
-8. **Layered dependency direction** — Dependencies flow inward. No module depends on the layer above it.
+8. **Branded types** — Distinct concepts (Lifecycle, Mode, Position, PieceColor) are branded to prevent type confusion.
+
+9. **Layered dependency direction** — Dependencies flow inward. No module depends on the layer above it.
