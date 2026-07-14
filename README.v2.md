@@ -137,50 +137,7 @@ Create `frontend/.env`:
 NEXT_PUBLIC_SOCKET_URL=ws://localhost:3500/ws
 ```
 
-## Project Structure
-
-```
-├── backend/
-│   ├── src/
-│   │   ├── index.ts              Server entry point
-│   │   ├── server/               Application server
-│   │   │   ├── types/            Branded primitives and domain types
-│   │   │   ├── protocol/         Wire message shapes (commands, events, replies, errors)
-│   │   │   ├── codec/            Codec interface + JsonCodec
-│   │   │   ├── events/           Mediator (command router) + Hub (pub/sub)
-│   │   │   ├── clock/            Time-control strategies (bullet, blitz, rapid, …)
-│   │   │   ├── game/             Chess match — engine, occupant slots, lifecycle
-│   │   │   ├── occupant/         Player seat abstraction
-│   │   │   ├── session/          Socket↔player binding, token resume
-│   │   │   ├── services/         Command classes (game, emote, connection)
-│   │   │   ├── store/            Data stores (GameStore, SessionStore)
-│   │   │   ├── transport/        Gateway (Elysia WS), connections
-│   │   │   ├── util/             Grace timer, room switcher, consent manager, retry
-│   │   │   ├── http/             REST auth routes
-│   │   │   ├── players/          Player profile stores
-│   │   │   └── auth/             Identity, tokens, Google OAuth
-│   │   ├── chess/                Chess engine (move gen, FEN, hashing, rules)
-│   │   └── logging/              App logger and event log
-│   ├── docs/
-│   │   ├── server.md             Full architecture and protocol reference
-│   │   └── chess.md              Chess engine API
-│   ├── README.md
-│   └── package.json
-│
-└── frontend/
-    ├── app/                      Next.js App Router (pages, layouts)
-    ├── components/               React components (board, play, settings, ui, …)
-    ├── context/                  React providers (session, room, theme, …)
-    ├── socket/                   WebSocket client, protocol types, hooks
-    ├── chess/                    Duplicated chess engine (for offline AI)
-    ├── hooks/                    Shared React hooks
-    ├── audio/                    Sound system
-    ├── config/                   Environment config
-    ├── lib/                      Utilities
-    ├── public/                   Static assets
-    ├── README.md
-    └── package.json
-```
+See [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md) for full project structure, directory maps, and architecture details of each package.
 
 ## Running Tests
 
@@ -212,28 +169,33 @@ cd frontend && bun test
 
 See [backend/docs/server.md](backend/docs/server.md) for the full WebSocket protocol reference, including all command and event message shapes.
 
-## ToDo
+## Extensibility
 
-- [ ] **Chat system** — real-time messaging between players during a game
-- [ ] AI opponent (integrate engine with backend matchmaking)
-- [ ] Replay viewer (step through completed games)
-- [ ] Spectator mode (read-only room observers)
-- [ ] Tournament bracket management
-- [ ] Persistent storage (Redis for games and sessions)
-- [ ] Rate limiting per-command
-- [ ] Structured observability (event timing dashboard)
+The architecture is designed with explicit seams for adding features without modifying existing game logic. New capabilities slot in via the Mediator command router, Hub event subscriptions, and thin command classes.
 
-The architecture is designed for extensibility — new features slot in via the Mediator command router, Hub event subscriptions, and thin command classes without modifying existing game logic. See [backend/docs/server.md#extensibility](backend/docs/server.md#extensibility) for step-by-step guides on adding commands, clock strategies, services, store backends, and side-effect hooks.
+| Extension | How |
+|---|---|
+| **Chat system** | Add `chat:send` command + `chat:received` event + `ChatSendCommand` class. Wire in Mediator switch. See [server.md#adding-a-new-command](backend/docs/server.md#adding-a-new-command) |
+| **AI opponent** | Implement an `Occupant` that generates moves via the chess engine. Register it in the game factory |
+| **Spectator mode** | Subscribe to Hub events for a room; send notifications to read-only WebSocket connections |
+| **Replay viewer** | Log every `move:made` event through a Hub `onAny` subscriber; replay from stored history |
+| **Tournament bracket** | Create a `TournamentService` that listens for `game:ended` events and advances bracket state |
+| **Persistent storage** | Implement `GameReader`/`GameWriter` and `SessionReader`/`SessionWriter` against Redis or Postgres |
+| **Rate limiting** | Add a `RateLimiter` utility and apply per-command in the Mediator |
+| **New clock formats** | Implement the `Clock` interface + register in `clock/factory.ts` |
+| **New wire formats** | Implement the `Codec` interface (e.g. MsgPack) and swap at the composition root |
+
+See [backend/docs/server.md#extensibility](backend/docs/server.md#extensibility) for step-by-step implementation guides for each extension point.
 
 ## Team
 
 - **Yangchen Dema** (Scrum Master) — [GitHub](https://github.com/dema66) · [LinkedIn](https://www.linkedin.com/in/yangchendema/)
 - **Michael Okoro** (Product Owner) — [GitHub](https://github.com/Michael-Okoro) · [LinkedIn](https://www.linkedin.com/in/michaelcokoro/)
 - **Sabrina Shuss** (Shadow Scrum Master) — [GitHub](https://github.com/sabrinadshuss) · [LinkedIn](https://www.linkedin.com/in/sabrinashuss/)
-- **Ndzana Christophe** — [GitHub](https://github.com/christoban) · [LinkedIn](https://www.linkedin.com/in/christophe-ndzana-6951a4316/)
-- **Ali Ahmed** — [GitHub](https://github.com/7-Dany) · [LinkedIn](https://www.linkedin.com/in/ali-ahmed-036b54216/)
-- **Emad Faheem** — [GitHub](https://github.com/emadgfy) · [LinkedIn](https://www.linkedin.com/in/emadfaheem/)
-- **Kartik Sharma** — [GitHub](https://github.com/Kartik-619) · [LinkedIn](https://www.linkedin.com/in/kartik-sharma-9069852b6/)
+- **Emad Faheem** (UI/UX Designer) — [GitHub](https://github.com/emadgfy) · [LinkedIn](https://www.linkedin.com/in/emadfaheem/)
+- **Ndzana Christophe** (Developer) — [GitHub](https://github.com/christoban) · [LinkedIn](https://www.linkedin.com/in/christophe-ndzana-6951a4316/)
+- **Ali Ahmed** (Developer) — [GitHub](https://github.com/7-Dany) · [LinkedIn](https://www.linkedin.com/in/ali-ahmed-036b54216/)
+- **Kartik Sharma** (Developer) — [GitHub](https://github.com/Kartik-619) · [LinkedIn](https://www.linkedin.com/in/kartik-sharma-9069852b6/)
 
 ## Contributing
 
