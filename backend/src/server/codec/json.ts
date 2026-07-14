@@ -4,6 +4,7 @@ import type { Codec } from "./codec";
 
 const log = rootLogger.child({ module: "JsonCodec" });
 import {
+  EMOTE_SEND,
   GAME_RESIGN,
   MOVE_MAKE,
   POSITION_SELECT,
@@ -16,7 +17,6 @@ import {
   UNDO_CANCEL,
   UNDO_DECLINE,
   UNDO_REQUEST,
-  EMOTE_SEND,
 } from "../protocol/commands";
 import {
   AI_VS_AI,

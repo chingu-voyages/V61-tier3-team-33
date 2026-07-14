@@ -6,7 +6,11 @@ import { useSocketEvent } from "@/socket/use-event"
 import { useSocketStatus } from "@/socket/use-status"
 import { OPEN } from "@/socket/reducer"
 import { Commands, SESSION_HANDSHAKE } from "@/socket/commands"
-import { SESSION_ERROR, TOKEN_INVALID_CODES, SESSION_FATAL_CODES } from "@/socket/errors"
+import {
+  SESSION_ERROR,
+  TOKEN_INVALID_CODES,
+  SESSION_FATAL_CODES,
+} from "@/socket/errors"
 import { gooeyToast } from "@/components/ui/goey-toaster"
 import { SessionContext } from "./session-context"
 import type { SessionInfo } from "./session-context"

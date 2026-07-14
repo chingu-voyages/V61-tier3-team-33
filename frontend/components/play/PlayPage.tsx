@@ -9,7 +9,12 @@ export function PlayPage() {
   const modeParam = params.get("mode")
   return (
     <PlayScreen
-      key={params.get("resume") ?? params.get("room") ?? params.get("mode") ?? "default"}
+      key={
+        params.get("resume") ??
+        params.get("room") ??
+        params.get("mode") ??
+        "default"
+      }
       mode={(modeParam as PlayMode) ?? "online"}
       modeExplicit={modeParam !== null}
       roomId={params.get("room") ?? undefined}

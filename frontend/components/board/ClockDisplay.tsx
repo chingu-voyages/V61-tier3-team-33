@@ -8,7 +8,6 @@ import { getPieceIcon } from "@/components/pieces"
 import { cn } from "@/lib/utils"
 import { formatClock } from "./helpers"
 
-
 interface ClockDisplayProps {
   color: PieceColor
   label: string
@@ -39,11 +38,16 @@ export function ClockDisplay({
           <span className="inline-block size-2 animate-pulse rounded-full bg-chess-check-fill" />
         )}
         {getPieceIcon({ type: KNIGHT, color }, { className: "size-5" })}
-        <span className={["font-medium text-sm", isActive ? "text-foreground" : "text-muted-foreground"].join(" ")}>
+        <span
+          className={[
+            "text-sm font-medium",
+            isActive ? "text-foreground" : "text-muted-foreground",
+          ].join(" ")}
+        >
           {label}
         </span>
         {isActive && (
-          <span className="size-2 rounded-full bg-primary animate-pulse" />
+          <span className="size-2 animate-pulse rounded-full bg-primary" />
         )}
       </div>
       <span className="tabular-nums">{formatClock(ms)}</span>

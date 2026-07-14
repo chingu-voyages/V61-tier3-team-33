@@ -6,7 +6,13 @@ import { roomReducer, type RoomState } from "./reducer"
 import { RoomContext } from "./context"
 import { useSocketEvent } from "@/socket/use-event"
 import { useSocketStatus } from "@/socket/use-status"
-import { CONNECTING, OPEN, RECONNECTING, FAILED, CLOSED } from "@/socket/reducer"
+import {
+  CONNECTING,
+  OPEN,
+  RECONNECTING,
+  FAILED,
+  CLOSED,
+} from "@/socket/reducer"
 import { useGameActions } from "@/socket/use-action"
 import {
   ROOM_JOINED,
@@ -27,7 +33,12 @@ import {
 } from "@/socket/events"
 import { WHITE } from "@/core/piece"
 import { useSocketContext } from "@/socket/context"
-import { SESSION_ERROR, ROOM_RESET_CODES, UNDO_ERROR_MESSAGES, ERROR_MESSAGES } from "@/socket/errors"
+import {
+  SESSION_ERROR,
+  ROOM_RESET_CODES,
+  UNDO_ERROR_MESSAGES,
+  ERROR_MESSAGES,
+} from "@/socket/errors"
 import { SESSION_HANDSHAKE } from "@/socket/commands"
 
 const initialState: RoomState = {
@@ -82,7 +93,13 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       id: toastId(FAILED),
       timing: { displayDuration: 3_600_000 },
       description: "Unable to connect. Please refresh or try again.",
-      action: { label: "Retry", onClick: () => { gooeyToast.dismiss(toastId(FAILED)); reconnect() } },
+      action: {
+        label: "Retry",
+        onClick: () => {
+          gooeyToast.dismiss(toastId(FAILED))
+          reconnect()
+        },
+      },
     })
   })
 
@@ -105,7 +122,12 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   })
 
   useSocketEvent(UNDO_REQUESTED, (msg) => {
-    dispatch({ type: "UNDO_REQUESTED", roomId: msg.roomId, by: msg.by, expiresAt: msg.expiresAt })
+    dispatch({
+      type: "UNDO_REQUESTED",
+      roomId: msg.roomId,
+      by: msg.by,
+      expiresAt: msg.expiresAt,
+    })
   })
 
   useSocketEvent(UNDO_DECLINED, (msg) => {
@@ -131,7 +153,11 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   })
 
   useSocketEvent(UNDO_APPLIED, (msg) => {
-    dispatch({ type: "UNDO_APPLIED", roomId: msg.roomId, status: msg.state.status })
+    dispatch({
+      type: "UNDO_APPLIED",
+      roomId: msg.roomId,
+      status: msg.state.status,
+    })
   })
 
   useSocketEvent(GAME_ENDED, (msg) => {
@@ -161,7 +187,6 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   useSocketEvent(SESSION_ERROR, (msg) => {
     if (ROOM_RESET_CODES.has(msg.code)) {
       dispatch({ type: "ROOM_RESET" })
-      return
     }
 
     const undoDescription = UNDO_ERROR_MESSAGES[msg.code]

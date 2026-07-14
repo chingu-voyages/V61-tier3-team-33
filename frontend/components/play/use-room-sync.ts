@@ -33,7 +33,14 @@ export function useRoomSync(
     ) {
       dispatch({ type: "OPPONENT_JOINED" })
     }
-  }, [modeExplicit, room.state.roomId, room.state.color, room.state.status, phase.phase, dispatch])
+  }, [
+    modeExplicit,
+    room.state.roomId,
+    room.state.color,
+    room.state.status,
+    phase.phase,
+    dispatch,
+  ])
 
   useSocketEvent(GAME_STARTED, () => {
     dispatch({ type: "OPPONENT_JOINED" })
@@ -48,7 +55,9 @@ export function useRoomSync(
     }
     // Stale invite: server created a different room than the link points to
     if (phase.phase === "joining" && msg.roomId !== phase.roomId) {
-      gooeyToast.error("Room not found", { description: "The invite link may be expired." })
+      gooeyToast.error("Room not found", {
+        description: "The invite link may be expired.",
+      })
       dispatch({ type: "JOIN_FAILED", mode: "friend" })
       return
     }

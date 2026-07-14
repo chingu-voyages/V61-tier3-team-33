@@ -64,7 +64,8 @@ export class Chess implements ChessStore {
 
   private state: ChessState
   private listeners = new Set<Listener>()
-  private pendingSnap: { from: Position; to: Position; snap: Snapshot } | null = null
+  private pendingSnap: { from: Position; to: Position; snap: Snapshot } | null =
+    null
   private send: (cmd: object) => void
 
   constructor(send: (cmd: object) => void, fen?: string) {

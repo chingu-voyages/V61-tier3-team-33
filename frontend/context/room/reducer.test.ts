@@ -2,26 +2,35 @@ import { describe, expect, it } from "bun:test"
 import { roomReducer, type RoomState } from "./reducer"
 import { ACTIVE, FINISHED, WAITING } from "@/socket/types"
 import { WHITE, BLACK } from "@/core/piece"
+import { GameStatus, DrawReason } from "@/core/game"
+import type { GameSnapshot } from "@/socket/types"
 
-const baseSnapshot = {
+const baseSnapshot: GameSnapshot = {
   status: ACTIVE,
   fen: "startpos",
   turn: WHITE,
   isCheck: false,
-  resultStatus: 0,
+  resultStatus: GameStatus(0),
   winner: WHITE,
   hasWinner: false,
-  drawReason: 0,
+  drawReason: DrawReason(0),
   endReason: 0,
   history: [],
   capturedByWhite: [],
   capturedByBlack: [],
   clock: null,
-} as const
+}
 
 function joined(roomId: string, color = WHITE): RoomState {
   return roomReducer(
-    { roomId: null, color: null, status: null, result: null, pendingUndo: null },
+    {
+      roomId: null,
+      color: null,
+      status: null,
+      result: null,
+      pendingUndo: null,
+      initialized: false,
+    },
     { type: "ROOM_JOINED", roomId, color, status: WAITING, state: baseSnapshot }
   )
 }
@@ -41,7 +50,13 @@ describe("roomReducer — stale event guarding", () => {
     const result = roomReducer(afterSwitch, {
       type: "GAME_ENDED",
       roomId: "room-old",
-      result: { status: 1, winner: BLACK, hasWinner: true, drawReason: 0, reason: 3 },
+      result: {
+        status: GameStatus(1),
+        winner: BLACK,
+        hasWinner: true,
+        drawReason: DrawReason(0),
+        reason: 3,
+      },
     })
 
     // The freshly-joined room must be untouched — no phantom "finished" state.
@@ -66,7 +81,13 @@ describe("roomReducer — stale event guarding", () => {
     const result = roomReducer(current, {
       type: "GAME_ENDED",
       roomId: "room-new",
-      result: { status: 1, winner: WHITE, hasWinner: true, drawReason: 0, reason: 2 },
+      result: {
+        status: GameStatus(1),
+        winner: WHITE,
+        hasWinner: true,
+        drawReason: DrawReason(0),
+        reason: 2,
+      },
     })
 
     expect(result.status).toBe(FINISHED)

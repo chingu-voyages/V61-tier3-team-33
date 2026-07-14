@@ -32,7 +32,11 @@ interface PlayScreenProps {
   modeExplicit?: boolean
 }
 
-export function PlayScreen({ mode, roomId, modeExplicit = false }: PlayScreenProps) {
+export function PlayScreen({
+  mode,
+  roomId,
+  modeExplicit = false,
+}: PlayScreenProps) {
   const router = useRouter()
   const [phase, dispatch] = useReducer(
     playReducer,
@@ -44,7 +48,9 @@ export function PlayScreen({ mode, roomId, modeExplicit = false }: PlayScreenPro
   const room = useRoom()
   const pendingCreateRef = useRef(false)
   const [pendingSwitch, setPendingSwitch] = useState<
-    { kind: "friend"; tc: TimeControl } | { kind: "online"; tc: TimeControl } | null
+    | { kind: "friend"; tc: TimeControl }
+    | { kind: "online"; tc: TimeControl }
+    | null
   >(null)
 
   useAutoJoin(phase, session, actions, dispatch)
@@ -65,7 +71,11 @@ export function PlayScreen({ mode, roomId, modeExplicit = false }: PlayScreenPro
       dispatch({ type: "CREATE_ROOM", timeControl: tc })
       // Explicit create intent — backend always assigns its own canonical
       // id, returned in room:joined. No client-generated roomId involved.
-      actions.joinRoom({ mode: HUMAN_VS_HUMAN, create: true, clock: ClockFormat(tc.id) })
+      actions.joinRoom({
+        mode: HUMAN_VS_HUMAN,
+        create: true,
+        clock: ClockFormat(tc.id),
+      })
     },
     [actions]
   )
@@ -125,7 +135,9 @@ export function PlayScreen({ mode, roomId, modeExplicit = false }: PlayScreenPro
       <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
         <KnightPulse />
         <p className="text-sm text-muted-foreground">
-          {phase.phase === "creating" ? "Creating room\u2026" : "Joining game\u2026"}
+          {phase.phase === "creating"
+            ? "Creating room\u2026"
+            : "Joining game\u2026"}
         </p>
       </div>
     )

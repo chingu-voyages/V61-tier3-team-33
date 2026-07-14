@@ -3,11 +3,20 @@ import { Chess } from "./index"
 import type { Position } from "./core/position"
 import { Board, Square } from "./core/board"
 import {
-  A7, A8,
+  A7,
+  A8,
   D8,
-  E1, E2, E3, E4, E5, E6, E7,
-  F2, F3,
-  G2, G4,
+  E1,
+  E2,
+  E3,
+  E4,
+  E5,
+  E6,
+  E7,
+  F2,
+  F3,
+  G2,
+  G4,
   H4,
 } from "./core/position"
 import { WHITE, BLACK, PAWN, KNIGHT, QUEEN } from "./core/piece"
@@ -24,7 +33,9 @@ describe("Chess", () => {
   test("initializes with starting position", () => {
     const store = makeStore()
     const state = store.snapshot()
-    expect(state.fen).toBe("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    expect(state.fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    )
     expect(state.board.length).toBe(64)
     expect(state.selected).toBeNull()
     expect(state.legalMoves).toEqual([])
@@ -139,7 +150,10 @@ describe("Chess", () => {
 
   test("confirmPromotion applies promotion and sends promoteTo", () => {
     const sent: object[] = []
-    const store = new Chess((cmd) => sent.push(cmd), "8/P7/8/8/8/8/8/8 w - - 0 1")
+    const store = new Chess(
+      (cmd) => sent.push(cmd),
+      "8/P7/8/8/8/8/8/8 w - - 0 1"
+    )
 
     store.makeMove(A7, A8)
     store.confirmPromotion(QUEEN)
@@ -150,7 +164,12 @@ describe("Chess", () => {
     expect(Square.isEmpty(Board.at(state.board, A7))).toBe(true)
     const piece = Square.decode(Board.at(state.board, A8))
     expect(piece).toEqual({ color: WHITE, type: QUEEN })
-    expect(sent).toContainEqual({ type: "move:make", from: A7, to: A8, promoteTo: QUEEN })
+    expect(sent).toContainEqual({
+      type: "move:make",
+      from: A7,
+      to: A8,
+      promoteTo: QUEEN,
+    })
   })
 
   test("confirmPromotion with knight works", () => {
@@ -193,12 +212,17 @@ describe("Chess", () => {
     const store = makeStore()
     const e4: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: E2, to: E4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: E2,
+      to: E4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     store.applyMove(e4)
     const s = store.snapshot()
-    expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+    expect(s.fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    )
     expect(s.lastMove).toEqual({ from: E2, to: E4, type: MoveType(0) })
     expect(Square.isEmpty(Board.at(s.board, E2))).toBe(true)
   })
@@ -209,12 +233,17 @@ describe("Chess", () => {
     expect(store.snapshot().pendingMove).not.toBeNull()
     const e4: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: E2, to: E4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: E2,
+      to: E4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     store.applyMove(e4)
     expect(store.snapshot().pendingMove).toBeNull()
-    expect(store.snapshot().fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+    expect(store.snapshot().fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    )
   })
 
   test("updates turn after applyMove", () => {
@@ -222,8 +251,11 @@ describe("Chess", () => {
     expect(store.turn()).toBe(WHITE)
     const e4: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: E2, to: E4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: E2,
+      to: E4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     store.applyMove(e4)
     expect(store.turn()).toBe(BLACK)
@@ -236,7 +268,9 @@ describe("Chess", () => {
     store.makeMove(E2, E4)
     store.rejectMove("illegal-move", E2, E4)
     const s = store.snapshot()
-    expect(s.fen).toBe("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    expect(s.fen).toBe(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    )
     expect(s.moveRejection).toBe("illegal-move")
     expect(s.pendingMove).toBeNull()
   })
@@ -290,8 +324,11 @@ describe("Chess", () => {
     const store = makeStore()
     const e4: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: E2, to: E4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: E2,
+      to: E4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     store.applyMove(e4)
     store.select(E7)
@@ -347,7 +384,10 @@ describe("Chess", () => {
 
   test("setClock with null clears clock", () => {
     const store = makeStore()
-    store.setClock({ whiteMs: 100000, blackMs: 90000, active: WHITE }, performance.now())
+    store.setClock(
+      { whiteMs: 100000, blackMs: 90000, active: WHITE },
+      performance.now()
+    )
     store.setClock(null, null)
     expect(store.snapshot().clock).toBeNull()
     expect(store.snapshot().clockReceivedAt).toBeNull()
@@ -363,8 +403,11 @@ describe("Chess", () => {
     const store = makeStore()
     const e4: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: E2, to: E4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: E2,
+      to: E4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     store.applyMove(e4)
     expect(store.turn()).toBe(BLACK)
@@ -408,23 +451,35 @@ describe("Chess", () => {
     const store = makeStore()
     const g4: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: G2, to: G4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: G2,
+      to: G4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     const e5: Move = {
       piece: { color: BLACK, type: PAWN },
-      from: E7, to: E5,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: E7,
+      to: E5,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     const f3: Move = {
       piece: { color: WHITE, type: PAWN },
-      from: F2, to: F3,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: F2,
+      to: F3,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
     const qh4: Move = {
       piece: { color: BLACK, type: QUEEN },
-      from: D8, to: H4,
-      type: MoveType(0), promoteTo: null, captured: null,
+      from: D8,
+      to: H4,
+      type: MoveType(0),
+      promoteTo: null,
+      captured: null,
     }
 
     store.applyMove(g4)

@@ -37,6 +37,7 @@ coding!
 - Yangchen Dema(Scrum Master): [GitHub](https://github.com/dema66) / [LinkedIn](https://www.linkedin.com/in/yangchendema/)
 - Ndzana Christophe #2: [GitHub](https://github.com/christoban) / [LinkedIn](https://www.linkedin.com/in/christophe-ndzana-6951a4316)
 - Michael Okoro (Product Owner): [GitHub](https://github.com/Michael-Okoro) / [LinkedIn](https://www.linkedin.com/in/michaelcokoro/)
+- Sabrina Shuss (Shadow Scrum Master): [GitHub](https://github.com/sabrinadshuss) / [LinkedIn](https://www.linkedin.com/in/sabrinashuss/)
 - Ali Ahmed : [Github](https://github.com/7-Dany) / [LinkedIn](https://www.linkedin.com/in/ali-ahmed-036b54216/)
 - Emad Faheem : [Github](https://github.com/emadgfy) / [LinkedIn](https://www.linkedin.com/in/emadfaheem/)
 - Kartik Sharma (Web developer) : [Github](https://github.com/Kartik-619) / [LinkedIn](https://www.linkedin.com/in/kartik-sharma-9069852b6/)

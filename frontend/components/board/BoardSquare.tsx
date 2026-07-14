@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react"
 import type { Position } from "@/core/position"
 
 const squareVariants = cva(
-  "relative h-full w-full aspect-square hover:bg-chess-hover-fill",
+  "relative aspect-square h-full w-full hover:bg-chess-hover-fill",
   {
     variants: {
       tone: {

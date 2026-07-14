@@ -87,7 +87,10 @@ export function MainPage() {
         </div>
       )}
       {!loading && inGame && (
-        <Link href="/play" className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <Link
+          href="/play"
+          className="w-full max-w-2xl animate-in duration-300 fade-in slide-in-from-bottom-2"
+        >
           <Card className="group cursor-pointer border border-border/50 shadow-lg transition-all hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-xl">
             <CardHeader>
               <div className="flex flex-col items-center gap-4 py-4 text-center">
@@ -117,7 +120,7 @@ export function MainPage() {
             <Link
               key={mode.title}
               href={mode.href}
-              className="flex-1 basis-64 animate-in fade-in slide-in-from-bottom-2 duration-300"
+              className="flex-1 basis-64 animate-in duration-300 fade-in slide-in-from-bottom-2"
             >
               <Card
                 className={`group h-full cursor-pointer border border-border/50 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${mode.ringClass}`}
