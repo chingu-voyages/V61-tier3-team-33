@@ -1,108 +1,90 @@
+import { memo } from "react"
 import { Piece, PieceColor, WHITE } from "@/core/piece"
 import { cn } from "@/lib/utils"
-import { Activity, memo, useCallback } from "react"
 import { getPieceIcon } from "../pieces"
 import { cva, type VariantProps } from "class-variance-authority"
 import { motion, AnimatePresence } from "motion/react"
 import type { Position } from "@/core/position"
 
-const BORDERED_STATES = {
-  selected: "selected",
-  lastMove: "last-move",
-  legalCapture: "capture",
-  check: "check",
-  illegal: "illegal",
-  premove: "premove",
-} as const
-
-const compoundVariants = (
-  Object.entries(BORDERED_STATES) as [keyof typeof BORDERED_STATES, string][]
-).flatMap(([state, slug]) => [
+const squareVariants = cva(
+  "relative h-full w-full aspect-square hover:bg-chess-hover-fill",
   {
-    tone: "light" as const,
-    state,
-    class: `border-chess-${slug}-border-on-light`,
-  },
-  {
-    tone: "dark" as const,
-    state,
-    class: `border-chess-${slug}-border-on-dark`,
-  },
-])
-
-export const squareVariants = cva("relative h-full w-full", {
-  variants: {
-    tone: {
-      light: "bg-chess-light-square",
-      dark: "bg-chess-dark-square",
+    variants: {
+      tone: {
+        light: "bg-chess-light-square",
+        dark: "bg-chess-dark-square",
+      },
+      state: {
+        none: "",
+        selected:
+          "border-2 border-chess-selected-border-on-light bg-chess-selected-fill dark:border-chess-selected-border-on-dark",
+        lastMove: "bg-chess-last-move-fill",
+        legalMove: "",
+        legalCapture:
+          "border-2 border-chess-capture-border-on-light bg-chess-capture-fill dark:border-chess-capture-border-on-dark",
+        check:
+          "border-2 border-chess-check-border-on-light bg-chess-check-fill dark:border-chess-check-border-on-dark",
+        illegal:
+          "border-2 border-chess-illegal-border-on-light bg-chess-illegal-fill dark:border-chess-illegal-border-on-dark",
+        premove:
+          "border-2 border-chess-premove-border-on-light bg-chess-premove-fill dark:border-chess-premove-border-on-dark",
+      },
     },
-    state: {
-      none: "",
-      selected: "border-2 bg-chess-selected-fill",
-      lastMove: "bg-chess-last-move-fill",
-      legalMove: "", // dot rendered separately
-      legalCapture: "border-2 bg-chess-capture-fill",
-      check: "border-2 bg-chess-check-fill",
-      illegal: "border-2 bg-chess-illegal-fill",
-      premove: "border-2 bg-chess-premove-fill",
+    defaultVariants: {
+      tone: "light",
+      state: "none",
     },
-  },
-  compoundVariants,
-  defaultVariants: {
-    tone: "light",
-    state: "none",
-  },
-})
+  }
+)
 
-export type SquareVariants = VariantProps<typeof squareVariants>
-
-export function squareHoverClass(): string {
-  return "hover:bg-chess-hover-fill"
-}
+type SquareVariant = VariantProps<typeof squareVariants>
 
 interface BoardSquareProps {
   position: Position
   piece: Piece | null
   isDark: boolean
-  state?: SquareVariants["state"]
+  state?: Exclude<SquareVariant["state"], undefined>
   movingPieceColor?: PieceColor
   onSquareClick: (pos: Position) => void
-  isLastMoveTo?: boolean
 }
 
-function BoardSquareImpl({
+function arePropsEqual(prev: BoardSquareProps, next: BoardSquareProps) {
+  if (prev.position !== next.position) return false
+  if (prev.isDark !== next.isDark) return false
+  if (prev.state !== next.state) return false
+  if (prev.movingPieceColor !== next.movingPieceColor) return false
+  if (prev.onSquareClick !== next.onSquareClick) return false
+
+  const p = prev.piece
+  const n = next.piece
+  if (p === n) return true
+  if (p === null || n === null) return false
+  return p.type === n.type && p.color === n.color
+}
+
+const BoardSquare = memo(function BoardSquare({
   position,
   piece,
   isDark,
   state = "none",
   movingPieceColor,
   onSquareClick,
-  isLastMoveTo = false,
 }: BoardSquareProps) {
   const tone = isDark ? "dark" : "light"
   const dotFillClass =
     movingPieceColor === WHITE ? "bg-chess-w-fill" : "bg-chess-b-fill"
 
-  // Stable per-square callback — only changes if position changes (never).
-  const handleClick = useCallback(
-    () => onSquareClick(position),
-    [onSquareClick, position]
-  )
-
   return (
     <div
-      className={cn(
-        squareVariants({ tone, state }),
-        squareHoverClass(),
-        "aspect-square"
-      )}
-      onClick={handleClick}
+      data-slot="board-square"
+      className={cn(squareVariants({ tone, state }))}
+      onClick={() => onSquareClick(position)}
     >
       <AnimatePresence>
         {piece && (
           <motion.div
             key={`${piece.color}-${piece.type}`}
-            initial={{ scale: isLastMoveTo ? 1.08 : 0.85, opacity: 0 }}
+            initial={{ scale: 1.08, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{
               scale: 0.9,
@@ -120,27 +102,13 @@ function BoardSquareImpl({
           </motion.div>
         )}
       </AnimatePresence>
-      <Activity mode={state === "legalMove" ? "visible" : "hidden"}>
+      {state === "legalMove" && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className={cn("h-1/3 w-1/3 rounded-full", dotFillClass)} />
         </div>
-      </Activity>
+      )}
     </div>
   )
-}
+}, arePropsEqual)
 
-function areEqual(prev: BoardSquareProps, next: BoardSquareProps): boolean {
-  return (
-    prev.position === next.position &&
-    prev.isDark === next.isDark &&
-    prev.state === next.state &&
-    prev.movingPieceColor === next.movingPieceColor &&
-    prev.onSquareClick === next.onSquareClick &&
-    prev.isLastMoveTo === next.isLastMoveTo &&
-    prev.piece?.type === next.piece?.type &&
-    prev.piece?.color === next.piece?.color
-  )
-}
-
-// Memoized: only ~2-4 squares change per move, re-rendering all 64 was the main perf cost.
-export const BoardSquare = memo(BoardSquareImpl, areEqual)
+export { BoardSquare }

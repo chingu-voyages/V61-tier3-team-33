@@ -7,6 +7,7 @@ import { useSocketContext } from "@/socket/context"
 import { useSocketEvent } from "@/socket/use-event"
 import { gooeyToast } from "@/components/ui/goey-toaster"
 import { ERROR_MESSAGES } from "@/socket/errors"
+import { useSoundContext } from "@/audio/context"
 import {
   ROOM_JOINED,
   GAME_STARTED,
@@ -19,6 +20,7 @@ import {
 
 export function ChessProvider({ children }: { children: React.ReactNode }) {
   const { send } = useSocketContext()
+  const sound = useSoundContext()
 
   const store = useMemo(() => new Chess(send), [send])
 
@@ -51,6 +53,8 @@ export function ChessProvider({ children }: { children: React.ReactNode }) {
     } else {
       store.applyMove(msg.move)
     }
+    if (msg.move.captured) sound.playCapture()
+    else sound.playMove()
     store.setClock(msg.clock, msg.clock !== null ? performance.now() : null)
   })
 

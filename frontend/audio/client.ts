@@ -35,6 +35,9 @@ export class AudioClient {
 
   constructor(opts: AudioClientOptions = {}) {
     if (opts.audioCtor) this.audioCtor = opts.audioCtor
+    if (typeof document !== "undefined") {
+      document.addEventListener("pointerdown", () => this.prime(), { once: true })
+    }
   }
 
   snapshot = (): AudioClientState => this.state

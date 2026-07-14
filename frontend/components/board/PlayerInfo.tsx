@@ -1,14 +1,8 @@
 import type { PieceColor } from "@/core/piece"
-import { WHITE } from "@/core/piece"
+import { WHITE, KNIGHT } from "@/core/piece"
 import type { ClockState } from "@/socket/types"
 import { getPieceIcon } from "@/components/pieces"
-import { KNIGHT } from "@/core/piece"
-
-function fmtClock(ms: number | undefined): string {
-  if (ms === undefined) return "--:--"
-  const s = Math.floor(ms / 1000)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
-}
+import { formatClock } from "./helpers"
 
 interface PlayerInfoProps {
   color: PieceColor
@@ -25,7 +19,7 @@ export function PlayerInfo({ color, label, clock }: PlayerInfoProps) {
         {getPieceIcon({ type: KNIGHT, color }, { className: "size-5" })}
         <span className="font-medium text-foreground">{label}</span>
       </div>
-      <span className="tabular-nums">{fmtClock(ms)}</span>
+      <span className="tabular-nums">{formatClock(ms)}</span>
     </div>
   )
 }
