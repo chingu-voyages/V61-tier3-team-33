@@ -137,4 +137,19 @@ describe("IdentifyCommand", () => {
     expect(sent.playerId).toBe("player-1");
     expect(sent.token).toBe("tok-1");
   });
+
+  it("includes the session's roomId in the handshake reply, so the client knows whether to expect a rejoin", () => {
+    const send = mock<(data: string) => void>(() => {});
+    const ws = { ...makeSocket(), send };
+    const session = makeSession({ token: "tok-1", ws, roomId: "room-42" });
+    const sessions = makeStore(session);
+    const publisher = { emit: mock(() => {}) } satisfies Publisher;
+    const grace = makeGrace();
+
+    const cmd = new IdentifyCommand(sessions, publisher, grace);
+    cmd.run(ws);
+
+    const sent = JSON.parse(send.mock.calls[0]![0]);
+    expect(sent.roomId).toBe("room-42");
+  });
 });

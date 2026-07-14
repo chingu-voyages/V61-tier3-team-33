@@ -61,6 +61,7 @@ export const SESSION_FATAL_CODES: ReadonlySet<ErrorCode> = new Set([
 export const ROOM_RESET_CODES: ReadonlySet<ErrorCode> = new Set([
   NOT_IN_GAME,
   ROOM_NOT_FOUND,
+  INVALID_MODE,
 ])
 
 export const UNDO_ERROR_MESSAGES: Partial<Record<ErrorCode, string>> = {
@@ -77,10 +78,6 @@ export const UNDO_ERROR_MESSAGES: Partial<Record<ErrorCode, string>> = {
 export const ERROR_MESSAGES: Partial<Record<string, string>> = {
   [ROOM_FULL]: "The room is full.",
   [INVALID_MODE]: "Cannot join in the current game state.",
-  [ILLEGAL_MOVE]: "That move is not legal.",
-  [SQUARE_EMPTY]: "That square is empty.",
-  [NOT_YOUR_PIECE]: "That piece belongs to your opponent.",
-  [GAME_OVER]: "The game is already over.",
 }
 
 export type MoveError =

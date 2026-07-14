@@ -900,4 +900,36 @@ describe("Mediator bug reproductions (expect red until fixed)", () => {
     // exactly one join should have taken effect for this socket
     expect(sentOfType(wsA, "room:joined").length).toBe(1);
   });
+
+  // ── Bug: "Play Online" while already in a game silently reconnects to the old game ──
+  it("switch: matchmaking request while already in an active game abandons the old game and joins a new one", async () => {
+    const wsA = makeSocket();
+    const wsB = makeSocket();
+    const { gameId: oldGameId } = await matchmake(mediator, wsA, wsB);
+
+    // A third player is waiting for a match
+    const wsC = makeSocket();
+    handshake(mediator, wsC);
+    mediator.handle(wsC, { type: "room:join", mode: HUMAN_VS_HUMAN, clock: BLITZ });
+    await settle();
+    expect(lastSentOfType(wsC, "room:joined")).toBeTruthy();
+    expect(lastSentOfType(wsC, "game:started")).toBeUndefined(); // still waiting, alone
+
+    // A clicks "Play Online" again — no explicit roomId, just like the real client
+    mediator.handle(wsA, { type: "room:join", mode: HUMAN_VS_HUMAN, clock: BLITZ });
+    await settle();
+
+    // A's old opponent (B) should see the old game end (abandoned), not silence
+    const oldEnded = lastSentOfType(wsB, "game:ended") as RawMessage | undefined;
+    expect(oldEnded).toBeTruthy();
+    expect(oldEnded!.winner).toBe(1); // BLACK (B) wins by A's abandonment
+
+    // A should land in a brand-new room — matched with the waiting C, not reconnected to oldGameId
+    const newJoinedA = lastSentOfType(wsA, "room:joined") as RawMessage | undefined;
+    expect(newJoinedA).toBeTruthy();
+    expect(newJoinedA!.roomId).not.toBe(oldGameId);
+    expect(newJoinedA!.roomId).toBe(lastSentOfType(wsC, "room:joined")!.roomId);
+    expect(lastSentOfType(wsA, "game:started")).toBeTruthy();
+    expect(lastSentOfType(wsC, "game:started")).toBeTruthy();
+  });
 });

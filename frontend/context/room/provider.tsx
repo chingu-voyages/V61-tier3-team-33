@@ -28,6 +28,7 @@ import {
 import { WHITE } from "@/core/piece"
 import { useSocketContext } from "@/socket/context"
 import { SESSION_ERROR, ROOM_RESET_CODES, UNDO_ERROR_MESSAGES, ERROR_MESSAGES } from "@/socket/errors"
+import { SESSION_HANDSHAKE } from "@/socket/commands"
 
 const initialState: RoomState = {
   roomId: null,
@@ -35,6 +36,7 @@ const initialState: RoomState = {
   status: null,
   result: null,
   pendingUndo: null,
+  initialized: false,
 }
 
 const CONNECTED_DISMISS_MS = 2_000
@@ -88,18 +90,22 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     if (prev) gooeyToast.dismiss(toastId(prev))
   })
 
-  useSocketEvent(GAME_STARTED, () => {
-    dispatch({ type: "GAME_STARTED" })
+  useSocketEvent(SESSION_HANDSHAKE, (msg) => {
+    dispatch({ type: "HANDSHAKE", roomId: msg.roomId })
+  })
+
+  useSocketEvent(GAME_STARTED, (msg) => {
+    dispatch({ type: "GAME_STARTED", roomId: msg.roomId })
   })
 
   useSocketEvent(MOVE_MADE, (msg) => {
     if (msg.isGameOver && msg.result) {
-      dispatch({ type: "GAME_ENDED", result: msg.result })
+      dispatch({ type: "GAME_ENDED", roomId: msg.roomId, result: msg.result })
     }
   })
 
   useSocketEvent(UNDO_REQUESTED, (msg) => {
-    dispatch({ type: "UNDO_REQUESTED", by: msg.by, expiresAt: msg.expiresAt })
+    dispatch({ type: "UNDO_REQUESTED", roomId: msg.roomId, by: msg.by, expiresAt: msg.expiresAt })
   })
 
   useSocketEvent(UNDO_DECLINED, (msg) => {
@@ -108,28 +114,28 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     } else {
       gooeyToast.info("Opponent declined the undo request")
     }
-    dispatch({ type: "UNDO_RESOLVED" })
+    dispatch({ type: "UNDO_RESOLVED", roomId: msg.roomId })
   })
 
-  useSocketEvent(UNDO_CANCELLED, () => {
-    dispatch({ type: "UNDO_CANCELLED" })
+  useSocketEvent(UNDO_CANCELLED, (msg) => {
+    dispatch({ type: "UNDO_CANCELLED", roomId: msg.roomId })
   })
 
-  useSocketEvent(UNDO_EXPIRED, () => {
+  useSocketEvent(UNDO_EXPIRED, (msg) => {
     gooeyToast.info("Undo request expired")
-    dispatch({ type: "UNDO_EXPIRED" })
+    dispatch({ type: "UNDO_EXPIRED", roomId: msg.roomId })
   })
 
-  useSocketEvent(UNDO_INVALIDATED, () => {
-    dispatch({ type: "UNDO_INVALIDATED" })
+  useSocketEvent(UNDO_INVALIDATED, (msg) => {
+    dispatch({ type: "UNDO_INVALIDATED", roomId: msg.roomId })
   })
 
   useSocketEvent(UNDO_APPLIED, (msg) => {
-    dispatch({ type: "UNDO_APPLIED", status: msg.state.status })
+    dispatch({ type: "UNDO_APPLIED", roomId: msg.roomId, status: msg.state.status })
   })
 
   useSocketEvent(GAME_ENDED, (msg) => {
-    dispatch({ type: "GAME_ENDED", result: msg.result })
+    dispatch({ type: "GAME_ENDED", roomId: msg.roomId, result: msg.result })
   })
 
   useSocketEvent(ROOM_JOINED, (msg) => {
@@ -143,11 +149,13 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   })
 
   useSocketEvent(ROOM_LEFT, (msg) => {
+    // stale room:left from a room we've since switched away from — ignore
+    if (msg.roomId !== state.roomId) return
     if (msg.color !== state.color) {
       const who = msg.color === WHITE ? "White" : "Black"
       gooeyToast.info(`${who} left the game`)
     }
-    dispatch({ type: "ROOM_LEFT", color: msg.color })
+    dispatch({ type: "ROOM_LEFT", roomId: msg.roomId, color: msg.color })
   })
 
   useSocketEvent(SESSION_ERROR, (msg) => {
@@ -169,16 +177,16 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   })
 
   useSocketEvent(GRACE_STARTED, (msg) => {
-    const you = msg.color === WHITE ? "Black" : "White"
-    gooeyToast.warning(`${you} disconnected`, {
+    const who = msg.color === WHITE ? "White" : "Black"
+    gooeyToast.warning(`${who} disconnected`, {
       description: "Waiting for reconnection...",
       duration: 10_000,
     })
   })
 
   useSocketEvent(GRACE_CANCELLED, (msg) => {
-    const you = msg.color === WHITE ? "Black" : "White"
-    gooeyToast.success(`${you} reconnected`)
+    const who = msg.color === WHITE ? "White" : "Black"
+    gooeyToast.success(`${who} reconnected`)
   })
 
   useSocketEvent(GRACE_EXPIRED, () => {

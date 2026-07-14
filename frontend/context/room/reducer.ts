@@ -8,9 +8,12 @@ export interface RoomState {
   status: Lifecycle | null
   result: GameOutcome | null
   pendingUndo: { by: PieceColor; expiresAt: number } | null
+  /** True once we know whether the player has a room to resume (handshake with no roomId, or room:joined arrived). */
+  initialized: boolean
 }
 
 export type RoomAction =
+  | { type: "HANDSHAKE"; roomId: string | null }
   | {
       type: "ROOM_JOINED"
       roomId: string
@@ -20,29 +23,60 @@ export type RoomAction =
     }
   | {
       type: "GAME_STARTED"
+      roomId: string
     }
   | {
       type: "UNDO_APPLIED"
+      roomId: string
       status: Lifecycle
     }
   | {
       type: "GAME_ENDED"
+      roomId: string
       result: GameOutcome
     }
   | {
       type: "UNDO_REQUESTED"
+      roomId: string
       by: PieceColor
       expiresAt: number
     }
-  | { type: "UNDO_RESOLVED" }
-  | { type: "UNDO_CANCELLED" }
-  | { type: "UNDO_EXPIRED" }
-  | { type: "UNDO_INVALIDATED" }
-  | { type: "ROOM_LEFT"; color: PieceColor }
+  | { type: "UNDO_RESOLVED"; roomId: string }
+  | { type: "UNDO_CANCELLED"; roomId: string }
+  | { type: "UNDO_EXPIRED"; roomId: string }
+  | { type: "UNDO_INVALIDATED"; roomId: string }
+  | { type: "ROOM_LEFT"; roomId: string; color: PieceColor }
   | { type: "ROOM_RESET" }
 
+/**
+ * True when an incoming event is stale for the room we're currently in.
+ *
+ * When a player switches rooms mid-game (e.g. clicking "Play Online" while
+ * already in a game), the old room's game:ended / room:left notifications
+ * still land on the same socket, *after* the new room's room:joined has
+ * already arrived. Without this guard those stale events would clobber the
+ * freshly-joined room's state with the old game's outcome.
+ */
+function isStale(state: RoomState, roomId: string): boolean {
+  return state.roomId !== null && roomId !== state.roomId
+}
+
 export function roomReducer(state: RoomState, action: RoomAction): RoomState {
+  if (
+    action.type !== "ROOM_JOINED" &&
+    action.type !== "ROOM_RESET" &&
+    action.type !== "HANDSHAKE" &&
+    isStale(state, action.roomId)
+  ) {
+    return state
+  }
+
   switch (action.type) {
+    case "HANDSHAKE":
+      // No room on this account — nothing to wait for, we're ready.
+      // If a roomId is present we stay uninitialized until room:joined
+      // fills in the full snapshot (color/status/result).
+      return action.roomId === null ? { ...state, initialized: true } : state
     case "ROOM_JOINED":
       return {
         ...state,
@@ -59,6 +93,7 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
                 reason: action.state.endReason,
               }
             : null,
+        initialized: true,
       }
     case "GAME_STARTED":
       return {
@@ -112,6 +147,7 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         status: null,
         result: null,
         pendingUndo: null,
+        initialized: true,
       }
   }
 }

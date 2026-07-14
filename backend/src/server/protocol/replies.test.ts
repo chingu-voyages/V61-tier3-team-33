@@ -40,7 +40,7 @@ describe("Reply", () => {
   });
 
   describe("handshake", () => {
-    it("sends the SESSION_HANDSHAKE type, playerId, and token to the socket", () => {
+    it("sends the SESSION_HANDSHAKE type, playerId, token, and roomId to the socket", () => {
       const ws = makeSocket();
       Reply.handshake(ws, "player-1", "token-1");
 
@@ -50,6 +50,7 @@ describe("Reply", () => {
           type: SESSION_HANDSHAKE,
           playerId: "player-1",
           token: "token-1",
+          roomId: null,
         }),
       );
     });
@@ -63,7 +64,16 @@ describe("Reply", () => {
         type: SESSION_HANDSHAKE,
         playerId: "player-9",
         token: "token-9",
+        roomId: null,
       });
+    });
+
+    it("carries the player's current roomId when they're seated in a game", () => {
+      const ws = makeSocket();
+      Reply.handshake(ws, "player-2", "token-2", "room-42");
+
+      const sent = JSON.parse((ws.send as ReturnType<typeof mock>).mock.calls[0]![0] as string);
+      expect(sent.roomId).toBe("room-42");
     });
   });
 
@@ -74,6 +84,7 @@ describe("Reply", () => {
         type: SESSION_HANDSHAKE,
         playerId: "player-1",
         token: "token-1",
+        roomId: null,
       });
 
       expect(ws.send).toHaveBeenCalledTimes(1);
@@ -82,6 +93,7 @@ describe("Reply", () => {
           type: SESSION_HANDSHAKE,
           playerId: "player-1",
           token: "token-1",
+          roomId: null,
         }),
       );
     });

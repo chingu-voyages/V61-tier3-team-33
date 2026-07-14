@@ -20,10 +20,7 @@ export function useSocketEvent(
 ): void {
   const { onMessage, onAnyMessage } = useSocketContext()
   const handlerRef = useRef(handler)
-
-  useEffect(() => {
-    handlerRef.current = handler
-  })
+  handlerRef.current = handler
 
   useEffect(() => {
     if (type === ANY) {

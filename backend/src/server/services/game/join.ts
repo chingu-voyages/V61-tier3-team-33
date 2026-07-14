@@ -18,15 +18,30 @@ export class JoinCommand {
 
     // resolve game: existing room, waiting queue, or create new
     let game = input.roomId === undefined ? null : this.games.get(input.roomId);
-    if (input.roomId !== undefined && !game) {
-      log.warn("[JoinCommand.run:room-not-found]", { roomId: input.roomId });
-      return err(ROOM_NOT_FOUND);
+
+    // roomId provided but room doesn't exist — screening ID (has clock) or stale invite
+    if (game === null && input.roomId !== undefined) {
+      if (input.clock !== undefined) {
+        // screening roomId from createRoom flow — create fresh game
+        game = this.games.create(crypto.randomUUID(), input.mode, createClock(format));
+        log.info("[JoinCommand.run:created]", { gameId: game.id });
+      } else {
+        // invite link to a nonexistent room — reject
+        log.warn("[JoinCommand.run:room-not-found]", { roomId: input.roomId });
+        return err(ROOM_NOT_FOUND);
+      }
     }
 
+    // matchmake: no explicit roomId, find a waiting opponent
+    if (game === null && input.roomId === undefined) {
+      game = this.games.findWaiting(input.mode, format);
+      if (game) log.info("[JoinCommand.run:matched]", { gameId: game.id });
+    }
+
+    // no match found — create a fresh one
     if (game === null) {
-      const waiting = this.games.findWaiting(input.mode, format);
-      game = waiting ?? this.games.create(undefined, input.mode, createClock(format));
-      log.info("[JoinCommand.run:resolved]", { gameId: game.id, source: waiting ? "waiting" : "created" });
+      game = this.games.create(crypto.randomUUID(), input.mode, createClock(format));
+      log.info("[JoinCommand.run:created]", { gameId: game.id });
     }
 
     // assign color

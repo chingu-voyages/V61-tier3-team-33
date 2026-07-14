@@ -4,7 +4,7 @@ import { setCodec } from "../codec/codec";
 import { JsonCodec } from "../codec/json";
 import type { Command } from "../protocol/commands";
 import { HUMAN_VS_HUMAN, type WebSocket, WHITE, WS_OPEN } from "../types";
-import { INVALID_PAYLOAD, NOT_IMPLEMENTED, ROOM_NOT_FOUND } from "../types";
+import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../types";
 import { Gateway } from "./gateway";
 
 type GatewayPrivate = { handleMessage(ws: WebSocket, data: unknown): void; handleClose(ws: WebSocket): void };
@@ -208,7 +208,7 @@ describe("Gateway handleMessage", () => {
     });
   });
 
-  it("returns room-not-found instead of matchmaking when an explicit room is absent", async () => {
+  it("creates a new game with a server-generated ID when an explicit roomId does not match any existing game", async () => {
     const { gw } = realGateway();
     const waitingPlayer = makeSocket();
 
@@ -218,11 +218,14 @@ describe("Gateway handleMessage", () => {
 
     const joiner = makeSocket();
     handshake(gw, joiner);
-    join(gw, joiner, { roomId: "missing-room" });
+    join(gw, joiner, { roomId: "screening-id" });
     await drain();
 
-    const reply = lastSent(joiner);
-    expect(reply).toMatchObject({ type: "session:error", code: ROOM_NOT_FOUND });
+    const joined = lastEventOfType(joiner, "room:joined");
+    expect(joined).toBeTruthy();
+    // server generates its own canonical ID, not "screening-id"
+    expect(joined!.roomId).not.toBe("screening-id");
+    expect(typeof joined!.roomId).toBe("string");
   });
 
   describe("auto-rejoin on reconnect", () => {

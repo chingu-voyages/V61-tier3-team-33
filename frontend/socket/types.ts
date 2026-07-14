@@ -97,4 +97,5 @@ export interface HandshakeReply {
   type: typeof SESSION_HANDSHAKE
   playerId: string
   token: string
+  roomId: string | null
 }

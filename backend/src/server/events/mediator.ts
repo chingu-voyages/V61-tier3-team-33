@@ -134,7 +134,10 @@ export class Mediator {
     const ctx = this.connection.identify.run(ws, token);
     if (Context.inGame(ctx)) {
       log.info("[Mediator.identify:rejoining]", { playerId: ctx.playerId, roomId: ctx.roomId });
-      this.join(ws, ctx, { mode: ctx.mode ?? HUMAN_VS_HUMAN }).catch(() => {});
+      // Pass the current roomId explicitly so RoomSwitcher recognises this as
+      // a same-room reconnect, not a fresh join (an *unspecified* roomId is
+      // treated as "switch to a new room", e.g. matchmaking).
+      this.join(ws, ctx, { mode: ctx.mode ?? HUMAN_VS_HUMAN, roomId: ctx.roomId }).catch(() => {});
     }
 
     return ctx;

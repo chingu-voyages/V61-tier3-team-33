@@ -14,6 +14,7 @@ export type PlayMode = "friend" | "online"
 
 export type Phase =
   | { phase: "pick-time"; mode: PlayMode }
+  | { phase: "creating"; timeControl: TimeControl }
   | { phase: "joining"; roomId: string }
   | { phase: "invite"; roomId: string; timeControl: TimeControl }
   | { phase: "search"; timeControl: TimeControl }

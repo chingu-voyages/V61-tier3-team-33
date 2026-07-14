@@ -12,6 +12,7 @@ export interface HandshakeReply {
   type: typeof SESSION_HANDSHAKE;
   playerId: string;
   token: string;
+  roomId: string | null;
 }
 
 export interface ErrorReply {
@@ -43,9 +44,9 @@ export const Reply = {
   },
 
   /** Send the session handshake to the socket. */
-  handshake(ws: WebSocket, playerId: string, token: string): void {
+  handshake(ws: WebSocket, playerId: string, token: string, roomId: string | null = null): void {
     // log and send session handshake
-    log.info("[Reply.handshake:sending]", { playerId: playerId.slice(0, 8), wsId: ws.id });
-    Reply.send(ws, { type: SESSION_HANDSHAKE, playerId, token });
+    log.info("[Reply.handshake:sending]", { playerId: playerId.slice(0, 8), wsId: ws.id, roomId });
+    Reply.send(ws, { type: SESSION_HANDSHAKE, playerId, token, roomId });
   },
 };

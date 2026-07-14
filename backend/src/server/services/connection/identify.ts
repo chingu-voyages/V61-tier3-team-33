@@ -19,8 +19,9 @@ export class IdentifyCommand {
     this.grace.cancel(session.playerId);
     // emit signal
     this.publisher.emit(Signals.connectionOpened(session.playerId, ws));
-    // handshake reply
-    Reply.handshake(ws, session.playerId, session.token);
+    // handshake reply — include roomId so the client knows synchronously
+    // whether to expect a follow-up room:joined event
+    Reply.handshake(ws, session.playerId, session.token, session.roomId);
     return {
       playerId: session.playerId,
       roomId: session.roomId,

@@ -35,8 +35,8 @@ export class RoomSwitcher implements Switcher {
       return null;
     }
 
-    // skip if request does not specify a different room
-    const switchingRooms = input.roomId !== undefined && input.roomId !== ctx.roomId;
+    // skip if request targets the same room we're already in.
+    const switchingRooms = input.roomId !== ctx.roomId;
     if (!switchingRooms) {
       log.info("[RoomSwitcher.capture:same-room]", { playerId: ctx.playerId, roomId: ctx.roomId, wsId: ws.id });
       return null;

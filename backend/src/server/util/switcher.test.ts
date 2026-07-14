@@ -144,12 +144,29 @@ describe("Switcher", () => {
     expect(gamesGet).not.toHaveBeenCalled();
   });
 
-  it("capture returns null when input has no roomId", () => {
+  it("capture treats an unspecified roomId as switching away from the current room (e.g. matchmaking)", () => {
+    // A join with no roomId at all (e.g. "Play Online" matchmaking) must be
+    // treated as a fresh join, not confused with Mediator.identify()'s
+    // auto-rejoin (which always passes the current roomId explicitly).
+    const games = makeGameReader();
+    (games.get as ReturnType<typeof mock>).mockReturnValue({ isFinished: false });
+    const sessions = makeSessionWriter();
+    const switcher = new RoomSwitcher(games, sessions);
+    const ws = makeSocket("p1");
+    const ctx: PlayerContext = { playerId: "p1", roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN };
+    const input: JoinInput = { mode: HUMAN_VS_HUMAN };
+    const result = switcher.capture(ctx, input, ws);
+    expect(result).toEqual({ roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN });
+    expect(sessions.clearSession).toHaveBeenCalledWith(ws);
+  });
+
+  it("capture returns null when an auto-rejoin explicitly repeats the current roomId", () => {
+    // This is how Mediator.identify() signals "I'm reconnecting, not switching".
     const games = makeGameReader();
     const sessions = makeSessionWriter();
     const switcher = new RoomSwitcher(games, sessions);
     const ctx: PlayerContext = { playerId: "p1", roomId: "room-1", color: WHITE, mode: HUMAN_VS_HUMAN };
-    const input: JoinInput = { mode: HUMAN_VS_HUMAN };
+    const input: JoinInput = { mode: HUMAN_VS_HUMAN, roomId: "room-1" };
     expect(switcher.capture(ctx, input, makeSocket("p1"))).toBeNull();
   });
 

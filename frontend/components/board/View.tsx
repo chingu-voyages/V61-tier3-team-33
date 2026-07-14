@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useReducer } from "react"
+import Image from "next/image"
 import { useRoom } from "@/context/room/context"
 import { useChess } from "@/chess/context"
 import { Board } from "@/components/board/Board"
@@ -19,7 +20,6 @@ import {
   IconFlipHorizontal,
   IconArrowBackUp,
   IconFlag,
-  IconCrown,
   IconX,
   IconDotsVertical,
 } from "@tabler/icons-react"
@@ -178,7 +178,20 @@ export function View({ onLeave }: ViewProps) {
           {isFinished && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/60 backdrop-blur-sm">
               {state.result!.hasWinner ? (
-                <IconCrown className="size-16 text-yellow-400" />
+                <Image
+                  src={state.color === WHITE
+                    ? state.result!.winner === WHITE
+                      ? "/defeat/White_Winner.png"
+                      : "/defeat/White_Defeated.png"
+                    : state.result!.winner === BLACK
+                      ? "/defeat/Black_Winner.png"
+                      : "/defeat/Black_Defeated.png"
+                  }
+                  alt={resultText}
+                  width={400}
+                  height={400}
+                  className="w-3/5 object-contain"
+                />
               ) : (
                 <IconX className="size-12 text-muted-foreground" />
               )}
