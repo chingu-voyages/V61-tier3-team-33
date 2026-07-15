@@ -16,6 +16,7 @@ export const MOVE_MAKE = "move:make" as const;
 export const UNDO_REQUEST = "undo:request" as const;
 export const UNDO_ACCEPT = "undo:accept" as const;
 export const UNDO_DECLINE = "undo:decline" as const;
+export const UNDO_CANCEL = "undo:cancel" as const;
 export const GAME_RESIGN = "game:resign" as const;
 export const STATE_SYNC = "state:sync" as const;
 
@@ -33,7 +34,19 @@ export type Command =
   | { type: typeof UNDO_REQUEST }
   | { type: typeof UNDO_ACCEPT }
   | { type: typeof UNDO_DECLINE }
+  | { type: typeof UNDO_CANCEL }
   | { type: typeof GAME_RESIGN }
   | { type: typeof STATE_SYNC }
   | { type: typeof POSITION_SELECT; position: Position }
   | { type: typeof EMOTE_SEND; emote: string };
+
+export const Command = {
+  isValid(cmd: unknown): cmd is Command {
+    return cmd !== null;
+  },
+
+  /** Truncated description of raw input for debugging — never send secrets. */
+  describe(raw: unknown): string {
+    return typeof raw === "string" ? raw.slice(0, 200) : typeof raw;
+  },
+};

@@ -22,6 +22,9 @@ export const MOVE_REJECTED = "move:rejected" as const
 export const UNDO_REQUESTED = "undo:requested" as const
 export const UNDO_APPLIED = "undo:applied" as const
 export const UNDO_DECLINED = "undo:declined" as const
+export const UNDO_CANCELLED = "undo:cancelled" as const
+export const UNDO_EXPIRED = "undo:expired" as const
+export const UNDO_INVALIDATED = "undo:invalidated" as const
 
 export const POSITION_ACCEPTED = "position:accept" as const
 export const POSITION_REJECTED = "position:reject" as const
@@ -84,6 +87,7 @@ export type GameEvent =
       type: typeof UNDO_REQUESTED
       roomId: string
       by: PieceColor
+      /** When the opponent's accept window closes. */
       expiresAt: number
     }
   | {
@@ -96,6 +100,18 @@ export type GameEvent =
       type: typeof UNDO_DECLINED
       roomId: string
       by: PieceColor
+    }
+  | {
+      type: typeof UNDO_CANCELLED
+      roomId: string
+    }
+  | {
+      type: typeof UNDO_EXPIRED
+      roomId: string
+    }
+  | {
+      type: typeof UNDO_INVALIDATED
+      roomId: string
     }
   | {
       type: typeof POSITION_ACCEPTED

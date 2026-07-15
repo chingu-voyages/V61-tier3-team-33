@@ -1,11 +1,12 @@
 import { describe, expect, it, spyOn } from "bun:test";
+
+import type { Event } from "../server/protocol/events";
+import { CONNECTION_OPENED, ROOM_JOINED } from "../server/protocol/events";
+import type { GameSnapshot } from "../server/types";
+import { WHITE } from "../server/types";
+import { Format } from "./format";
 import type { LogEntry, LogSink } from "./sink";
 import { ConsoleSink, JsonSink, MultiSink, NullSink } from "./sink";
-import { dim, paint, timestamp, truncate } from "./format";
-import { CONNECTION_OPENED, ROOM_JOINED } from "../server/protocol/events";
-import type { Event } from "../server/protocol/events";
-import { WHITE } from "../server/types";
-import type { GameSnapshot } from "../server/types";
 
 // Mirrors FAMILY_COLOR in log-sink.ts — kept here as plain literals since
 // the table itself isn't exported.
@@ -38,7 +39,7 @@ describe("ConsoleSink", () => {
       const entry = entryFor(joined, "room-1", 1_000);
       new ConsoleSink().write(entry);
 
-      const expected = `${dim(timestamp(1_000))} ${paint(ROOM_COLOR, "room:joined".padEnd(18))} ${dim("[room-1]")} ${truncate(JSON.stringify(joined), MAX_INLINE_PAYLOAD)}`;
+      const expected = `${Format.dim(Format.timestamp(1_000))} ${Format.paint(ROOM_COLOR, "room:joined".padEnd(18))} ${Format.dim("[room-1]")} ${Format.truncate(JSON.stringify(joined), MAX_INLINE_PAYLOAD)}`;
 
       expect(log).toHaveBeenCalledTimes(1);
       expect(log).toHaveBeenCalledWith(expected);
@@ -53,7 +54,7 @@ describe("ConsoleSink", () => {
       const entry = entryFor(opened, null, 2_000);
       new ConsoleSink().write(entry);
 
-      const expected = `${dim(timestamp(2_000))} ${paint(CONNECTION_COLOR, "connection:opened".padEnd(18))} ${dim("[-]")} ${truncate(JSON.stringify(opened), MAX_INLINE_PAYLOAD)}`;
+      const expected = `${Format.dim(Format.timestamp(2_000))} ${Format.paint(CONNECTION_COLOR, "connection:opened".padEnd(18))} ${Format.dim("[-]")} ${Format.truncate(JSON.stringify(opened), MAX_INLINE_PAYLOAD)}`;
 
       expect(log).toHaveBeenCalledWith(expected);
     } finally {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { Board, Square, EMPTY_SQUARE } from "./board";
-import { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, WHITE, BLACK } from "./piece";
+
+import { Board, EMPTY_SQUARE, Square } from "./board";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "./piece";
 import { A1, E4, H8, Position } from "./position";
 
 describe("Square", () => {
@@ -10,24 +11,20 @@ describe("Square", () => {
   const blackKing = Square.create({ type: KING, color: BLACK });
 
   describe("create", () => {
-    test("white pawn → 1", () =>
-      expect(whitePawn).toBe(Square.create({ type: PAWN, color: WHITE })));
-    test("white king → 6", () =>
-      expect(whiteKing).toBe(Square.create({ type: KING, color: WHITE })));
-    test("black pawn → 7", () =>
-      expect(blackPawn).toBe(Square.create({ type: PAWN, color: BLACK })));
-    test("black king → 12", () =>
-      expect(blackKing).toBe(Square.create({ type: KING, color: BLACK })));
+    test("white pawn → 1", () => expect(whitePawn).toBe(Square.create({ type: PAWN, color: WHITE })));
+    test("white king → 6", () => expect(whiteKing).toBe(Square.create({ type: KING, color: WHITE })));
+    test("black pawn → 7", () => expect(blackPawn).toBe(Square.create({ type: PAWN, color: BLACK })));
+    test("black king → 12", () => expect(blackKing).toBe(Square.create({ type: KING, color: BLACK })));
 
     test("absolute byte encoding", () => {
-      expect(Square.create({ type: PAWN,   color: WHITE })).toBe(Square(1));
+      expect(Square.create({ type: PAWN, color: WHITE })).toBe(Square(1));
       expect(Square.create({ type: KNIGHT, color: WHITE })).toBe(Square(2));
       expect(Square.create({ type: BISHOP, color: WHITE })).toBe(Square(3));
-      expect(Square.create({ type: ROOK,   color: WHITE })).toBe(Square(4));
-      expect(Square.create({ type: QUEEN,  color: WHITE })).toBe(Square(5));
-      expect(Square.create({ type: KING,   color: WHITE })).toBe(Square(6));
-      expect(Square.create({ type: PAWN,   color: BLACK })).toBe(Square(7));
-      expect(Square.create({ type: KING,   color: BLACK })).toBe(Square(12));
+      expect(Square.create({ type: ROOK, color: WHITE })).toBe(Square(4));
+      expect(Square.create({ type: QUEEN, color: WHITE })).toBe(Square(5));
+      expect(Square.create({ type: KING, color: WHITE })).toBe(Square(6));
+      expect(Square.create({ type: PAWN, color: BLACK })).toBe(Square(7));
+      expect(Square.create({ type: KING, color: BLACK })).toBe(Square(12));
     });
   });
 
@@ -64,10 +61,8 @@ describe("Square", () => {
       expect(Square.isOccupiedBy(blackPawn, BLACK)).toBe(true);
     });
 
-    test("white king is white", () =>
-      expect(Square.isOccupiedBy(whiteKing, WHITE)).toBe(true));
-    test("black king is black", () =>
-      expect(Square.isOccupiedBy(blackKing, BLACK)).toBe(true));
+    test("white king is white", () => expect(Square.isOccupiedBy(whiteKing, WHITE)).toBe(true));
+    test("black king is black", () => expect(Square.isOccupiedBy(blackKing, BLACK)).toBe(true));
   });
 
   describe("isOccupiedByAny", () => {
@@ -165,14 +160,10 @@ describe("Square", () => {
   });
 
   describe("pieceType", () => {
-    test("white pawn → PAWN", () =>
-      expect(Square.pieceType(whitePawn)).toBe(PAWN));
-    test("white king → KING", () =>
-      expect(Square.pieceType(whiteKing)).toBe(KING));
-    test("black pawn → PAWN", () =>
-      expect(Square.pieceType(blackPawn)).toBe(PAWN));
-    test("black king → KING", () =>
-      expect(Square.pieceType(blackKing)).toBe(KING));
+    test("white pawn → PAWN", () => expect(Square.pieceType(whitePawn)).toBe(PAWN));
+    test("white king → KING", () => expect(Square.pieceType(whiteKing)).toBe(KING));
+    test("black pawn → PAWN", () => expect(Square.pieceType(blackPawn)).toBe(PAWN));
+    test("black king → KING", () => expect(Square.pieceType(blackKing)).toBe(KING));
 
     test("white and black same type share pieceType", () => {
       const types = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING];

@@ -2,7 +2,6 @@ import type { Snapshot } from "./history";
 import type { Move } from "./move";
 import type { Position } from "./position";
 import type { TurnContext } from "./state";
-
 import { SideState } from "./state";
 
 /** The before/after context needed to incrementally update the Zobrist hash. */

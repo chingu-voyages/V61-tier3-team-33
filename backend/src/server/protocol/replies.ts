@@ -1,8 +1,8 @@
-import { SESSION_HANDSHAKE } from "./commands";
-import { SESSION_ERROR } from "./errors";
-import type { ErrorCode } from "./errors";
+import { logger as rootLogger } from "../../logging/logger";
+import { getCodec } from "../codec/codec";
 import type { WebSocket } from "../types";
-import { logger as rootLogger } from "../../logging/log";
+import { type ErrorCode, ErrorMessages, INTERNAL_ERROR, SESSION_ERROR } from "../types";
+import { SESSION_HANDSHAKE } from "./commands";
 
 const log = rootLogger.child({ module: "Replies" });
 
@@ -12,6 +12,7 @@ export interface HandshakeReply {
   type: typeof SESSION_HANDSHAKE;
   playerId: string;
   token: string;
+  roomId: string | null;
 }
 
 export interface ErrorReply {
@@ -20,29 +21,32 @@ export interface ErrorReply {
   message: string;
 }
 
-export type Reply = HandshakeReply | ErrorReply;
+export type ReplyData = HandshakeReply | ErrorReply;
 
 export const Reply = {
-  handshake(playerId: string, token: string): HandshakeReply {
-    return { type: SESSION_HANDSHAKE, playerId, token };
+  /** Send an error directly to the socket. */
+  error(ws: WebSocket, code: ErrorCode): void {
+    // build and send error reply
+    Reply.send(ws, { type: SESSION_ERROR, code, message: ErrorMessages[code] ?? ErrorMessages[INTERNAL_ERROR]! });
   },
 
-  error(code: ErrorCode, message: string): ErrorReply {
-    return { type: SESSION_ERROR, code, message };
-  },
-
-  /** Serializes and sends a Reply directly over the socket. Replies are
-   * hand-serialized (unlike Notification, which goes through
-   * Protocol.encode) since they're protocol-level, not player-facing
-   * game events, so there's no need to route them through a swappable
-   * wire format. */
-  send(ws: WebSocket, reply: Reply): void {
-    const msg = JSON.stringify(reply);
+  /** Send any reply to the socket. */
+  send(ws: WebSocket, reply: ReplyData): void {
+    // log the reply being sent
     if (reply.type === SESSION_ERROR) {
-      log.warn("[REPLY-error]", { code: reply.code, message: reply.message, wsId: (ws as any).id });
+      log.warn("[Reply.send:error]", { code: reply.code, message: reply.message, wsId: ws.id });
     } else {
-      log.info("[REPLY-send]", { type: reply.type, wsId: (ws as any).id });
+      log.info("[Reply.send:sent]", { type: reply.type, wsId: ws.id });
     }
-    ws.send(msg);
+
+    // encode and transmit the reply
+    ws.send(getCodec().encode(reply));
+  },
+
+  /** Send the session handshake to the socket. */
+  handshake(ws: WebSocket, playerId: string, token: string, roomId: string | null = null): void {
+    // log and send session handshake
+    log.info("[Reply.handshake:sending]", { playerId: playerId.slice(0, 8), wsId: ws.id, roomId });
+    Reply.send(ws, { type: SESSION_HANDSHAKE, playerId, token, roomId });
   },
 };

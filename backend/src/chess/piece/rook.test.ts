@@ -1,25 +1,12 @@
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-
-import { Rook } from "./rook";
-import { NORMAL } from "../core/move";
-import { SideState } from "../core/state";
-import { Board, Square } from "../core/board";
 import { describe, expect, test } from "bun:test";
+
+import { Board, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { NORMAL } from "../core/move";
 import type { Piece } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import type { Position } from "../core/position";
 import {
-  ROOK,
-  PAWN,
-  QUEEN,
-  BISHOP,
-  KNIGHT,
-  KING,
-  WHITE,
-  BLACK,
-} from "../core/piece";
-import {
-  Position,
-  NO_POSITION,
   A1,
   A2,
   A3,
@@ -66,7 +53,11 @@ import {
   H6,
   H7,
   H8,
+  NO_POSITION,
 } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import { SideState } from "../core/state";
+import { Rook } from "./rook";
 
 describe("Rook", () => {
   const rook = new Rook();
@@ -77,10 +68,7 @@ describe("Rook", () => {
     return { board };
   }
 
-  function moveCtx(
-    init: (b: Board) => void,
-    side: typeof WHITE | typeof BLACK,
-  ): MoveContext {
+  function moveCtx(init: (b: Board) => void, side: typeof WHITE | typeof BLACK): MoveContext {
     const board = Board.create();
     init(board);
     return {
@@ -94,32 +82,24 @@ describe("Rook", () => {
   describe("isAttacking", () => {
     test("a white rook on any of the four orthogonal lines through E4 attacks E4", () => {
       for (const from of [E7, E1, A4, H4] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: ROOK, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: ROOK, color: WHITE })));
         expect(rook.isAttacking(WHITE, E4, c)).toBe(true);
       }
     });
 
     test("a rook adjacent to the target attacks (distance 1)", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E5, Square.create({ type: ROOK, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, E5, Square.create({ type: ROOK, color: WHITE })));
       expect(rook.isAttacking(WHITE, E4, c)).toBe(true);
     });
 
     test("a rook at maximum line distance attacks (A8 to A1)", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, A8, Square.create({ type: ROOK, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, A8, Square.create({ type: ROOK, color: WHITE })));
       expect(rook.isAttacking(WHITE, A1, c)).toBe(true);
     });
 
     test("a rook on a non-orthogonal square does not attack E4", () => {
       for (const from of [D5, G6, F6] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: ROOK, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: ROOK, color: WHITE })));
         expect(rook.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
@@ -157,18 +137,14 @@ describe("Rook", () => {
     });
 
     test("a rook of the wrong color is ignored", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E7, Square.create({ type: ROOK, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, E7, Square.create({ type: ROOK, color: BLACK })));
       expect(rook.isAttacking(WHITE, E4, c)).toBe(false);
       expect(rook.isAttacking(BLACK, E4, c)).toBe(true);
     });
 
     test("a non-rook piece on the line does not trigger a rook attack", () => {
       for (const pt of [QUEEN, BISHOP, KNIGHT, KING, PAWN] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, E7, Square.create({ type: pt, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, E7, Square.create({ type: pt, color: WHITE })));
         expect(rook.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
@@ -186,17 +162,13 @@ describe("Rook", () => {
         [H8, A8],
       ];
       for (const [target, from] of pairs) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: ROOK, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: ROOK, color: WHITE })));
         expect(rook.isAttacking(WHITE, target, c)).toBe(true);
       }
     });
 
     test("a rook sitting on the target square itself does not attack it", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E4, Square.create({ type: ROOK, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, E4, Square.create({ type: ROOK, color: WHITE })));
       expect(rook.isAttacking(WHITE, E4, c)).toBe(false);
     });
 
@@ -252,136 +224,42 @@ describe("Rook", () => {
     test("rook on center D4 with an empty board threatens 14 squares along 4 lines", () => {
       const c = boardCtx(() => {});
       const got = rook.attacks([], D4, c);
-      expect(got).toEqual([
-        D5,
-        D6,
-        D7,
-        D8,
-        D3,
-        D2,
-        D1,
-        C4,
-        B4,
-        A4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(got).toEqual([D5, D6, D7, D8, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
     });
 
     test("rook on corner A1 threatens 14 squares along its two lines", () => {
       const c = boardCtx(() => {});
-      expect(rook.attacks([], A1, c)).toEqual([
-        A2,
-        A3,
-        A4,
-        A5,
-        A6,
-        A7,
-        A8,
-        B1,
-        C1,
-        D1,
-        E1,
-        F1,
-        G1,
-        H1,
-      ]);
+      expect(rook.attacks([], A1, c)).toEqual([A2, A3, A4, A5, A6, A7, A8, B1, C1, D1, E1, F1, G1, H1]);
     });
 
     test("rook on corner H1 threatens 14 squares along its two lines", () => {
       const c = boardCtx(() => {});
-      expect(rook.attacks([], H1, c)).toEqual([
-        H2,
-        H3,
-        H4,
-        H5,
-        H6,
-        H7,
-        H8,
-        G1,
-        F1,
-        E1,
-        D1,
-        C1,
-        B1,
-        A1,
-      ]);
+      expect(rook.attacks([], H1, c)).toEqual([H2, H3, H4, H5, H6, H7, H8, G1, F1, E1, D1, C1, B1, A1]);
     });
 
     test("rook on corner A8 threatens 14 squares along its two lines", () => {
       const c = boardCtx(() => {});
-      expect(rook.attacks([], A8, c)).toEqual([
-        A7,
-        A6,
-        A5,
-        A4,
-        A3,
-        A2,
-        A1,
-        B8,
-        C8,
-        D8,
-        E8,
-        F8,
-        G8,
-        H8,
-      ]);
+      expect(rook.attacks([], A8, c)).toEqual([A7, A6, A5, A4, A3, A2, A1, B8, C8, D8, E8, F8, G8, H8]);
     });
 
     test("rook on corner H8 threatens 14 squares along its two lines", () => {
       const c = boardCtx(() => {});
-      expect(rook.attacks([], H8, c)).toEqual([
-        H7,
-        H6,
-        H5,
-        H4,
-        H3,
-        H2,
-        H1,
-        G8,
-        F8,
-        E8,
-        D8,
-        C8,
-        B8,
-        A8,
-      ]);
+      expect(rook.attacks([], H8, c)).toEqual([H7, H6, H5, H4, H3, H2, H1, G8, F8, E8, D8, C8, B8, A8]);
     });
 
     test("rook on edge A4 threatens 14 squares along its three lines", () => {
       const c = boardCtx(() => {});
-      expect(rook.attacks([], A4, c)).toEqual([
-        A5,
-        A6,
-        A7,
-        A8,
-        A3,
-        A2,
-        A1,
-        B4,
-        C4,
-        D4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(rook.attacks([], A4, c)).toEqual([A5, A6, A7, A8, A3, A2, A1, B4, C4, D4, E4, F4, G4, H4]);
     });
 
     test("a friendly blocker on the line stops the scan but is included in the attacks", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })));
       const got = rook.attacks([], D4, c);
       expect(got).toEqual([D5, D6, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
     });
 
     test("an enemy blocker on the line stops the scan but is included in the attacks", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })));
       const got = rook.attacks([], D4, c);
       expect(got).toEqual([D5, D6, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
     });
@@ -397,20 +275,8 @@ describe("Rook", () => {
     });
 
     test("a blocker on a corner rook's line stops it early", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, A3, Square.create({ type: PAWN, color: WHITE })),
-      );
-      expect(rook.attacks([], A1, c)).toEqual([
-        A2,
-        A3,
-        B1,
-        C1,
-        D1,
-        E1,
-        F1,
-        G1,
-        H1,
-      ]);
+      const c = boardCtx((b) => Board.place(b, A3, Square.create({ type: PAWN, color: WHITE })));
+      expect(rook.attacks([], A1, c)).toEqual([A2, A3, B1, C1, D1, E1, F1, G1, H1]);
     });
   });
 
@@ -419,22 +285,7 @@ describe("Rook", () => {
       return moves.map((m) => m.to);
     }
 
-    const d4Empty: Position[] = [
-      D5,
-      D6,
-      D7,
-      D8,
-      D3,
-      D2,
-      D1,
-      C4,
-      B4,
-      A4,
-      E4,
-      F4,
-      G4,
-      H4,
-    ];
+    const d4Empty: Position[] = [D5, D6, D7, D8, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4];
 
     test("rook on center D4 with an empty board has 14 moves along 4 lines", () => {
       const c = moveCtx(() => {}, WHITE);
@@ -444,26 +295,10 @@ describe("Rook", () => {
     });
 
     test("a square occupied by an enemy piece is included as a capture and stops the slide", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })), WHITE);
       const moves = rook.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        D5,
-        D6,
-        D3,
-        D2,
-        D1,
-        C4,
-        B4,
-        A4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(dests(moves)).toEqual([D5, D6, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
 
       const capture = moves.find((m) => m.to === D6);
       expect(capture).toBeDefined();
@@ -496,25 +331,10 @@ describe("Rook", () => {
     });
 
     test("a square occupied by a friendly piece is excluded and stops the slide", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })), WHITE);
       const moves = rook.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        D5,
-        D3,
-        D2,
-        D1,
-        C4,
-        B4,
-        A4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(dests(moves)).toEqual([D5, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
     });
 
     test("a friendly piece blocks the slide; an enemy behind it is unreachable", () => {
@@ -534,20 +354,7 @@ describe("Rook", () => {
       }, WHITE);
 
       const moves = rook.pseudoLegalMoves([], D4, c);
-      expect(dests(moves)).toEqual([
-        D5,
-        D6,
-        D3,
-        D2,
-        D1,
-        C4,
-        B4,
-        A4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(dests(moves)).toEqual([D5, D6, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
     });
 
     test("after capturing an enemy, a friendly piece behind it is unreachable", () => {
@@ -557,20 +364,7 @@ describe("Rook", () => {
       }, WHITE);
 
       const moves = rook.pseudoLegalMoves([], D4, c);
-      expect(dests(moves)).toEqual([
-        D5,
-        D6,
-        D3,
-        D2,
-        D1,
-        C4,
-        B4,
-        A4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(dests(moves)).toEqual([D5, D6, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
     });
 
     test("a mix of friendly and enemy on all four lines yields only the captures", () => {
@@ -598,26 +392,10 @@ describe("Rook", () => {
     });
 
     test("a black rook treats white pieces as enemies (captures) and black as own", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })), BLACK);
       const moves = rook.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        D5,
-        D6,
-        D3,
-        D2,
-        D1,
-        C4,
-        B4,
-        A4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(dests(moves)).toEqual([D5, D6, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
 
       const capture = moves.find((m) => m.to === D6);
       expect(capture).toBeDefined();
@@ -625,25 +403,10 @@ describe("Rook", () => {
     });
 
     test("a black rook treats black pieces as own (excluded)", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })), BLACK);
       const moves = rook.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        D5,
-        D3,
-        D2,
-        D1,
-        C4,
-        B4,
-        A4,
-        E4,
-        F4,
-        G4,
-        H4,
-      ]);
+      expect(dests(moves)).toEqual([D5, D3, D2, D1, C4, B4, A4, E4, F4, G4, H4]);
     });
 
     test("every generated move has type NORMAL and carries the mover and source square", () => {

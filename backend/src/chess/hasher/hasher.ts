@@ -1,5 +1,5 @@
-import type { TurnContext } from "../core/state";
 import type { MoveHash } from "../core/hash";
+import type { TurnContext } from "../core/state";
 
 /**
  * Computes incremental Zobrist hashes for position identity.

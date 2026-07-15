@@ -1,8 +1,8 @@
-import type { ITracker } from "./tracker";
-import { PositionTracker } from "./position";
+import type { ITracker } from "./tracker"
+import { PositionTracker } from "./position"
 
-const defaultTracker = new PositionTracker();
+const defaultTracker = new PositionTracker()
 
 export function getDefaultTracker(): ITracker {
-  return defaultTracker;
+  return defaultTracker
 }

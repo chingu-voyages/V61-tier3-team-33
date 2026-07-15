@@ -1,8 +1,7 @@
-import type { File } from "./position";
-
-import { Move } from "./move";
 import { Board } from "./board";
-import { ROOK, WHITE, PieceColor } from "./piece";
+import { Move } from "./move";
+import { PieceColor, ROOK, WHITE } from "./piece";
+import type { File } from "./position";
 import { FILE_A, FILE_H, NO_POSITION, Position } from "./position";
 
 export interface SideState {
@@ -72,14 +71,8 @@ export const MoveContext = {
    * King moves and castling are handled separately by the move applicator.
    */
   forfeitCastlingRight(ctx: MoveContext, move: Move): void {
-    if (
-      move.piece.type === ROOK &&
-      Position.rank(move.from) === PieceColor.kingStartRank(move.piece.color)
-    ) {
-      SideState.clearCastlingRight(
-        MoveContext.sideOf(ctx, move.piece.color),
-        Position.file(move.from),
-      );
+    if (move.piece.type === ROOK && Position.rank(move.from) === PieceColor.kingStartRank(move.piece.color)) {
+      SideState.clearCastlingRight(MoveContext.sideOf(ctx, move.piece.color), Position.file(move.from));
       return;
     }
     if (
@@ -87,10 +80,7 @@ export const MoveContext = {
       move.captured.type === ROOK &&
       Position.rank(move.to) === PieceColor.kingStartRank(move.captured.color)
     ) {
-      SideState.clearCastlingRight(
-        MoveContext.sideOf(ctx, move.captured.color),
-        Position.file(move.to),
-      );
+      SideState.clearCastlingRight(MoveContext.sideOf(ctx, move.captured.color), Position.file(move.to));
     }
   },
 
@@ -101,9 +91,7 @@ export const MoveContext = {
 
   /** Sets or clears the en passant target square — call after every move. */
   setEnPassantTarget(ctx: MoveContext, move: Move): void {
-    ctx.enPassantTarget = Move.isDoublePawnPush(move)
-      ? Move.enPassantTarget(move)
-      : NO_POSITION;
+    ctx.enPassantTarget = Move.isDoublePawnPush(move) ? Move.enPassantTarget(move) : NO_POSITION;
   },
 };
 

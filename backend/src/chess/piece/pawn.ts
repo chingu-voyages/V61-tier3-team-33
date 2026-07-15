@@ -1,28 +1,11 @@
-import type { IPiece } from "./piece";
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-import type { Piece, PieceType } from "../core/piece";
-
 import { Board, Square } from "../core/board";
-import {
-  PAWN,
-  BISHOP,
-  KNIGHT,
-  QUEEN,
-  ROOK,
-  WHITE,
-  PieceColor,
-} from "../core/piece";
-import {
-  Position,
-  File,
-  Rank,
-  RANK_2,
-  RANK_7,
-  RANK_8,
-  RANK_1,
-} from "../core/position";
-import { NORMAL, PROMOTION, EN_PASSANT } from "../core/move";
+import type { Move } from "../core/move";
+import { EN_PASSANT, NORMAL, PROMOTION } from "../core/move";
+import type { Piece, PieceType } from "../core/piece";
+import { BISHOP, KNIGHT, PAWN, PieceColor, QUEEN, ROOK, WHITE } from "../core/piece";
+import { File, Position, Rank, RANK_1, RANK_2, RANK_7, RANK_8 } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import type { IPiece } from "./piece";
 
 const PROMOTION_TYPES: PieceType[] = [QUEEN, ROOK, BISHOP, KNIGHT];
 
@@ -222,11 +205,7 @@ export class Pawn implements IPiece {
     return moves;
   }
 
-  private promotionMoves(
-    moves: Move[],
-    from: Position,
-    ctx: MoveContext,
-  ): Move[] {
+  private promotionMoves(moves: Move[], from: Position, ctx: MoveContext): Move[] {
     const pawn: Piece = { type: PAWN, color: ctx.sideToMove };
     const enemyColor = PieceColor.opponent(ctx.sideToMove);
     const { step } = this.direction(ctx.sideToMove);

@@ -1,22 +1,16 @@
-import type { Move } from "../core/move";
-import type { Piece } from "../core/piece";
-import type { Rank } from "../core/position";
-import type { IPieces } from "../piece/piece";
-import type { TurnContext } from "../core/state";
-
 import { Board, Square } from "../core/board";
-import { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, PieceColor } from "../core/piece";
+import type { Move } from "../core/move";
 import { CASTLING } from "../core/move";
-import { Position, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G } from "../core/position";
+import type { Piece } from "../core/piece";
+import { BISHOP, KING, KNIGHT, PAWN, PieceColor, QUEEN, ROOK } from "../core/piece";
+import type { Rank } from "../core/position";
+import { FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, Position } from "../core/position";
+import type { TurnContext } from "../core/state";
 import { MoveContext } from "../core/state";
+import type { IPieces } from "../piece/piece";
 import { isSquareAttackedImpl } from "./attack";
 
-export function getPseudoLegalMovesImpl(
-  pieces: IPieces,
-  moves: Move[],
-  position: Position,
-  ctx: TurnContext,
-): Move[] {
+export function getPseudoLegalMovesImpl(pieces: IPieces, moves: Move[], position: Position, ctx: TurnContext): Move[] {
   const square = Board.at(ctx.board, position);
   if (!Square.isOccupiedBy(square, ctx.sideToMove)) {
     return moves;
@@ -54,12 +48,7 @@ export function getPseudoLegalMovesImpl(
 }
 
 // return king castling moves, if rights are valid
-function castlingMovesImpl(
-  pieces: IPieces,
-  moves: Move[],
-  kingPosition: Position,
-  ctx: TurnContext,
-): Move[] {
+function castlingMovesImpl(pieces: IPieces, moves: Move[], kingPosition: Position, ctx: TurnContext): Move[] {
   const current = ctx.sideToMove;
   const enemy = PieceColor.opponent(current);
 
@@ -102,11 +91,7 @@ function castlingMovesImpl(
 }
 
 // canCastleKingSideImpl return true, if rights allow the king to castle from king side
-function canCastleKingSideImpl(
-  pieces: IPieces,
-  rank: Rank,
-  ctx: TurnContext,
-): boolean {
+function canCastleKingSideImpl(pieces: IPieces, rank: Rank, ctx: TurnContext): boolean {
   if (!MoveContext.sideOf(ctx, ctx.sideToMove).canCastleKingSide) {
     return false;
   }
@@ -128,11 +113,7 @@ function canCastleKingSideImpl(
 }
 
 // canCastleQueenSideImpl return true, if rights allow the king to castle from queen side
-function canCastleQueenSideImpl(
-  pieces: IPieces,
-  rank: Rank,
-  ctx: TurnContext,
-): boolean {
+function canCastleQueenSideImpl(pieces: IPieces, rank: Rank, ctx: TurnContext): boolean {
   if (!MoveContext.sideOf(ctx, ctx.sideToMove).canCastleQueenSide) {
     return false;
   }

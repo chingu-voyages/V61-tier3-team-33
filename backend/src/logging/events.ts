@@ -1,19 +1,14 @@
-import type { Subscriber, Unsubscribe } from "../server/bus/bus";
-import { DEFERRED } from "../server/bus/bus";
+import type { Subscriber, Unsubscribe } from "../server/events/hub";
 import type { Event } from "../server/protocol/events";
-import type { LogSink, LogEntry } from "./sink";
-import { ConsoleSink, FileSink, JsonSink, MultiSink, NullSink } from "./sink";
+import { DEFERRED } from "../server/types/priority";
 import type { LogConfig } from "./config";
-import { loggingConfig } from "./config";
+import { JSON_FORMAT, loggingConfig } from "./config";
+import type { LogEntry, LogSink } from "./sink";
+import { ConsoleSink, FileSink, JsonSink, MultiSink, NullSink } from "./sink";
 
 /**
- * Subscribes to every event on the Hub and writes each one to a LogSink.
- *
- * Always registers on the DEFERRED lane, explicitly. Logging is pure
- * observation — it must never be able to add latency to the FAST lane
- * that game rules and clocks depend on. Bus already runs deferred
- * handlers on their own macrotask, so a slow sink (e.g. disk I/O) only
- * ever delays itself, never the rest of the system.
+ * Subscribes to all Hub events and writes each to a LogSink.
+ * Always uses DEFERRED lane — logging must never add latency to FAST handlers.
  */
 export class EventLog {
   private readonly sink: LogSink;
@@ -25,7 +20,7 @@ export class EventLog {
     this.sink = sink ?? defaultSinkFor(config);
   }
 
-  /** Start receiving events from `bus`. Safe to call once; call `stop()` before re-attaching. */
+  /** Start receiving events from `bus`. Call `stop()` before re-attaching. */
   start(bus: Subscriber): void {
     if (!this.config.enabled) return;
     this.unsubscribe = bus.onAny((roomId, event) => {
@@ -58,10 +53,6 @@ export class EventLog {
 
 function defaultSinkFor(config: LogConfig): LogSink {
   if (!config.enabled) return new NullSink();
-  const primary = config.format === "json" ? new JsonSink() : new ConsoleSink();
-  // LOG_FILE mirrors everything the primary sink sees into a file too,
-  // regardless of format — FileSink always writes full ndjson.
-  return config.filePath
-    ? new MultiSink([primary, new FileSink(config.filePath)])
-    : primary;
+  const primary = config.format === JSON_FORMAT ? new JsonSink() : new ConsoleSink();
+  return config.filePath ? new MultiSink([primary, new FileSink(config.filePath)]) : primary;
 }

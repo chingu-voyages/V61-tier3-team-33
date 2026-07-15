@@ -1,6 +1,6 @@
 const config = {
   port: Number(Bun.env.PORT ?? 3000),
-  clientUrl: Bun.env.CLIENT_URL ?? "http://localhost:5173",
+  clientUrl: Bun.env.CLIENT_URL ?? "http://localhost:4000",
   nodeEnv: Bun.env.NODE_ENV ?? "development",
   logEnabled: (Bun.env.LOG_ENABLED ?? "true") !== "false",
   logLevel: Bun.env.LOG_LEVEL,

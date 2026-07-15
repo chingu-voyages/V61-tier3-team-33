@@ -1,31 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { Move, NORMAL, CASTLING, EN_PASSANT } from "./move";
-import { KNIGHT, PAWN, ROOK, QUEEN, WHITE, BLACK } from "./piece";
-import {
-  A1,
-  A8,
-  C1,
-  C8,
-  D1,
-  D4,
-  D5,
-  D6,
-  D8,
-  E1,
-  E2,
-  E3,
-  E4,
-  E5,
-  E6,
-  E7,
-  E8,
-  F1,
-  F8,
-  G1,
-  G8,
-  H1,
-  H8,
-} from "./position";
+
+import { CASTLING, EN_PASSANT, Move, NORMAL } from "./move";
+import { BLACK, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "./piece";
+import { A1, A8, C1, C8, D1, D4, D5, D6, D8, E1, E2, E3, E4, E5, E6, E7, E8, F1, F8, G1, G8, H1, H8 } from "./position";
 
 describe("Move", () => {
   describe("isDoublePawnPush", () => {
@@ -226,22 +203,16 @@ describe("Move", () => {
       captured: null,
     };
 
-    test("identical moves → true", () =>
-      expect(Move.isEqual(base, { ...base })).toBe(true));
+    test("identical moves → true", () => expect(Move.isEqual(base, { ...base })).toBe(true));
 
-    test("different `from` → false", () =>
-      expect(Move.isEqual(base, { ...base, from: E2 })).toBe(false));
+    test("different `from` → false", () => expect(Move.isEqual(base, { ...base, from: E2 })).toBe(false));
 
-    test("different `to` → false", () =>
-      expect(Move.isEqual(base, { ...base, to: E5 })).toBe(false));
+    test("different `to` → false", () => expect(Move.isEqual(base, { ...base, to: E5 })).toBe(false));
 
-    test("different `type` → false", () =>
-      expect(Move.isEqual(base, { ...base, type: CASTLING })).toBe(false));
+    test("different `type` → false", () => expect(Move.isEqual(base, { ...base, type: CASTLING })).toBe(false));
 
     test("different `piece.type` → false", () =>
-      expect(
-        Move.isEqual(base, { ...base, piece: { type: KNIGHT, color: WHITE } }),
-      ).toBe(false));
+      expect(Move.isEqual(base, { ...base, piece: { type: KNIGHT, color: WHITE } })).toBe(false));
 
     test("different `captured` → false", () =>
       expect(
@@ -251,7 +222,6 @@ describe("Move", () => {
         }),
       ).toBe(false));
 
-    test("different `promoteTo` → false", () =>
-      expect(Move.isEqual(base, { ...base, promoteTo: QUEEN })).toBe(false));
+    test("different `promoteTo` → false", () => expect(Move.isEqual(base, { ...base, promoteTo: QUEEN })).toBe(false));
   });
 });

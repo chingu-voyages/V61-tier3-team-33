@@ -4,6 +4,7 @@ import { IconWorld } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import type { TimeControl } from "./types"
 import { KnightPulse } from "./KnightPulse"
+import { formatTimeControlLabel } from "./helpers"
 
 interface MatchSearchProps {
   timeControl: TimeControl
@@ -11,9 +12,7 @@ interface MatchSearchProps {
 }
 
 export function MatchSearch({ timeControl, onCancel }: MatchSearchProps) {
-  const tcLabel = `${timeControl.initialMs / 60000}min${
-    timeControl.incrementMs ? ` + ${timeControl.incrementMs / 1000}s` : ""
-  }`
+  const tcLabel = formatTimeControlLabel(timeControl)
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center">

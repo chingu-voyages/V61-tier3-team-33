@@ -5,25 +5,20 @@ export { Chess } from "./chess";
 export type { Brand } from "./core/brand";
 
 // Configuration
-export { STARTING_FEN } from "./config";
 export type { ChessConfig } from "./config";
+export { STARTING_FEN } from "./config";
 
 // Errors
-export {
-  FENError,
-  IllegalMoveError,
-  InvalidSquareError,
-  NothingToUndoError,
-} from "./errors";
+export { FENError, IllegalMoveError, InvalidSquareError, NothingToUndoError } from "./errors";
 
 // Core types — value exports (namespace methods needed by consumers)
-export { Position, NO_POSITION } from "./core/position";
+export { NO_POSITION, Position } from "./core/position";
 
 // Core types — type-only exports
-export { File, Rank } from "./core/position";
-export type { Piece } from "./core/piece";
-export type { Move } from "./core/move";
 export type { GameResult } from "./core/game";
+export type { Move } from "./core/move";
+export type { Piece } from "./core/piece";
+export { File, Rank } from "./core/position";
 export type { ChessState, TurnContext } from "./core/state";
 
 // Constants — move utilities
@@ -118,39 +113,15 @@ export {
 } from "./core/position";
 
 // Constants — piece types
-export {
-  PieceType,
-  PieceColor,
-  PAWN,
-  KNIGHT,
-  BISHOP,
-  ROOK,
-  QUEEN,
-  KING,
-  WHITE,
-  BLACK,
-} from "./core/piece";
+export { BISHOP, BLACK, KING, KNIGHT, PAWN, PieceColor, PieceType, QUEEN, ROOK, WHITE } from "./core/piece";
 
 // Constants — move types
-export { MoveType, NORMAL, CASTLING, EN_PASSANT, PROMOTION } from "./core/move";
+export { CASTLING, EN_PASSANT, MoveType, NORMAL, PROMOTION } from "./core/move";
 
 // Constants — game status
-export {
-  GameStatus,
-  DrawReason,
-  IN_PROGRESS,
-  CHECKMATE,
-  DRAW,
-} from "./core/game";
+export { CHECKMATE, DRAW, DrawReason, GameStatus, IN_PROGRESS } from "./core/game";
 
 // Constants — draw reasons
-export {
-  NO_DRAW_REASON,
-  STALEMATE,
-  THREEFOLD_REPETITION,
-  FIFTY_MOVE_RULE,
-  INSUFFICIENT_MATERIAL,
-} from "./core/game";
-
-export { SAN, San } from "./parser/san";
+export { FIFTY_MOVE_RULE, INSUFFICIENT_MATERIAL, NO_DRAW_REASON, STALEMATE, THREEFOLD_REPETITION } from "./core/game";
 export type { ISan } from "./parser/san";
+export { SAN, San } from "./parser/san";

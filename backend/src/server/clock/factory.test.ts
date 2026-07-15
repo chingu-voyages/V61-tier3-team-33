@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
+import { BLITZ, MOVE } from "../types";
 import { createClock } from "./factory";
-import { MOVE, BLITZ } from "../types";
 
 describe("createClock", () => {
   it("returns blitz (1 min) when no format given", () => {

@@ -1,7 +1,9 @@
-import { Board, Square, EMPTY_SQUARE } from "../core/board";
-import type { Move } from "../core/move";
 import { describe, expect, test } from "bun:test";
-import { KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE, BLACK } from "../core/piece";
+
+import { Board, EMPTY_SQUARE, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { CASTLING, EN_PASSANT, NORMAL, PROMOTION } from "../core/move";
+import { BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
 import {
   A1,
   A3,
@@ -36,9 +38,8 @@ import {
   H8,
   NO_POSITION,
 } from "../core/position";
-import { NORMAL, CASTLING, EN_PASSANT, PROMOTION } from "../core/move";
-import { applyImpl } from "./apply";
 import { TurnContext } from "../core/state";
+import { applyImpl } from "./apply";
 
 describe("Engine", () => {
   describe("apply", () => {
@@ -51,11 +52,7 @@ describe("Engine", () => {
     describe("normal moves", () => {
       test("knight moves", () => {
         const ctx = applyCtx((c) => {
-          Board.place(
-            c.board,
-            D4,
-            Square.create({ type: KNIGHT, color: WHITE }),
-          );
+          Board.place(c.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
         });
         const move: Move = {
           piece: { type: KNIGHT, color: WHITE },
@@ -183,11 +180,7 @@ describe("Engine", () => {
     describe("captures", () => {
       test("knight captures enemy pawn", () => {
         const ctx = applyCtx((c) => {
-          Board.place(
-            c.board,
-            D4,
-            Square.create({ type: KNIGHT, color: WHITE }),
-          );
+          Board.place(c.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
           Board.place(c.board, E6, Square.create({ type: PAWN, color: BLACK }));
         });
         const move: Move = {
@@ -514,11 +507,7 @@ describe("Engine", () => {
 
       test("non-pawn move clears ep target", () => {
         const ctx = applyCtx((c) => {
-          Board.place(
-            c.board,
-            D4,
-            Square.create({ type: KNIGHT, color: WHITE }),
-          );
+          Board.place(c.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
           c.enPassantTarget = D3;
         });
         const move: Move = {
@@ -554,11 +543,7 @@ describe("Engine", () => {
 
       test("capture resets halfMoveClock to 0", () => {
         const ctx = applyCtx((c) => {
-          Board.place(
-            c.board,
-            D4,
-            Square.create({ type: KNIGHT, color: WHITE }),
-          );
+          Board.place(c.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
           Board.place(c.board, E6, Square.create({ type: PAWN, color: BLACK }));
           c.halfMoveClock = 3;
         });
@@ -576,11 +561,7 @@ describe("Engine", () => {
 
       test("knight move increments halfMoveClock", () => {
         const ctx = applyCtx((c) => {
-          Board.place(
-            c.board,
-            D4,
-            Square.create({ type: KNIGHT, color: WHITE }),
-          );
+          Board.place(c.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
           c.halfMoveClock = 2;
         });
         const move: Move = {

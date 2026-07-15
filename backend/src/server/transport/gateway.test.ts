@@ -1,19 +1,14 @@
 import { describe, expect, it, mock } from "bun:test";
-import { Gateway } from "./gateway";
+
+import { setCodec } from "../codec/codec";
 import { JsonCodec } from "../codec/json";
-import { Sessions } from "../session/sessions";
-import { Games } from "../game/games";
-import { Hub } from "../bus/bus";
-import {
-  WS_OPEN,
-  HUMAN_VS_HUMAN,
-  WHITE,
-  BLACK,
-  type WebSocket,
-} from "../types";
-import type { Codec } from "../codec/codec";
 import type { Command } from "../protocol/commands";
-import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../protocol/errors";
+import { HUMAN_VS_HUMAN, type WebSocket, WHITE, WS_OPEN } from "../types";
+import { INVALID_PAYLOAD, NOT_IMPLEMENTED, ROOM_NOT_FOUND } from "../types";
+import { Gateway } from "./gateway";
+
+type GatewayPrivate = { handleMessage(ws: WebSocket, data: unknown): void; handleClose(ws: WebSocket): void };
+type RawMessage = Record<string, unknown>;
 
 function makeSocket(): WebSocket {
   return {
@@ -24,67 +19,65 @@ function makeSocket(): WebSocket {
   };
 }
 
-function sent(ws: WebSocket): unknown[] {
+function sent(ws: WebSocket): RawMessage[] {
   return (ws.send as ReturnType<typeof mock>).mock.calls.map(
-    (call: unknown[]) => JSON.parse(call[0] as string),
+    (call: unknown[]) => JSON.parse(call[0] as string) as RawMessage,
   );
 }
 
-function lastSent(ws: WebSocket): unknown {
+function lastSent(ws: WebSocket): RawMessage {
   const msgs = sent(ws);
-  return msgs[msgs.length - 1];
+  return msgs[msgs.length - 1]!;
 }
 
-function gatewayWithMocks(codec: Codec) {
-  return new Gateway(codec);
+function gatewayWithMocks(codec: JsonCodec) {
+  setCodec(codec);
+  return new Gateway();
 }
 
 function realGateway() {
-  const hub = new Hub();
-  const sessions = new Sessions();
-  const games = new Games(hub);
-  const codec = new JsonCodec();
-  const gw = new Gateway(codec, sessions, hub, games);
-  return { gw, hub, sessions, games, codec };
+  setCodec(new JsonCodec());
+  return { gw: new Gateway() };
 }
 
 function handshake(gw: Gateway, ws: WebSocket): string {
-  (gw as any).handleMessage(ws, { type: "session:handshake" });
-  const msgs = sent(ws) as any[];
-  const hs = msgs.find((m: any) => m.type === "session:handshake");
-  return hs!.token as string;
+  (gw as unknown as GatewayPrivate).handleMessage(ws, { type: "session:handshake" });
+  const msgs = sent(ws);
+  const hs = msgs.find((m) => (m as RawMessage).type === "session:handshake");
+  return (hs as RawMessage).token as string;
 }
 
 function join(gw: Gateway, ws: WebSocket, overrides: Record<string, unknown> = {}) {
-  (gw as any).handleMessage(ws, {
+  (gw as unknown as GatewayPrivate).handleMessage(ws, {
     type: "room:join",
     mode: HUMAN_VS_HUMAN,
     ...overrides,
   });
 }
 
-function lastEventOfType(ws: WebSocket, type: string): unknown {
-  const msgs = sent(ws) as any[];
-  const matches = msgs.filter((m: any) => m.type === type);
+function lastEventOfType(ws: WebSocket, type: string): RawMessage | undefined {
+  const msgs = sent(ws);
+  const matches = msgs.filter((m) => (m as RawMessage).type === type);
   return matches[matches.length - 1];
 }
 
-/** Drains the microtask queue so async GameService methods can finish. */
 function drain(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0));
 }
 
-function setupTwoPlayerGame(gw: Gateway): { wsA: WebSocket; wsB: WebSocket; roomId: string } {
+async function setupTwoPlayerGame(gw: Gateway): Promise<{ wsA: WebSocket; wsB: WebSocket; roomId: string }> {
   const wsA = makeSocket();
   const wsB = makeSocket();
 
   handshake(gw, wsA);
   join(gw, wsA);
-  const aJoined = lastEventOfType(wsA, "room:joined") as any;
-  const roomId = aJoined.roomId;
+  await drain();
+  const aJoined = lastEventOfType(wsA, "room:joined")!;
+  const roomId = aJoined.roomId as string;
 
   handshake(gw, wsB);
   join(gw, wsB, { roomId });
+  await drain();
 
   return { wsA, wsB, roomId };
 }
@@ -92,46 +85,61 @@ function setupTwoPlayerGame(gw: Gateway): { wsA: WebSocket; wsB: WebSocket; room
 describe("Gateway handleMessage", () => {
   describe("error path — decode failure", () => {
     it("sends INVALID_PAYLOAD when protocol.decode returns null", () => {
-      const codec: Codec = {
-        decode: mock(() => null),
-        encode: mock(() => "{}"),
-      };
+      const codec = { decode: mock(() => null), encode: mock((msg: unknown) => JSON.stringify(msg)) } as JsonCodec;
       const gw = gatewayWithMocks(codec);
       const ws = makeSocket();
 
-      (gw as any).handleMessage(ws, "garbage");
+      (gw as unknown as GatewayPrivate).handleMessage(ws, "garbage");
 
-      const reply = lastSent(ws) as any;
+      const reply = lastSent(ws);
       expect(reply.type).toBe("session:error");
       expect(reply.code).toBe(INVALID_PAYLOAD);
     });
 
     it("does not call gameService when decode fails", () => {
-      const codec: Codec = {
-        decode: mock(() => null),
-        encode: mock(() => "{}"),
-      };
+      const codec = { decode: mock(() => null), encode: mock((msg: unknown) => JSON.stringify(msg)) } as JsonCodec;
       const gw = gatewayWithMocks(codec);
       const ws = makeSocket();
 
-      (gw as any).handleMessage(ws, "garbage");
+      (gw as unknown as GatewayPrivate).handleMessage(ws, "garbage");
 
       expect(sent(ws)).toHaveLength(1);
+    });
+
+    it("rejects a join request with out-of-domain numeric values", () => {
+      const { gw } = realGateway();
+      const ws = makeSocket();
+
+      (gw as unknown as GatewayPrivate).handleMessage(ws, {
+        type: "room:join",
+        mode: 99,
+        color: 42,
+      });
+
+      const reply = lastSent(ws);
+      expect(reply).toMatchObject({ type: "session:error", code: INVALID_PAYLOAD });
     });
   });
 
   describe("error path — unknown command type", () => {
     it("sends NOT_IMPLEMENTED for unrecognised command type", () => {
-      const codec: Codec = {
-        decode: mock(() => ({ type: "bogus:cmd" }) as unknown as Command),
-        encode: mock(() => "{}"),
-      };
-      const gw = gatewayWithMocks(codec);
+      const codec = {
+        decode: (raw: unknown) => {
+          if (raw && typeof raw === "object" && "type" in (raw as Record<string, unknown>)) {
+            return raw as Command;
+          }
+          return null;
+        },
+        encode: (msg: unknown) => JSON.stringify(msg),
+      } as JsonCodec;
+      setCodec(codec);
+      const gw = new Gateway();
       const ws = makeSocket();
 
-      (gw as any).handleMessage(ws, '{"type":"bogus:cmd"}');
+      handshake(gw, ws);
+      (gw as unknown as GatewayPrivate).handleMessage(ws, { type: "bogus:cmd" });
 
-      const reply = lastSent(ws) as any;
+      const reply = lastSent(ws);
       expect(reply.type).toBe("session:error");
       expect(reply.code).toBe(NOT_IMPLEMENTED);
     });
@@ -142,9 +150,9 @@ describe("Gateway handleMessage", () => {
       const { gw } = realGateway();
       const ws = makeSocket();
 
-      (gw as any).handleMessage(ws, { type: "session:handshake" });
+      (gw as unknown as GatewayPrivate).handleMessage(ws, { type: "session:handshake" });
 
-      const reply = lastSent(ws) as any;
+      const reply = lastSent(ws);
       expect(reply.type).toBe("session:handshake");
       expect(reply.playerId).toBeTruthy();
       expect(reply.token).toBeTruthy();
@@ -154,17 +162,17 @@ describe("Gateway handleMessage", () => {
       const { gw } = realGateway();
       const ws = makeSocket();
 
-      (gw as any).handleMessage(ws, { type: "session:handshake" });
-      const firstReply = lastSent(ws) as any;
+      (gw as unknown as GatewayPrivate).handleMessage(ws, { type: "session:handshake" });
+      const firstReply = lastSent(ws);
       const token = firstReply.token;
 
       const ws2 = makeSocket();
-      (gw as any).handleMessage(ws2, {
+      (gw as unknown as GatewayPrivate).handleMessage(ws2, {
         type: "session:handshake",
         token,
       });
 
-      const reply = lastSent(ws2) as any;
+      const reply = lastSent(ws2);
       expect(reply.type).toBe("session:handshake");
       expect(reply.playerId).toBe(firstReply.playerId);
     });
@@ -178,20 +186,20 @@ describe("Gateway handleMessage", () => {
       handshake(gw, ws);
       join(gw, ws);
 
-      const msgs = sent(ws) as any[];
-      const joined = msgs.find((m: any) => m.type === "room:joined");
+      const msgs = sent(ws);
+      const joined = msgs.find((m) => m.type === "room:joined");
       expect(joined).toBeTruthy();
-      expect((joined as any).roomId).toBeTruthy();
-      expect((joined as any).color).toBe(WHITE);
+      expect(joined!.roomId).toBeTruthy();
+      expect(joined!.color).toBe(WHITE);
     });
 
-    it("seats two players and starts a game", () => {
+    it("seats two players and starts a game", async () => {
       const { gw } = realGateway();
-      const { wsA, wsB, roomId } = setupTwoPlayerGame(gw);
+      const { wsA, wsB, roomId } = await setupTwoPlayerGame(gw);
 
       const aStarted = lastEventOfType(wsA, "game:started");
       expect(aStarted).toBeTruthy();
-      expect((aStarted as any).roomId).toBe(roomId);
+      expect(aStarted!.roomId).toBe(roomId);
 
       const bJoined = lastEventOfType(wsB, "room:joined");
       expect(bJoined).toBeTruthy();
@@ -200,37 +208,49 @@ describe("Gateway handleMessage", () => {
     });
   });
 
+  it("returns ROOM_NOT_FOUND when an explicit roomId does not match any existing game", async () => {
+    const { gw } = realGateway();
+    const waitingPlayer = makeSocket();
+
+    handshake(gw, waitingPlayer);
+    join(gw, waitingPlayer);
+    await drain();
+
+    const joiner = makeSocket();
+    handshake(gw, joiner);
+    join(gw, joiner, { roomId: "screening-id" });
+    await drain();
+
+    const lastMsg = lastSent(joiner);
+    expect(lastMsg.type).toBe("session:error");
+    expect(lastMsg.code).toBe(ROOM_NOT_FOUND);
+  });
+
   describe("auto-rejoin on reconnect", () => {
-    it("re-joins the room when a reconnecting socket sends SESSION_HANDSHAKE", () => {
+    it("re-joins the room when a reconnecting socket sends SESSION_HANDSHAKE", async () => {
       const { gw } = realGateway();
       const wsA = makeSocket();
 
       const token = handshake(gw, wsA);
       join(gw, wsA);
-      const aJoined = lastEventOfType(wsA, "room:joined") as any;
+      await drain();
+      const aJoined = lastEventOfType(wsA, "room:joined")!;
       expect(aJoined).toBeTruthy();
 
-      // Disconnect socket A
-      (gw as any).handleClose(wsA);
+      (gw as unknown as GatewayPrivate).handleClose(wsA);
 
-      // Reconnect with a new socket using the session token
       const wsB = makeSocket();
-      (gw as any).handleMessage(wsB, {
+      (gw as unknown as GatewayPrivate).handleMessage(wsB, {
         type: "session:handshake",
         token,
       });
+      await drain();
 
-      // The new socket should receive a handshake reply AND game state
-      const bMessages = sent(wsB) as any[];
-      const bHandshake = bMessages.find(
-        (m: any) => m.type === "session:handshake",
-      );
+      const bMessages = sent(wsB);
+      const bHandshake = bMessages.find((m) => m.type === "session:handshake");
       expect(bHandshake).toBeTruthy();
 
-      // Auto-rejoin delivers a room:joined or game:started event
-      const bJoined = bMessages.find(
-        (m: any) => m.type === "room:joined" || m.type === "game:started",
-      );
+      const bJoined = bMessages.find((m) => m.type === "room:joined" || m.type === "game:started");
       expect(bJoined).toBeTruthy();
     });
   });
@@ -238,10 +258,9 @@ describe("Gateway handleMessage", () => {
   describe("MOVE_MAKE routing", () => {
     it("applies a move through the full gateway path", async () => {
       const { gw } = realGateway();
-      const { wsA } = setupTwoPlayerGame(gw);
+      const { wsA } = await setupTwoPlayerGame(gw);
 
-      // e2-e4 (file*8+rank: E2=4*8+1=33, E4=4*8+3=35)
-      (gw as any).handleMessage(wsA, {
+      (gw as unknown as GatewayPrivate).handleMessage(wsA, {
         type: "move:make",
         from: 33,
         to: 35,
@@ -258,14 +277,14 @@ describe("Gateway handleMessage", () => {
 
       handshake(gw, ws);
 
-      (gw as any).handleMessage(ws, {
+      (gw as unknown as GatewayPrivate).handleMessage(ws, {
         type: "move:make",
         from: 33,
         to: 35,
       });
 
-      const messages = sent(ws) as any[];
-      const error = messages.find((m: any) => m.type === "session:error");
+      const messages = sent(ws);
+      const error = messages.find((m) => m.type === "session:error");
       expect(error).toBeTruthy();
     });
   });
@@ -273,9 +292,9 @@ describe("Gateway handleMessage", () => {
   describe("GAME_RESIGN routing", () => {
     it("resigns through the full gateway path", async () => {
       const { gw } = realGateway();
-      const { wsA, wsB } = setupTwoPlayerGame(gw);
+      const { wsA, wsB } = await setupTwoPlayerGame(gw);
 
-      (gw as any).handleMessage(wsA, { type: "game:resign" });
+      (gw as unknown as GatewayPrivate).handleMessage(wsA, { type: "game:resign" });
       await drain();
 
       const aOver = lastEventOfType(wsA, "game:ended");
@@ -286,26 +305,25 @@ describe("Gateway handleMessage", () => {
   });
 
   describe("STATE_SYNC routing", () => {
-    it("returns game state through the full gateway path", () => {
+    it("returns game state through the full gateway path", async () => {
       const { gw } = realGateway();
-      const { wsA } = setupTwoPlayerGame(gw);
+      const { wsA } = await setupTwoPlayerGame(gw);
 
-      (gw as any).handleMessage(wsA, { type: "state:sync" });
+      (gw as unknown as GatewayPrivate).handleMessage(wsA, { type: "state:sync" });
 
       const state = lastEventOfType(wsA, "room:joined");
       expect(state).toBeTruthy();
-      expect((state as any)).toHaveProperty("state");
-      expect((state as any).state).toHaveProperty("fen");
+      expect(state).toHaveProperty("state");
+      expect(state!.state).toHaveProperty("fen");
     });
   });
 
   describe("ROOM_LEAVE routing", () => {
-    it("handles ROOM_LEAVE through the full gateway path", () => {
+    it("handles ROOM_LEAVE through the full gateway path", async () => {
       const { gw } = realGateway();
-      const { wsA, wsB } = setupTwoPlayerGame(gw);
+      const { wsA, wsB } = await setupTwoPlayerGame(gw);
 
-      // Player A leaves
-      (gw as any).handleMessage(wsA, { type: "room:leave" });
+      (gw as unknown as GatewayPrivate).handleMessage(wsA, { type: "room:leave" });
 
       const aLeft = lastEventOfType(wsA, "room:left");
       expect(aLeft).toBeTruthy();

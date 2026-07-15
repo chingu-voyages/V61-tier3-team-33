@@ -1,12 +1,12 @@
-import type { IPiece } from "./piece";
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-import type { PieceColor, Piece } from "../core/piece";
+import type { IPiece } from "./piece"
+import type { Move } from "../core/move"
+import type { BoardContext, MoveContext } from "../core/state"
+import type { PieceColor, Piece } from "../core/piece"
 
-import { Board, Square } from "../core/board";
-import { QUEEN } from "../core/piece";
-import { Position, File, Rank } from "../core/position";
-import { NORMAL } from "../core/move";
+import { Board, Square } from "../core/board"
+import { QUEEN } from "../core/piece"
+import { Position, File, Rank } from "../core/position"
+import { NORMAL } from "../core/move"
 
 export const QueenDirections: [number, number][] = [
   [0, 1],
@@ -17,95 +17,95 @@ export const QueenDirections: [number, number][] = [
   [1, -1],
   [-1, 1],
   [-1, -1],
-];
+]
 
 export class Queen implements IPiece {
   isAttacking(color: PieceColor, target: Position, ctx: BoardContext): boolean {
     for (const [fileDelta, rankDelta] of QueenDirections) {
-      let file = Position.file(target);
-      let rank = Position.rank(target);
+      let file = Position.file(target)
+      let rank = Position.rank(target)
 
       while (true) {
-        const [nextFile, isFileValid] = File.add(file, fileDelta);
-        const [nextRank, isRankValid] = Rank.add(rank, rankDelta);
+        const [nextFile, isFileValid] = File.add(file, fileDelta)
+        const [nextRank, isRankValid] = Rank.add(rank, rankDelta)
 
         if (!isFileValid || !isRankValid) {
-          break;
+          break
         }
 
-        file = nextFile;
-        rank = nextRank;
+        file = nextFile
+        rank = nextRank
 
-        const position = Position.create(file, rank);
-        const square = Board.at(ctx.board, position);
+        const position = Position.create(file, rank)
+        const square = Board.at(ctx.board, position)
 
         if (Square.isEmpty(square)) {
-          continue;
+          continue
         }
 
         if (Square.isOccupiedByAny(square, color, QUEEN)) {
-          return true;
+          return true
         }
 
-        break;
+        break
       }
     }
 
-    return false;
+    return false
   }
 
   attacks(attacks: Position[], from: Position, ctx: BoardContext): Position[] {
     for (const [fileDelta, rankDelta] of QueenDirections) {
-      let file = Position.file(from);
-      let rank = Position.rank(from);
+      let file = Position.file(from)
+      let rank = Position.rank(from)
 
       while (true) {
-        const [nextFile, isFileValid] = File.add(file, fileDelta);
-        const [nextRank, isRankValid] = Rank.add(rank, rankDelta);
+        const [nextFile, isFileValid] = File.add(file, fileDelta)
+        const [nextRank, isRankValid] = Rank.add(rank, rankDelta)
 
         if (!isFileValid || !isRankValid) {
-          break;
+          break
         }
 
-        file = nextFile;
-        rank = nextRank;
+        file = nextFile
+        rank = nextRank
 
-        const position = Position.create(file, rank);
-        attacks.push(position);
+        const position = Position.create(file, rank)
+        attacks.push(position)
 
-        const square = Board.at(ctx.board, position);
+        const square = Board.at(ctx.board, position)
         if (Square.isOccupied(square)) {
-          break;
+          break
         }
       }
     }
 
-    return attacks;
+    return attacks
   }
 
   pseudoLegalMoves(moves: Move[], from: Position, ctx: MoveContext): Move[] {
-    const piece: Piece = { type: QUEEN, color: ctx.sideToMove };
+    const piece: Piece = { type: QUEEN, color: ctx.sideToMove }
 
     for (const [fileDelta, rankDelta] of QueenDirections) {
-      let file = Position.file(from);
-      let rank = Position.rank(from);
+      let file = Position.file(from)
+      let rank = Position.rank(from)
 
       while (true) {
-        const [nextFile, isFileValid] = File.add(file, fileDelta);
-        const [nextRank, isRankValid] = Rank.add(rank, rankDelta);
+        const [nextFile, isFileValid] = File.add(file, fileDelta)
+        const [nextRank, isRankValid] = Rank.add(rank, rankDelta)
 
         if (!isFileValid || !isRankValid) {
-          break;
+          break
         }
 
-        file = nextFile;
-        rank = nextRank;
+        file = nextFile
+        rank = nextRank
 
-        const to = Position.create(file, rank);
-        const square = Board.at(ctx.board, to);
+        const to = Position.create(file, rank)
+        const square = Board.at(ctx.board, to)
 
         if (Square.isOccupiedBy(square, ctx.sideToMove)) {
-          break;
+          break
         }
 
         const move: Move = {
@@ -115,21 +115,21 @@ export class Queen implements IPiece {
           type: NORMAL,
           promoteTo: null,
           captured: null,
-        };
+        }
 
         if (Square.isOccupied(square)) {
           move.captured = {
             type: Square.pieceType(square),
             color: Square.pieceColor(square),
-          };
-          moves.push(move);
-          break;
+          }
+          moves.push(move)
+          break
         }
 
-        moves.push(move);
+        moves.push(move)
       }
     }
 
-    return moves;
+    return moves
   }
 }

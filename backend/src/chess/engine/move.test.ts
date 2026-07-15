@@ -1,16 +1,10 @@
-import { Board, Square } from "../core/board";
 import { describe, expect, test } from "bun:test";
-import {
-  BISHOP,
-  KING,
-  KNIGHT,
-  PAWN,
-  PieceColor,
-  QUEEN,
-  ROOK,
-  WHITE,
-  BLACK,
-} from "../core/piece";
+
+import { Board, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { CASTLING, EN_PASSANT, NORMAL, PROMOTION } from "../core/move";
+import type { PieceColor } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
 import {
   A1,
   A2,
@@ -54,18 +48,13 @@ import {
   H8,
   NO_POSITION,
 } from "../core/position";
-import { NORMAL, CASTLING, EN_PASSANT, PROMOTION } from "../core/move";
 import { TurnContext } from "../core/state";
 import { getDefaultEngine } from "./default";
-import type { Move } from "../core/move";
 
 describe("Engine", () => {
   const engine = getDefaultEngine();
 
-  function turnFor(
-    side: PieceColor,
-    setup: (ctx: TurnContext) => void,
-  ): TurnContext {
+  function turnFor(side: PieceColor, setup: (ctx: TurnContext) => void): TurnContext {
     const ctx = TurnContext.create();
     ctx.sideToMove = side;
     setup(ctx);
@@ -448,9 +437,7 @@ describe("Engine", () => {
       const result = engine.getAllLegalMoves(moves, ctx);
       for (const m of result) {
         expect(m.piece.type).toBe(KING);
-        expect(m.to === D1 || m.to === F1 || m.to === D2 || m.to === F2).toBe(
-          true,
-        );
+        expect(m.to === D1 || m.to === F1 || m.to === D2 || m.to === F2).toBe(true);
       }
       expect(result.length).toBe(4);
     });
@@ -535,9 +522,7 @@ describe("Engine", () => {
       });
       const moves: Move[] = [];
       const result = engine.getAllLegalMoves(moves, ctx);
-      const hasEP = result.some(
-        (m) => m.from === E5 && m.to === D6 && m.type === EN_PASSANT,
-      );
+      const hasEP = result.some((m) => m.from === E5 && m.to === D6 && m.type === EN_PASSANT);
       expect(hasEP).toBe(true);
     });
 

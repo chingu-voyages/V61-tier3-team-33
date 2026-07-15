@@ -1,8 +1,10 @@
-import { Board, Square, EMPTY_SQUARE } from "../core/board";
-import type { Move } from "../core/move";
-import type { Snapshot } from "../core/history";
 import { describe, expect, test } from "bun:test";
-import { KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE, BLACK } from "../core/piece";
+
+import { Board, EMPTY_SQUARE, Square } from "../core/board";
+import type { Snapshot } from "../core/history";
+import type { Move } from "../core/move";
+import { CASTLING, EN_PASSANT, NORMAL, PROMOTION } from "../core/move";
+import { BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
 import {
   A1,
   A3,
@@ -34,21 +36,16 @@ import {
   H8,
   NO_POSITION,
 } from "../core/position";
-import { NORMAL, CASTLING, EN_PASSANT, PROMOTION } from "../core/move";
+import { SideState, TurnContext } from "../core/state";
 import { applyImpl } from "./apply";
 import { undoImpl } from "./undo";
-import { SideState, TurnContext } from "../core/state";
 
 describe("Engine", () => {
   describe("undo", () => {
     describe("undo without apply", () => {
       test("undoNormal - restores knight position", () => {
         const ctx = TurnContext.create();
-        Board.place(
-          ctx.board,
-          E6,
-          Square.create({ type: KNIGHT, color: WHITE }),
-        );
+        Board.place(ctx.board, E6, Square.create({ type: KNIGHT, color: WHITE }));
 
         const move: Move = {
           piece: { type: KNIGHT, color: WHITE },
@@ -75,11 +72,7 @@ describe("Engine", () => {
 
       test("undoNormal with capture - restores both pieces", () => {
         const ctx = TurnContext.create();
-        Board.place(
-          ctx.board,
-          E6,
-          Square.create({ type: KNIGHT, color: WHITE }),
-        );
+        Board.place(ctx.board, E6, Square.create({ type: KNIGHT, color: WHITE }));
 
         const move: Move = {
           piece: { type: KNIGHT, color: WHITE },
@@ -176,11 +169,7 @@ describe("Engine", () => {
 
       test("undoPromotion - restores pawn", () => {
         const ctx = TurnContext.create();
-        Board.place(
-          ctx.board,
-          E8,
-          Square.create({ type: QUEEN, color: WHITE }),
-        );
+        Board.place(ctx.board, E8, Square.create({ type: QUEEN, color: WHITE }));
 
         const move: Move = {
           piece: { type: PAWN, color: WHITE },
@@ -207,11 +196,7 @@ describe("Engine", () => {
 
       test("undoPromotion with capture - restores pawn and captured piece", () => {
         const ctx = TurnContext.create();
-        Board.place(
-          ctx.board,
-          H8,
-          Square.create({ type: KNIGHT, color: WHITE }),
-        );
+        Board.place(ctx.board, H8, Square.create({ type: KNIGHT, color: WHITE }));
 
         const move: Move = {
           piece: { type: PAWN, color: WHITE },
@@ -259,11 +244,7 @@ describe("Engine", () => {
       roundTrip(
         "normal knight move (no capture)",
         (c) => {
-          Board.place(
-            c.board,
-            D4,
-            Square.create({ type: KNIGHT, color: WHITE }),
-          );
+          Board.place(c.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
         },
         () => ({
           piece: { type: KNIGHT, color: WHITE },
@@ -299,12 +280,8 @@ describe("Engine", () => {
           expect(Board.at(c.board, E1)).toBe(Board.at(o.board, E1));
           expect(Board.at(c.board, E2)).toBe(Board.at(o.board, E2));
           expect(c.sides[0].kingPosition).toBe(o.sides[0].kingPosition);
-          expect(c.sides[0].canCastleKingSide).toBe(
-            o.sides[0].canCastleKingSide,
-          );
-          expect(c.sides[0].canCastleQueenSide).toBe(
-            o.sides[0].canCastleQueenSide,
-          );
+          expect(c.sides[0].canCastleKingSide).toBe(o.sides[0].canCastleKingSide);
+          expect(c.sides[0].canCastleQueenSide).toBe(o.sides[0].canCastleQueenSide);
         },
       );
 
@@ -327,12 +304,8 @@ describe("Engine", () => {
         (o, c) => {
           expect(Board.at(c.board, A1)).toBe(Board.at(o.board, A1));
           expect(Board.at(c.board, A3)).toBe(Board.at(o.board, A3));
-          expect(c.sides[0].canCastleQueenSide).toBe(
-            o.sides[0].canCastleQueenSide,
-          );
-          expect(c.sides[0].canCastleKingSide).toBe(
-            o.sides[0].canCastleKingSide,
-          );
+          expect(c.sides[0].canCastleQueenSide).toBe(o.sides[0].canCastleQueenSide);
+          expect(c.sides[0].canCastleKingSide).toBe(o.sides[0].canCastleKingSide);
         },
       );
 
@@ -355,9 +328,7 @@ describe("Engine", () => {
         (o, c) => {
           expect(Board.at(c.board, H8)).toBe(Board.at(o.board, H8));
           expect(Board.at(c.board, H6)).toBe(Board.at(o.board, H6));
-          expect(c.sides[1].canCastleKingSide).toBe(
-            o.sides[1].canCastleKingSide,
-          );
+          expect(c.sides[1].canCastleKingSide).toBe(o.sides[1].canCastleKingSide);
         },
       );
 
@@ -382,9 +353,7 @@ describe("Engine", () => {
         (o, c) => {
           expect(Board.at(c.board, D4)).toBe(Board.at(o.board, D4));
           expect(Board.at(c.board, H1)).toBe(Board.at(o.board, H1));
-          expect(c.sides[0].canCastleKingSide).toBe(
-            o.sides[0].canCastleKingSide,
-          );
+          expect(c.sides[0].canCastleKingSide).toBe(o.sides[0].canCastleKingSide);
         },
       );
 
@@ -513,9 +482,7 @@ describe("Engine", () => {
           expect(Board.at(c.board, H1)).toBe(Board.at(o.board, H1));
           expect(Board.at(c.board, F1)).toBe(Board.at(o.board, F1));
           expect(c.sides[0].kingPosition).toBe(o.sides[0].kingPosition);
-          expect(c.sides[0].canCastleKingSide).toBe(
-            o.sides[0].canCastleKingSide,
-          );
+          expect(c.sides[0].canCastleKingSide).toBe(o.sides[0].canCastleKingSide);
         },
       );
 
@@ -541,9 +508,7 @@ describe("Engine", () => {
           expect(Board.at(c.board, A1)).toBe(Board.at(o.board, A1));
           expect(Board.at(c.board, D1)).toBe(Board.at(o.board, D1));
           expect(c.sides[0].kingPosition).toBe(o.sides[0].kingPosition);
-          expect(c.sides[0].canCastleQueenSide).toBe(
-            o.sides[0].canCastleQueenSide,
-          );
+          expect(c.sides[0].canCastleQueenSide).toBe(o.sides[0].canCastleQueenSide);
         },
       );
 
@@ -569,9 +534,7 @@ describe("Engine", () => {
           expect(Board.at(c.board, H8)).toBe(Board.at(o.board, H8));
           expect(Board.at(c.board, F8)).toBe(Board.at(o.board, F8));
           expect(c.sides[1].kingPosition).toBe(o.sides[1].kingPosition);
-          expect(c.sides[1].canCastleKingSide).toBe(
-            o.sides[1].canCastleKingSide,
-          );
+          expect(c.sides[1].canCastleKingSide).toBe(o.sides[1].canCastleKingSide);
         },
       );
 
@@ -597,9 +560,7 @@ describe("Engine", () => {
           expect(Board.at(c.board, A8)).toBe(Board.at(o.board, A8));
           expect(Board.at(c.board, D8)).toBe(Board.at(o.board, D8));
           expect(c.sides[1].kingPosition).toBe(o.sides[1].kingPosition);
-          expect(c.sides[1].canCastleQueenSide).toBe(
-            o.sides[1].canCastleQueenSide,
-          );
+          expect(c.sides[1].canCastleQueenSide).toBe(o.sides[1].canCastleQueenSide);
         },
       );
 
@@ -630,11 +591,7 @@ describe("Engine", () => {
       roundTrip(
         "non-pawn move with existing EP target restores target",
         (c) => {
-          Board.place(
-            c.board,
-            D4,
-            Square.create({ type: KNIGHT, color: WHITE }),
-          );
+          Board.place(c.board, D4, Square.create({ type: KNIGHT, color: WHITE }));
           c.enPassantTarget = D3;
         },
         () => ({

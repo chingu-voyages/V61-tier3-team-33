@@ -1,4 +1,4 @@
-import type { Brand, GameResult, PieceColor, PieceType, GameStatus, DrawReason, Position } from "./chess";
+import type { Brand, DrawReason, GameResult, GameStatus, PieceColor, PieceType, Position } from "./chess";
 import { brandedTag } from "./chess";
 import type { ClockFormat } from "./clock";
 
@@ -27,6 +27,11 @@ export const TIMEOUT: EndReason = EndReason(1);
 export const RESIGNATION: EndReason = EndReason(2);
 export const ABANDONED: EndReason = EndReason(3);
 
+const OccupantKind = brandedTag<"OccupantKind">();
+export const HUMAN = OccupantKind("human");
+export const AI = OccupantKind("ai");
+export type OccupantKind = typeof HUMAN | typeof AI;
+
 export interface GameOutcome extends GameResult {
   reason: EndReason;
 }
@@ -51,6 +56,7 @@ export interface ClockState {
 
 export interface GameSnapshot {
   status: Lifecycle;
+  moveSeq: number;
   fen: string;
   turn: PieceColor;
   isCheck: boolean;
@@ -77,20 +83,21 @@ export interface JoinInput {
   color?: PieceColor;
   difficulty?: Difficulty;
   clock?: ClockFormat;
+  create?: boolean;
 }
 
-const OccupantKind = brandedTag<"OccupantKind">();
-
-export const HUMAN = OccupantKind("human");
-export const AI = OccupantKind("ai");
-
-export type OccupantKind = typeof HUMAN | typeof AI;
+export const WS_OPEN = 1;
 
 export interface WebSocket {
   readonly id: string;
   readonly readyState: number;
   send(data: string): void;
-  close(): void;
+  close(code?: number, reason?: string): void;
 }
 
-export const WS_OPEN = 1;
+/** Room the caller is leaving mid-join, so a failure can roll back. */
+export type SwitchingFrom = {
+  roomId: string;
+  color: PieceColor;
+  mode: Mode | null;
+};

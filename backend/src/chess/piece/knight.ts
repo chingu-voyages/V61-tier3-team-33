@@ -1,12 +1,11 @@
-import type { IPiece } from "./piece";
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-import type { PieceColor, Piece } from "../core/piece";
-
 import { Board, Square } from "../core/board";
-import { KNIGHT } from "../core/piece";
-import { Position, File, Rank } from "../core/position";
+import type { Move } from "../core/move";
 import { NORMAL } from "../core/move";
+import type { Piece, PieceColor } from "../core/piece";
+import { KNIGHT } from "../core/piece";
+import { File, Position, Rank } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import type { IPiece } from "./piece";
 
 // Knight L-shapes: all combinations of ±1 and ±2: [fileDelta, rankDelta]
 export const KnightDirections: [number, number][] = [
@@ -23,14 +22,8 @@ export const KnightDirections: [number, number][] = [
 export class Knight implements IPiece {
   isAttacking(color: PieceColor, target: Position, ctx: BoardContext): boolean {
     for (const [fileDelta, rankDelta] of KnightDirections) {
-      const [nextFile, isFileValid] = File.add(
-        Position.file(target),
-        fileDelta,
-      );
-      const [nextRank, isRankValid] = Rank.add(
-        Position.rank(target),
-        rankDelta,
-      );
+      const [nextFile, isFileValid] = File.add(Position.file(target), fileDelta);
+      const [nextRank, isRankValid] = Rank.add(Position.rank(target), rankDelta);
 
       if (!isFileValid || !isRankValid) {
         continue;

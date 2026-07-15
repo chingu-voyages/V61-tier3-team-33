@@ -1,19 +1,9 @@
-import type { BoardContext } from "../core/state";
-import type { Position } from "../core/position";
+import { describe, expect, test } from "bun:test";
 
 import { Board, Square } from "../core/board";
-import { describe, expect, test } from "bun:test";
-import {
-  BISHOP,
-  KING,
-  KNIGHT,
-  PAWN,
-  PieceColor,
-  QUEEN,
-  ROOK,
-  WHITE,
-  BLACK,
-} from "../core/piece";
+import type { PieceColor } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import type { Position } from "../core/position";
 import {
   A1,
   A3,
@@ -38,6 +28,7 @@ import {
   G7,
   H8,
 } from "../core/position";
+import type { BoardContext } from "../core/state";
 import { getDefaultPieces } from "../piece/default";
 import { isSquareAttackedImpl } from "./attack";
 
@@ -51,12 +42,7 @@ describe("Engine", () => {
       return { board };
     }
 
-    function assertAttack(
-      target: Position,
-      color: PieceColor,
-      ctx: BoardContext,
-      want: boolean,
-    ): void {
+    function assertAttack(target: Position, color: PieceColor, ctx: BoardContext, want: boolean): void {
       expect(isSquareAttackedImpl(pieces, target, color, ctx)).toBe(want);
     }
 

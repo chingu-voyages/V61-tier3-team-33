@@ -1,7 +1,7 @@
+import type { Snapshot } from "../core/history";
 import type { Move } from "../core/move";
 import type { PieceColor } from "../core/piece";
 import type { Position } from "../core/position";
-import type { Snapshot } from "../core/history";
 import type { BoardContext, TurnContext } from "../core/state";
 
 export interface IEngine {

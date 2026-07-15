@@ -1,15 +1,15 @@
-import type { Move } from "./move";
-import type { Position } from "./position";
-import type { TurnContext } from "./state";
+import type { Move } from "./move"
+import type { Position } from "./position"
+import type { TurnContext } from "./state"
 
-import { SideState } from "./state";
+import { SideState } from "./state"
 
 export interface Snapshot {
-  move: Move;
-  previousSides: [SideState, SideState];
-  previousEnPassantTarget: Position;
-  previousHalfMoveClock: number;
-  previousFullMoveNumber: number;
+  move: Move
+  previousSides: [SideState, SideState]
+  previousEnPassantTarget: Position
+  previousHalfMoveClock: number
+  previousFullMoveNumber: number
 }
 
 export const Snapshot = {
@@ -23,6 +23,6 @@ export const Snapshot = {
       previousEnPassantTarget: ctx.enPassantTarget,
       previousHalfMoveClock: ctx.halfMoveClock,
       previousFullMoveNumber: ctx.fullMoveNumber,
-    };
+    }
   },
-};
+}

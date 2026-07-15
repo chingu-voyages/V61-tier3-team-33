@@ -1,18 +1,17 @@
-import type { IPiece } from "./piece";
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-import type { PieceColor, Piece } from "../core/piece";
-
 import { Board, Square } from "../core/board";
-import { BISHOP } from "../core/piece";
-import { Position, File, Rank } from "../core/position";
+import type { Move } from "../core/move";
 import { NORMAL } from "../core/move";
+import type { Piece, PieceColor } from "../core/piece";
+import { BISHOP } from "../core/piece";
+import { File, Position, Rank } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import type { IPiece } from "./piece";
 
 // Direction vectors: [fileDelta, rankDelta]
 export const BishopDirections: [number, number][] = [
-  [1, 1],   // up-right
-  [1, -1],  // down-right
-  [-1, 1],  // up-left
+  [1, 1], // up-right
+  [1, -1], // down-right
+  [-1, 1], // up-left
   [-1, -1], // down-left
 ];
 

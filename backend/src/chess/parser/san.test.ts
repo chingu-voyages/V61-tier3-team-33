@@ -1,21 +1,10 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
-import type { Move } from "../core/move";
-import type { Position } from "../core/position";
-import type { TurnContext } from "../core/state";
-
-import { NORMAL, CASTLING, EN_PASSANT, PROMOTION } from "../core/move";
-import {
-  PAWN,
-  KNIGHT,
-  BISHOP,
-  ROOK,
-  QUEEN,
-  KING,
-  WHITE,
-  BLACK,
-} from "../core/piece";
 import { Board, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { CASTLING, EN_PASSANT, NORMAL, PROMOTION } from "../core/move";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import type { Position } from "../core/position";
 import {
   A1,
   A2,
@@ -42,10 +31,10 @@ import {
   H5,
   H8,
 } from "../core/position";
+import type { TurnContext } from "../core/state";
 import { TurnContext as TC } from "../core/state";
 import { getDefaultEngine } from "../engine/default";
-
-import { San, SAN } from "./san";
+import { SAN, San } from "./san";
 
 describe("SAN", () => {
   const san = new San();
@@ -62,16 +51,8 @@ describe("SAN", () => {
     init: (board: Board) => void,
   ): TurnContext {
     const ctx = TC.create();
-    Board.place(
-      ctx.board,
-      whiteKing,
-      Square.create({ type: KING, color: WHITE }),
-    );
-    Board.place(
-      ctx.board,
-      blackKing,
-      Square.create({ type: KING, color: BLACK }),
-    );
+    Board.place(ctx.board, whiteKing, Square.create({ type: KING, color: WHITE }));
+    Board.place(ctx.board, blackKing, Square.create({ type: KING, color: BLACK }));
     ctx.sides[0].kingPosition = whiteKing;
     ctx.sides[1].kingPosition = blackKing;
     ctx.sideToMove = sideToMove;

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
+
 import { Snapshot } from "./history";
-import { NORMAL, EN_PASSANT } from "./move";
-import { PAWN, KNIGHT, WHITE, BLACK } from "./piece";
-import { A1, E2, E4, E5, D6, NO_POSITION } from "./position";
+import { EN_PASSANT, NORMAL } from "./move";
+import { BLACK, KNIGHT, PAWN, WHITE } from "./piece";
+import { A1, D6, E2, E4, E5, NO_POSITION } from "./position";
 import { SideState, TurnContext } from "./state";
 
 describe("Snapshot", () => {

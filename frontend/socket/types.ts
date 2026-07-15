@@ -39,6 +39,8 @@ export interface JoinInput {
   color?: PieceColor
   difficulty?: Difficulty
   clock?: ClockFormat
+  /** Explicit intent to create a brand-new room (friend-invite flow). Any roomId is ignored server-side. */
+  create?: boolean
 }
 
 export interface MoveInput {
@@ -97,4 +99,5 @@ export interface HandshakeReply {
   type: typeof SESSION_HANDSHAKE
   playerId: string
   token: string
+  roomId: string | null
 }

@@ -1,25 +1,12 @@
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-
-import { Queen } from "./queen";
-import { NORMAL } from "../core/move";
-import { SideState } from "../core/state";
-import { Board, Square } from "../core/board";
 import { describe, expect, test } from "bun:test";
+
+import { Board, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { NORMAL } from "../core/move";
 import type { Piece } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import type { Position } from "../core/position";
 import {
-  QUEEN,
-  PAWN,
-  ROOK,
-  BISHOP,
-  KNIGHT,
-  KING,
-  WHITE,
-  BLACK,
-} from "../core/piece";
-import {
-  Position,
-  NO_POSITION,
   A1,
   A2,
   A3,
@@ -79,7 +66,11 @@ import {
   H6,
   H7,
   H8,
+  NO_POSITION,
 } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import { SideState } from "../core/state";
+import { Queen } from "./queen";
 
 describe("Queen", () => {
   const queen = new Queen();
@@ -90,10 +81,7 @@ describe("Queen", () => {
     return { board };
   }
 
-  function moveCtx(
-    init: (b: Board) => void,
-    side: typeof WHITE | typeof BLACK,
-  ): MoveContext {
+  function moveCtx(init: (b: Board) => void, side: typeof WHITE | typeof BLACK): MoveContext {
     const board = Board.create();
     init(board);
     return {
@@ -107,31 +95,23 @@ describe("Queen", () => {
   describe("isAttacking", () => {
     test("a white queen on any of the eight rays through E4 attacks E4", () => {
       for (const from of [E5, E3, D4, F4, F5, F3, D5, D3] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: QUEEN, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: QUEEN, color: WHITE })));
         expect(queen.isAttacking(WHITE, E4, c)).toBe(true);
       }
     });
 
     test("a queen adjacent to the target attacks (distance 1)", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E5, Square.create({ type: QUEEN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, E5, Square.create({ type: QUEEN, color: WHITE })));
       expect(queen.isAttacking(WHITE, E4, c)).toBe(true);
     });
 
     test("a queen at maximum ray distance attacks (A8 to A1)", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, A8, Square.create({ type: QUEEN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, A8, Square.create({ type: QUEEN, color: WHITE })));
       expect(queen.isAttacking(WHITE, A1, c)).toBe(true);
     });
 
     test("a queen on a non-ray square does not attack E4", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, C3, Square.create({ type: QUEEN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, C3, Square.create({ type: QUEEN, color: WHITE })));
       expect(queen.isAttacking(WHITE, E4, c)).toBe(false);
     });
 
@@ -168,18 +148,14 @@ describe("Queen", () => {
     });
 
     test("a queen of the wrong color is ignored", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E8, Square.create({ type: QUEEN, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, E8, Square.create({ type: QUEEN, color: BLACK })));
       expect(queen.isAttacking(WHITE, E4, c)).toBe(false);
       expect(queen.isAttacking(BLACK, E4, c)).toBe(true);
     });
 
     test("a non-queen piece on the ray does not trigger a queen attack", () => {
       for (const pt of [ROOK, BISHOP, KNIGHT, KING, PAWN] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, E8, Square.create({ type: pt, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, E8, Square.create({ type: pt, color: WHITE })));
         expect(queen.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
@@ -191,17 +167,13 @@ describe("Queen", () => {
 
     test("a corner is attacked along its file, its rank, and its diagonal", () => {
       for (const from of [A8, H1, H8] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: QUEEN, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: QUEEN, color: WHITE })));
         expect(queen.isAttacking(WHITE, A1, c)).toBe(true);
       }
     });
 
     test("a queen sitting on the target square itself does not attack it", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E4, Square.create({ type: QUEEN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, E4, Square.create({ type: QUEEN, color: WHITE })));
       expect(queen.isAttacking(WHITE, E4, c)).toBe(false);
     });
 
@@ -424,9 +396,7 @@ describe("Queen", () => {
     });
 
     test("a friendly blocker on the ray stops the scan but is included in the attacks", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })));
       const got = queen.attacks([], D4, c);
       expect(got).toEqual([
         D5,
@@ -458,9 +428,7 @@ describe("Queen", () => {
     });
 
     test("an enemy blocker on the ray stops the scan but is included in the attacks", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })));
       const got = queen.attacks([], D4, c);
       expect(got).toEqual([
         D5,
@@ -502,40 +470,12 @@ describe("Queen", () => {
         Board.place(b, C5, Square.create({ type: PAWN, color: WHITE }));
         Board.place(b, C3, Square.create({ type: PAWN, color: WHITE }));
       });
-      expect(queen.attacks([], D4, c)).toEqual([
-        D5,
-        D3,
-        C4,
-        E4,
-        E5,
-        E3,
-        C5,
-        C3,
-      ]);
+      expect(queen.attacks([], D4, c)).toEqual([D5, D3, C4, E4, E5, E3, C5, C3]);
     });
 
     test("a blocker on a corner queen's ray stops it early", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, A3, Square.create({ type: PAWN, color: WHITE })),
-      );
-      expect(queen.attacks([], A1, c)).toEqual([
-        A2,
-        A3,
-        B1,
-        C1,
-        D1,
-        E1,
-        F1,
-        G1,
-        H1,
-        B2,
-        C3,
-        D4,
-        E5,
-        F6,
-        G7,
-        H8,
-      ]);
+      const c = boardCtx((b) => Board.place(b, A3, Square.create({ type: PAWN, color: WHITE })));
+      expect(queen.attacks([], A1, c)).toEqual([A2, A3, B1, C1, D1, E1, F1, G1, H1, B2, C3, D4, E5, F6, G7, H8]);
     });
   });
 
@@ -582,10 +522,7 @@ describe("Queen", () => {
     });
 
     test("a square occupied by an enemy piece is included as a capture and stops the slide", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })), WHITE);
       const moves = queen.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual([
@@ -647,10 +584,7 @@ describe("Queen", () => {
     });
 
     test("a square occupied by a friendly piece is excluded and stops the slide", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })), WHITE);
       const moves = queen.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual([
@@ -820,10 +754,7 @@ describe("Queen", () => {
     });
 
     test("a black queen treats white pieces as enemies (captures) and black as own", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: WHITE })), BLACK);
       const moves = queen.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual([
@@ -860,10 +791,7 @@ describe("Queen", () => {
     });
 
     test("a black queen treats black pieces as own (excluded)", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, D6, Square.create({ type: PAWN, color: BLACK })), BLACK);
       const moves = queen.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual([

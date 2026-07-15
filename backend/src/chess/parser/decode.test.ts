@@ -1,21 +1,10 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import { Board, Square } from "../core/board";
-import type { PieceType, PieceColor } from "../core/piece";
-import {
-  PAWN,
-  KNIGHT,
-  BISHOP,
-  ROOK,
-  QUEEN,
-  KING,
-  WHITE,
-  BLACK,
-} from "../core/piece";
+import type { PieceColor, PieceType } from "../core/piece";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
 import type { Position } from "../core/position";
 import {
-  File,
-  Position as Pos,
   A1,
   A2,
   A7,
@@ -46,6 +35,7 @@ import {
   F3,
   F7,
   F8,
+  File,
   G1,
   G7,
   G8,
@@ -53,24 +43,19 @@ import {
   H2,
   H7,
   H8,
+  NO_POSITION,
+  Position as Pos,
   RANK_4,
   RANK_5,
-  NO_POSITION,
 } from "../core/position";
 import { TurnContext } from "../core/state";
-
 import { getDefaultParser } from "./default";
 
 describe("FEN", () => {
   describe("Decode", () => {
     const parser = getDefaultParser();
 
-    function assertSquareHas(
-      ctx: TurnContext,
-      pos: Position,
-      type: PieceType,
-      color: PieceColor,
-    ) {
+    function assertSquareHas(ctx: TurnContext, pos: Position, type: PieceType, color: PieceColor) {
       const square = Board.at(ctx.board, pos);
       expect(Square.isOccupied(square)).toBe(true);
       expect(Square.pieceType(square)).toBe(type);
@@ -101,9 +86,7 @@ describe("FEN", () => {
     }
 
     test("the standard starting position parses with all fields correct", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
       assertSquareHas(ctx, A8, ROOK, BLACK);
       assertSquareHas(ctx, E8, KING, BLACK);
@@ -127,9 +110,7 @@ describe("FEN", () => {
     });
 
     test("the Kiwipete position parses correctly", () => {
-      const ctx = mustDecode(
-        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-      );
+      const ctx = mustDecode("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 
       assertSquareHas(ctx, A8, ROOK, BLACK);
       assertSquareHas(ctx, E8, KING, BLACK);
@@ -147,16 +128,12 @@ describe("FEN", () => {
     });
 
     test("a position with black to move parses with the correct side", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1");
       expect(ctx.sideToMove).toBe(BLACK);
     });
 
     test("a position with no castling rights parses with all rights false", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1");
       expect(ctx.sides[0].canCastleKingSide).toBe(false);
       expect(ctx.sides[0].canCastleQueenSide).toBe(false);
       expect(ctx.sides[1].canCastleKingSide).toBe(false);
@@ -164,9 +141,7 @@ describe("FEN", () => {
     });
 
     test("a position with only white king-side castling parses with that single right", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w K - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w K - 0 1");
       expect(ctx.sides[0].canCastleKingSide).toBe(true);
       expect(ctx.sides[0].canCastleQueenSide).toBe(false);
       expect(ctx.sides[1].canCastleKingSide).toBe(false);
@@ -174,9 +149,7 @@ describe("FEN", () => {
     });
 
     test("a position with only black queen-side castling parses with that single right", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w q - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w q - 0 1");
       expect(ctx.sides[1].canCastleQueenSide).toBe(true);
       expect(ctx.sides[1].canCastleKingSide).toBe(false);
       expect(ctx.sides[0].canCastleKingSide).toBe(false);
@@ -184,31 +157,23 @@ describe("FEN", () => {
     });
 
     test("an en passant target on rank 3 parses correctly", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
       expect(ctx.enPassantTarget).toBe(E3);
     });
 
     test("an en passant target on rank 6 parses correctly", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2",
-      );
+      const ctx = mustDecode("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2");
       expect(ctx.enPassantTarget).toBe(D6);
     });
 
     test("the halfmove clock and fullmove number parse as decimal numbers", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 47 132",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 47 132");
       expect(ctx.halfMoveClock).toBe(47);
       expect(ctx.fullMoveNumber).toBe(132);
     });
 
     test("digit runs place the correct number of empty squares", () => {
-      const ctx = mustDecode(
-        "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = mustDecode("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       assertSquareHas(ctx, A8, ROOK, BLACK);
       assertSquareEmpty(ctx, B8);
       assertSquareEmpty(ctx, C8);
@@ -220,9 +185,7 @@ describe("FEN", () => {
     });
 
     test("the digit 8 fills an entire rank with empties", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       for (let f = 0; f < 8; f++) {
         assertSquareEmpty(ctx, Pos.create(File(f), RANK_4));
         assertSquareEmpty(ctx, Pos.create(File(f), RANK_5));
@@ -343,16 +306,12 @@ describe("FEN", () => {
     });
 
     test("the en passant target of '-' sets NO_POSITION", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(ctx.enPassantTarget).toBe(NO_POSITION);
     });
 
     test("castling rights can appear in any order", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w kqKQ - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w kqKQ - 0 1");
       expect(ctx.sides[0].canCastleKingSide).toBe(true);
       expect(ctx.sides[0].canCastleQueenSide).toBe(true);
       expect(ctx.sides[1].canCastleKingSide).toBe(true);
@@ -361,14 +320,8 @@ describe("FEN", () => {
 
     test("Decode can be called twice on the same ctx without leftover state", () => {
       const ctx = TurnContext.create();
-      parser.decode(
-        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 5 10",
-        ctx,
-      );
-      parser.decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        ctx,
-      );
+      parser.decode("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 5 10", ctx);
+      parser.decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", ctx);
       expect(ctx.enPassantTarget).toBe(NO_POSITION);
       expect(ctx.sideToMove).toBe(WHITE);
       expect(ctx.halfMoveClock).toBe(0);
@@ -378,30 +331,22 @@ describe("FEN", () => {
     });
 
     test("the white king position is detected from the board", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(ctx.sides[0].kingPosition).toBe(E1);
     });
 
     test("the black king position is detected from the board", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(ctx.sides[1].kingPosition).toBe(E8);
     });
 
     test("a king that has castled to G1 is detected at G1", () => {
-      const ctx = mustDecode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/R4RK1 w kq - 0 1",
-      );
+      const ctx = mustDecode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/R4RK1 w kq - 0 1");
       expect(ctx.sides[0].kingPosition).toBe(G1);
     });
 
     test("a king that has castled to C8 is detected at C8", () => {
-      const ctx = mustDecode(
-        "2kr3r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQ - 0 1",
-      );
+      const ctx = mustDecode("2kr3r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQ - 0 1");
       expect(ctx.sides[1].kingPosition).toBe(C8);
     });
 

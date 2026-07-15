@@ -25,7 +25,9 @@ describe("AudioProvider", () => {
 
   test("prime transitions state to ready via injected AudioContext", () => {
     // Inject FakeAudioContext before provider
-    getAudioClient({ audioCtor: FakeAudioContext as unknown as typeof AudioContext })
+    getAudioClient({
+      audioCtor: FakeAudioContext as unknown as typeof AudioContext,
+    })
 
     const { result, rerender } = renderHook(() => useSoundContext(), {
       wrapper,
@@ -42,13 +44,17 @@ describe("AudioProvider", () => {
   })
 
   test("preload is callable", () => {
-    getAudioClient({ audioCtor: FakeAudioContext as unknown as typeof AudioContext })
+    getAudioClient({
+      audioCtor: FakeAudioContext as unknown as typeof AudioContext,
+    })
     const { result } = renderHook(() => useSoundContext(), { wrapper })
     expect(() => result.current.preload()).not.toThrow()
   })
 
   test("playMove and playCapture are callable", () => {
-    getAudioClient({ audioCtor: FakeAudioContext as unknown as typeof AudioContext })
+    getAudioClient({
+      audioCtor: FakeAudioContext as unknown as typeof AudioContext,
+    })
     const { result } = renderHook(() => useSoundContext(), { wrapper })
     expect(() => result.current.playMove()).not.toThrow()
     expect(() => result.current.playCapture()).not.toThrow()
@@ -57,7 +63,9 @@ describe("AudioProvider", () => {
 
 describe("AudioProvider + useSoundContext sound stability", () => {
   test("playMove is called exactly once per moveSeq increment with real provider", () => {
-    getAudioClient({ audioCtor: FakeAudioContext as unknown as typeof AudioContext })
+    getAudioClient({
+      audioCtor: FakeAudioContext as unknown as typeof AudioContext,
+    })
 
     const moveCalls: number[] = []
 
@@ -104,7 +112,9 @@ describe("AudioProvider + useSoundContext sound stability", () => {
   })
 
   test("prime does not trigger sound replay", () => {
-    getAudioClient({ audioCtor: FakeAudioContext as unknown as typeof AudioContext })
+    getAudioClient({
+      audioCtor: FakeAudioContext as unknown as typeof AudioContext,
+    })
 
     const moveCalls: number[] = []
 

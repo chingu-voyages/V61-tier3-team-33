@@ -1,10 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
+import { INVALID_BASE_DELAY, INVALID_MAX_ATTEMPTS, INVALID_MAX_DELAY } from "../types";
 import { Retry, RetryConfigError } from "./retry";
-import {
-  INVALID_MAX_ATTEMPTS,
-  INVALID_BASE_DELAY,
-  INVALID_MAX_DELAY,
-} from "../types";
 
 describe("Retry", () => {
   describe("construction validation", () => {
