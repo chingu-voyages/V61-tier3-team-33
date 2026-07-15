@@ -7,12 +7,14 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "format": "prettier --check src/",
-    "format:fix": "prettier --write src/",
+    "lint": "eslint src/ migrate/scripts/",
+    "lint:fix": "eslint src/ migrate/scripts/ --fix",
+    "format": "prettier --check 'src/' 'migrate/scripts/'",
+    "format:fix": "prettier --write 'src/' 'migrate/scripts/'",
     "test": "bun test",
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun"
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "migrate": "bun run migrate/scripts/cli.ts",
+    "migrate:down": "bun run migrate/scripts/cli.ts --down"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
