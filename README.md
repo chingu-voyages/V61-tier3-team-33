@@ -210,3 +210,4 @@ This is a Chingu Voyage project. Team members can contribute by:
 
 - [Team Project Ideas](./docs/team_project_ideas.md)
 - [Team Decision Log](./docs/team_decision_log.md)
+
