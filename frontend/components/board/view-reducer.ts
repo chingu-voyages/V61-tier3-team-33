@@ -4,6 +4,10 @@ export type ViewState = {
   showUndoConfirm: boolean
   agreedToUndoTerms: boolean
   agreedToOpponentUndoTerms: boolean
+  receivedEmote: string | null
+  emoteKey: number
+  sentEmote: string | null
+  sentEmoteKey: number
 }
 
 export type ViewAction =
@@ -15,6 +19,8 @@ export type ViewAction =
   | { type: "AGREE_TO_UNDO_TERMS"; value: boolean }
   | { type: "AGREE_TO_OPPONENT_UNDO_TERMS"; value: boolean }
   | { type: "RESET_OPPONENT_AGREEMENT" }
+  | { type: "RECEIVE_EMOTE"; emote: string }
+  | { type: "SEND_EMOTE"; emote: string }
 
 export const initialViewState: ViewState = {
   flipped: false,
@@ -22,6 +28,10 @@ export const initialViewState: ViewState = {
   showUndoConfirm: false,
   agreedToUndoTerms: false,
   agreedToOpponentUndoTerms: false,
+  receivedEmote: null,
+  emoteKey: 0,
+  sentEmote: null,
+  sentEmoteKey: 0,
 }
 
 export function viewReducer(state: ViewState, action: ViewAction): ViewState {
@@ -42,5 +52,9 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
       return { ...state, agreedToOpponentUndoTerms: action.value }
     case "RESET_OPPONENT_AGREEMENT":
       return { ...state, agreedToOpponentUndoTerms: false }
+    case "RECEIVE_EMOTE":
+      return { ...state, receivedEmote: action.emote, emoteKey: state.emoteKey + 1 }
+    case "SEND_EMOTE":
+      return { ...state, sentEmote: action.emote, sentEmoteKey: state.sentEmoteKey + 1 }
   }
 }

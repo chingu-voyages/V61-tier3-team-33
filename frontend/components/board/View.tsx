@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useReducer, useState } from "react"
+import { useCallback, useReducer } from "react"
 import Image from "next/image"
 import { useRoom } from "@/context/room/context"
 import { useChess } from "@/chess/context"
@@ -63,14 +63,8 @@ export function View({ onLeave }: ViewProps) {
   const { showUndoRequest, isMyUndoPending } = useUndoRequest(state, dispatch)
   const { isFinished, resultText } = useGameResult(state)
 
-  const [receivedEmote, setReceivedEmote] = useState<string | null>(null)
-  const [emoteKey, setEmoteKey] = useState(0)
-  const [sentEmote, setSentEmote] = useState<string | null>(null)
-  const [sentEmoteKey, setSentEmoteKey] = useState(0)
-
   useSocketEvent(EMOTE_RECEIVED, (e) => {
-    setReceivedEmote(e.emote)
-    setEmoteKey((k) => k + 1)
+    dispatch({ type: "RECEIVE_EMOTE", emote: e.emote })
   })
 
   // Stable identity so Board's memoized squares don't re-render on every
@@ -129,11 +123,11 @@ export function View({ onLeave }: ViewProps) {
         >
           <div className="flex w-full items-center gap-2">
             <div className="relative min-w-0 flex-1">
-              {(view.flipped ? sentEmote : receivedEmote) !== null && (
+              {(view.flipped ? view.sentEmote : view.receivedEmote) !== null && (
                 <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2">
                   <EmoteOverlay
-                    key={view.flipped ? sentEmoteKey : emoteKey}
-                    emote={(view.flipped ? sentEmote : receivedEmote) as string}
+                    key={view.flipped ? view.sentEmoteKey : view.emoteKey}
+                    emote={(view.flipped ? view.sentEmote : view.receivedEmote) as string}
                   />
                 </div>
               )}
@@ -235,11 +229,11 @@ export function View({ onLeave }: ViewProps) {
 
           <div className="flex w-full items-center gap-2">
             <div className="relative min-w-0 flex-1">
-              {(view.flipped ? receivedEmote : sentEmote) !== null && (
+              {(view.flipped ? view.receivedEmote : view.sentEmote) !== null && (
                 <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2">
                   <EmoteOverlay
-                    key={view.flipped ? emoteKey : sentEmoteKey}
-                    emote={(view.flipped ? receivedEmote : sentEmote) as string}
+                    key={view.flipped ? view.emoteKey : view.sentEmoteKey}
+                    emote={(view.flipped ? view.receivedEmote : view.sentEmote) as string}
                   />
                 </div>
               )}
@@ -254,8 +248,7 @@ export function View({ onLeave }: ViewProps) {
               <EmoteTray
                 onSend={(emote) => {
                   actions.sendEmote(emote)
-                  setSentEmote(emote)
-                  setSentEmoteKey((k) => k + 1)
+                  dispatch({ type: "SEND_EMOTE", emote })
                 }}
               />
             )}
