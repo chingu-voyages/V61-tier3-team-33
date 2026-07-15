@@ -1,6 +1,10 @@
 "use client"
 
-import { IconArrowLeft, IconChevronRight, IconSearch } from "@tabler/icons-react"
+import {
+  IconArrowLeft,
+  IconChevronRight,
+  IconSearch,
+} from "@tabler/icons-react"
 import { SheetClose } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { settingsSections } from "@/components/settings/settings-sections"

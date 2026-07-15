@@ -1,56 +1,21 @@
 import { Elysia } from "elysia";
 
-import type { Codec } from "../codec/codec";
-import {
-  SESSION_HANDSHAKE,
-  SESSION_PONG,
-  ROOM_JOIN,
-  MOVE_MAKE,
-  UNDO_REQUEST,
-  UNDO_ACCEPT,
-  UNDO_DECLINE,
-  GAME_RESIGN,
-  STATE_SYNC,
-  ROOM_LEAVE,
-  POSITION_SELECT,
-  EMOTE_SEND,
-} from "../protocol/commands";
-import { JsonCodec } from "../codec/json";
-import { Sessions } from "../session/sessions";
-import { Connections } from "./connections";
-import { Games } from "../game/games";
-import { GameService } from "../services/game-service";
-import { EmoteService } from "../services/emote-service";
-import { Hub } from "../bus/bus";
-import { EventLog } from "../../logging/events";
-import { logger as rootLogger } from "../../logging/log";
+import { logger as rootLogger } from "../../logging/logger";
+import { getCodec } from "../codec/codec";
+import { Mediator } from "../events/mediator";
+import { Command } from "../protocol/commands";
 import { Reply } from "../protocol/replies";
-import { INVALID_PAYLOAD, NOT_IMPLEMENTED } from "../protocol/errors";
-import { HUMAN_VS_HUMAN, type WebSocket } from "../types";
-import type { GameFacade } from "../services/game-facade";
-import type { SessionStore } from "../session/session-store";
-import type { GameStore } from "../game/game-store";
+import { INVALID_PAYLOAD } from "../types";
+import { type WebSocket } from "../types";
 
 const log = rootLogger.child({ module: "Gateway" });
 
 export class Gateway {
   private app: Elysia;
-  private connections: Connections;
-  private gameService: GameFacade;
-  private emoteService: EmoteService;
-  private EventLog: EventLog;
+  private mediator: Mediator;
 
-  constructor(
-    private protocol: Codec = new JsonCodec(),
-    sessions: SessionStore = new Sessions(),
-    hub: Hub = new Hub(),
-    games: GameStore = new Games(hub),
-  ) {
-    this.connections = new Connections(sessions, hub, protocol);
-    this.gameService = new GameService(sessions, games, protocol, hub);
-    this.emoteService = new EmoteService(sessions, games);
-    this.EventLog = new EventLog();
-    this.EventLog.start(hub);
+  constructor() {
+    this.mediator = new Mediator();
     this.app = new Elysia();
     this.setup();
   }
@@ -65,114 +30,28 @@ export class Gateway {
   }
 
   private handleOpen = (ws: WebSocket): void => {
-    log.info("[GATEWAY-open]", { wsId: ws.id });
+    log.info("[Gateway.handleOpen:opened]", { wsId: ws.id });
   };
 
   private handleClose = (ws: WebSocket): void => {
-    log.info("[GATEWAY-close]", { wsId: ws.id });
-    this.connections.close(ws);
+    log.info("[Gateway.handleClose:closed]", { wsId: ws.id });
+    this.mediator.close(ws);
   };
 
   private handleMessage = (ws: WebSocket, raw: unknown): void => {
-    const cmd = this.protocol.decode(raw);
+    // decode incoming message
+    const cmd = getCodec().decode(raw);
 
-    if (cmd === null) {
-      log.warn("[GATEWAY-decode-fail]", { wsId: ws.id, raw: typeof raw === 'string' ? raw.slice(0, 200) : typeof raw });
-      Reply.send(
-        ws,
-        Reply.error(INVALID_PAYLOAD, "Unparseable or unknown command."),
-      );
+    // validate decoded command
+    if (!Command.isValid(cmd)) {
+      log.warn("[Gateway.handleMessage:decode-fail]", { wsId: ws.id, raw: Command.describe(raw) });
+      Reply.error(ws, INVALID_PAYLOAD);
       return;
     }
 
-    log.info("[GATEWAY-msg]", { wsId: ws.id, cmdType: cmd.type, roomId: (cmd as any).roomId });
-
-    switch (cmd.type) {
-      case SESSION_HANDSHAKE: {
-        const session = this.connections.identify(ws, cmd.token);
-
-        log.info("[GATEWAY-handshake]", { wsId: ws.id, playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode });
-
-        // A reload/reconnect resumes a session that may already be seated
-        // in an active room. The client has no way to know that on its
-        // own (its in-memory game state was just wiped by the reload), so
-        // proactively replay the rejoin here instead of waiting for a
-        // room:join the client isn't going to send. GameService.join's
-        // "Rejoin on reconnect" branch keys off session.roomId/color, not
-        // the input payload, so the mode passed here is a required-but-
-        // unused placeholder.
-        if (session.roomId && session.color !== null) {
-          log.info("[GATEWAY-auto-rejoin]", { playerId: session.playerId, roomId: session.roomId, color: session.color, mode: session.mode });
-          this.gameService.join(ws, { mode: session.mode ?? HUMAN_VS_HUMAN });
-        } else {
-          log.info("[GATEWAY-no-auto-rejoin]", { playerId: session.playerId, roomId: session.roomId, color: session.color });
-        }
-        break;
-      }
-
-      case SESSION_PONG:
-        this.connections.pong(ws);
-        break;
-
-      case ROOM_JOIN: {
-        log.info("[GATEWAY-room-join]", { wsId: ws.id, roomId: (cmd as any).roomId, mode: (cmd as any).mode, color: (cmd as any).color, clock: (cmd as any).clock });
-        this.gameService.join(ws, cmd);
-        break;
-      }
-
-      case ROOM_LEAVE:
-        log.info("[GATEWAY-room-leave]", { wsId: ws.id });
-        this.gameService.leave(ws);
-        break;
-
-      case MOVE_MAKE:
-        log.info("[GATEWAY-move]", { wsId: ws.id, from: (cmd as any).from, to: (cmd as any).to });
-        this.gameService.move(ws, cmd);
-        break;
-
-      case UNDO_REQUEST:
-        log.info("[GATEWAY-undo-request]", { wsId: ws.id });
-        this.gameService.requestUndo(ws);
-        break;
-
-      case UNDO_ACCEPT:
-        log.info("[GATEWAY-undo-accept]", { wsId: ws.id });
-        this.gameService.acceptUndo(ws);
-        break;
-
-      case UNDO_DECLINE:
-        log.info("[GATEWAY-undo-decline]", { wsId: ws.id });
-        this.gameService.declineUndo(ws);
-        break;
-
-      case GAME_RESIGN:
-        log.info("[GATEWAY-resign]", { wsId: ws.id });
-        this.gameService.resign(ws);
-        break;
-
-      case STATE_SYNC:
-        log.info("[GATEWAY-sync]", { wsId: ws.id });
-        this.gameService.sync(ws);
-        break;
-
-      case POSITION_SELECT:
-        log.info("[GATEWAY-select]", { wsId: ws.id, position: (cmd as any).position });
-        this.gameService.selectPosition(ws, cmd.position);
-        break;
-
-      case EMOTE_SEND:
-        this.emoteService.sendEmote(ws, cmd.emote);
-        break;
-
-
-      default:
-        log.warn("[GATEWAY-unknown-cmd]", { wsId: ws.id, cmdType: (cmd as any).type });
-        Reply.send(
-          ws,
-          Reply.error(NOT_IMPLEMENTED, "Command type not implemented."),
-        );
-        break;
-    }
+    // log and route valid command
+    log.info("[Gateway.handleMessage:handled]", { wsId: ws.id, cmdType: cmd.type });
+    this.mediator.handle(ws, cmd);
   };
 
   start(port: number = 3001): void {

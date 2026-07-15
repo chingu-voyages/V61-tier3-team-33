@@ -1,10 +1,10 @@
-import type { IPieces } from "./piece";
-import { Pawn } from "./pawn";
-import { Rook } from "./rook";
-import { King } from "./king";
-import { Queen } from "./queen";
 import { Bishop } from "./bishop";
+import { King } from "./king";
 import { Knight } from "./knight";
+import { Pawn } from "./pawn";
+import type { IPieces } from "./piece";
+import { Queen } from "./queen";
+import { Rook } from "./rook";
 
 const defaultPieces: IPieces = {
   pawn: new Pawn(),

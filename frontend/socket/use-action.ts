@@ -14,6 +14,7 @@ export interface GameActions {
   requestUndo: () => void
   acceptUndo: () => void
   declineUndo: () => void
+  cancelUndo: () => void
   resign: () => void
   syncState: () => void
   selectPosition: (position: Position) => void
@@ -32,6 +33,7 @@ export function useGameActions(): GameActions {
       requestUndo: () => send(Commands.requestUndo()),
       acceptUndo: () => send(Commands.acceptUndo()),
       declineUndo: () => send(Commands.declineUndo()),
+      cancelUndo: () => send(Commands.cancelUndo()),
       resign: () => send(Commands.resign()),
       syncState: () => send(Commands.syncState()),
       selectPosition: (position: Position) =>

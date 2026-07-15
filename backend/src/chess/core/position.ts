@@ -97,69 +97,63 @@ const RANK_MAX: Rank = RANK_8;
 /** Board square index (0–63 = valid, 64 = `NO_POSITION`). Encoded as `file * 8 + rank`. */
 export type Position = Brand<number, "Position">;
 
-export const Position = Object.assign(
-  (value: number): Position => value as Position,
-  {
-    /** Creates a Position from a file and rank. */
-    create(file: File, rank: Rank): Position {
-      return Position(file * 8 + rank);
-    },
-
-    /** Extracts the file from a position. */
-    file(position: Position): File {
-      return File(Math.floor(position / 8));
-    },
-
-    /** Extracts the rank from a position. */
-    rank(position: Position): Rank {
-      return Rank(position % 8);
-    },
-
-    /** Raw 0-based index into a board array. Identical to the position value. */
-    index(position: Position): number {
-      return position;
-    },
-
-    /** Returns `true` if the position is a valid board square (0–63). */
-    isValid(position: Position): boolean {
-      return position >= POSITION_MIN && position <= POSITION_MAX;
-    },
-
-    /** Returns algebraic notation e.g. `"e4"`, or `"-"` for `NO_POSITION`. */
-    toString(position: Position): string {
-      if (!Position.isValid(position)) return "-";
-      return (
-        File.toString(Position.file(position)) +
-        Rank.toString(Position.rank(position))
-      );
-    },
-
-    /**
-     * Returns `true` if the square is dark.
-     * A1 (file 0, rank 0) is dark — `(file + rank) % 2 === 0`.
-     * Used by insufficient-material detection (K+B vs K+B same colour).
-     */
-    isDarkSquare(position: Position): boolean {
-      return (Position.file(position) + Position.rank(position)) % 2 === 0;
-    },
-
-    /**
-     * Parses algebraic notation into a Position.
-     *
-     * @param str - Exactly two characters: a file letter (`'a'`–`'h'` or `'A'`–`'H'`)
-     *   followed by a rank digit (`'1'`–`'8'`). E.g. `"e4"`, `"H1"`. Strings of any
-     *   other length or with invalid characters return `null`.
-     * @returns The corresponding Position, or `null` if the input is invalid.
-     */
-    parse(str: string): Position | null {
-      if (str.length !== 2) return null;
-      const file = File.parse(str[0]!);
-      const rank = Rank.parse(str[1]!);
-      if (file === null || rank === null) return null;
-      return Position.create(file, rank);
-    },
+export const Position = Object.assign((value: number): Position => value as Position, {
+  /** Creates a Position from a file and rank. */
+  create(file: File, rank: Rank): Position {
+    return Position(file * 8 + rank);
   },
-);
+
+  /** Extracts the file from a position. */
+  file(position: Position): File {
+    return File(Math.floor(position / 8));
+  },
+
+  /** Extracts the rank from a position. */
+  rank(position: Position): Rank {
+    return Rank(position % 8);
+  },
+
+  /** Raw 0-based index into a board array. Identical to the position value. */
+  index(position: Position): number {
+    return position;
+  },
+
+  /** Returns `true` if the position is a valid board square (0–63). */
+  isValid(position: Position): boolean {
+    return position >= POSITION_MIN && position <= POSITION_MAX;
+  },
+
+  /** Returns algebraic notation e.g. `"e4"`, or `"-"` for `NO_POSITION`. */
+  toString(position: Position): string {
+    if (!Position.isValid(position)) return "-";
+    return File.toString(Position.file(position)) + Rank.toString(Position.rank(position));
+  },
+
+  /**
+   * Returns `true` if the square is dark.
+   * A1 (file 0, rank 0) is dark — `(file + rank) % 2 === 0`.
+   * Used by insufficient-material detection (K+B vs K+B same colour).
+   */
+  isDarkSquare(position: Position): boolean {
+    return (Position.file(position) + Position.rank(position)) % 2 === 0;
+  },
+
+  /**
+   * Parses algebraic notation into a Position.
+   *
+   * @param str - Exactly two characters: a file letter (`'a'`–`'h'` or `'A'`–`'H'`)
+   *   followed by a rank digit (`'1'`–`'8'`). E.g. `"e4"`, `"H1"`. Strings of any
+   *   other length or with invalid characters return `null`.
+   * @returns The corresponding Position, or `null` if the input is invalid.
+   */
+  parse(str: string): Position | null {
+    if (str.length !== 2) return null;
+    const file = File.parse(str[0]!);
+    const rank = Rank.parse(str[1]!);
+    if (file === null || rank === null) return null;
+    return Position.create(file, rank);
+  },
+});
 
 /** Sentinel for "no position" — used for absent en passant targets. */
 export const NO_POSITION: Position = Position(64);

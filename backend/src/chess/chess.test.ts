@@ -1,13 +1,10 @@
 import { describe, expect, test } from "bun:test";
+
+import { Chess, FENError, IllegalMoveError, NothingToUndoError, STARTING_FEN } from "./chess";
+import { CHECKMATE, DRAW, IN_PROGRESS, STALEMATE, THREEFOLD_REPETITION } from "./core/game";
+import { PROMOTION } from "./core/move";
+import { BISHOP, BLACK, KING, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "./core/piece";
 import {
-  Chess,
-  FENError,
-  IllegalMoveError,
-  NothingToUndoError,
-  STARTING_FEN,
-} from "./chess";
-import {
-  Position,
   A1,
   A3,
   A6,
@@ -35,25 +32,8 @@ import {
   G4,
   H1,
   H4,
+  Position,
 } from "./core/position";
-import {
-  WHITE,
-  BLACK,
-  PAWN,
-  KNIGHT,
-  BISHOP,
-  ROOK,
-  QUEEN,
-  KING,
-} from "./core/piece";
-import {
-  IN_PROGRESS,
-  CHECKMATE,
-  DRAW,
-  STALEMATE,
-  THREEFOLD_REPETITION,
-} from "./core/game";
-import { PROMOTION } from "./core/move";
 
 describe("Chess", () => {
   /** Plays a sequence of from→to moves on the given game and returns it. */
@@ -82,14 +62,12 @@ describe("Chess", () => {
   });
 
   describe("Position.parse (square validation)", () => {
-    test.each(["e4", "a1", "h8", "E4", "A1", "H8", "d5"])(
-      "'%s' → valid",
-      (sq) => expect(Position.parse(sq)).not.toBeNull(),
+    test.each(["e4", "a1", "h8", "E4", "A1", "H8", "d5"])("'%s' → valid", (sq) =>
+      expect(Position.parse(sq)).not.toBeNull(),
     );
 
-    test.each(["", "e", "e9", "i4", "e44", "11", "zz"])(
-      "'%s' → invalid",
-      (sq) => expect(Position.parse(sq)).toBeNull(),
+    test.each(["", "e", "e9", "i4", "e44", "11", "zz"])("'%s' → invalid", (sq) =>
+      expect(Position.parse(sq)).toBeNull(),
     );
   });
 

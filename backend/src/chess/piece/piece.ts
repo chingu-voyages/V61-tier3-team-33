@@ -2,13 +2,12 @@ import type { Move } from "../core/move";
 import type { PieceColor } from "../core/piece";
 import type { Position } from "../core/position";
 import type { BoardContext, MoveContext } from "../core/state";
-
-import { Pawn } from "./pawn";
-import { Rook } from "./rook";
-import { King } from "./king";
-import { Queen } from "./queen";
-import { Bishop } from "./bishop";
-import { Knight } from "./knight";
+import type { Bishop } from "./bishop";
+import type { King } from "./king";
+import type { Knight } from "./knight";
+import type { Pawn } from "./pawn";
+import type { Queen } from "./queen";
+import type { Rook } from "./rook";
 
 /**
  * Behavior interface for a single chess piece type.

@@ -1,16 +1,12 @@
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-
-import { Bishop } from "./bishop";
-import { NORMAL } from "../core/move";
-import { SideState } from "../core/state";
-import { Board, Square } from "../core/board";
 import { describe, expect, test } from "bun:test";
+
+import { Board, Square } from "../core/board";
+import type { Move } from "../core/move";
+import { NORMAL } from "../core/move";
 import type { Piece } from "../core/piece";
-import { BISHOP, PAWN, ROOK, QUEEN, KNIGHT, WHITE, BLACK } from "../core/piece";
+import { BISHOP, BLACK, KNIGHT, PAWN, QUEEN, ROOK, WHITE } from "../core/piece";
+import type { Position } from "../core/position";
 import {
-  Position,
-  NO_POSITION,
   A1,
   A4,
   A7,
@@ -47,7 +43,11 @@ import {
   H4,
   H7,
   H8,
+  NO_POSITION,
 } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import { SideState } from "../core/state";
+import { Bishop } from "./bishop";
 
 describe("Bishop", () => {
   const bishop = new Bishop();
@@ -58,10 +58,7 @@ describe("Bishop", () => {
     return { board };
   }
 
-  function moveCtx(
-    init: (b: Board) => void,
-    side: typeof WHITE | typeof BLACK,
-  ): MoveContext {
+  function moveCtx(init: (b: Board) => void, side: typeof WHITE | typeof BLACK): MoveContext {
     const board = Board.create();
     init(board);
     return {
@@ -75,32 +72,24 @@ describe("Bishop", () => {
   describe("isAttacking", () => {
     test("a white bishop on any of the four diagonals through E4 attacks E4", () => {
       for (const from of [H7, A8, H1, B1] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: BISHOP, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: BISHOP, color: WHITE })));
         expect(bishop.isAttacking(WHITE, E4, c)).toBe(true);
       }
     });
 
     test("a bishop adjacent to the target attacks (distance 1)", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, D3, Square.create({ type: BISHOP, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, D3, Square.create({ type: BISHOP, color: WHITE })));
       expect(bishop.isAttacking(WHITE, E4, c)).toBe(true);
     });
 
     test("a bishop at maximum diagonal distance attacks (H8 to A1)", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, H8, Square.create({ type: BISHOP, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, H8, Square.create({ type: BISHOP, color: WHITE })));
       expect(bishop.isAttacking(WHITE, A1, c)).toBe(true);
     });
 
     test("a bishop on a non-diagonal square does not attack E4", () => {
       for (const from of [E7, H4, F6] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: BISHOP, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: BISHOP, color: WHITE })));
         expect(bishop.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
@@ -138,18 +127,14 @@ describe("Bishop", () => {
     });
 
     test("a bishop of the wrong color is ignored", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, H7, Square.create({ type: BISHOP, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, H7, Square.create({ type: BISHOP, color: BLACK })));
       expect(bishop.isAttacking(WHITE, E4, c)).toBe(false);
       expect(bishop.isAttacking(BLACK, E4, c)).toBe(true);
     });
 
     test("a non-bishop piece on the diagonal does not trigger a bishop attack", () => {
       for (const pt of [QUEEN, ROOK, PAWN, KNIGHT] as const) {
-        const c = boardCtx((b) =>
-          Board.place(b, H7, Square.create({ type: pt, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, H7, Square.create({ type: pt, color: WHITE })));
         expect(bishop.isAttacking(WHITE, E4, c)).toBe(false);
       }
     });
@@ -167,17 +152,13 @@ describe("Bishop", () => {
         [H1, A8],
       ];
       for (const [target, from] of pairs) {
-        const c = boardCtx((b) =>
-          Board.place(b, from, Square.create({ type: BISHOP, color: WHITE })),
-        );
+        const c = boardCtx((b) => Board.place(b, from, Square.create({ type: BISHOP, color: WHITE })));
         expect(bishop.isAttacking(WHITE, target, c)).toBe(true);
       }
     });
 
     test("a bishop sitting on the target square itself does not attack it", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, E4, Square.create({ type: BISHOP, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, E4, Square.create({ type: BISHOP, color: WHITE })));
       expect(bishop.isAttacking(WHITE, E4, c)).toBe(false);
     });
 
@@ -262,9 +243,7 @@ describe("Bishop", () => {
     });
 
     test("a blocker on the diagonal stops the scan but is included in the attacks", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, F6, Square.create({ type: PAWN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, F6, Square.create({ type: PAWN, color: WHITE })));
       const got = bishop.attacks([], D4, c);
       expect(got).toEqual([E5, F6, E3, F2, G1, C5, B6, A7, C3, B2, A1]);
     });
@@ -280,16 +259,12 @@ describe("Bishop", () => {
     });
 
     test("a blocker on a corner bishop's diagonal stops it early", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, C3, Square.create({ type: PAWN, color: WHITE })),
-      );
+      const c = boardCtx((b) => Board.place(b, C3, Square.create({ type: PAWN, color: WHITE })));
       expect(bishop.attacks([], A1, c)).toEqual([B2, C3]);
     });
 
     test("an enemy piece on the diagonal is included in the attacks (attacks does not filter by color)", () => {
-      const c = boardCtx((b) =>
-        Board.place(b, F6, Square.create({ type: PAWN, color: BLACK })),
-      );
+      const c = boardCtx((b) => Board.place(b, F6, Square.create({ type: PAWN, color: BLACK })));
       const got = bishop.attacks([], D4, c);
       expect(got).toEqual([E5, F6, E3, F2, G1, C5, B6, A7, C3, B2, A1]);
     });
@@ -300,21 +275,7 @@ describe("Bishop", () => {
       return moves.map((m) => m.to);
     }
 
-    const d4Empty: Position[] = [
-      E5,
-      F6,
-      G7,
-      H8,
-      E3,
-      F2,
-      G1,
-      C5,
-      B6,
-      A7,
-      C3,
-      B2,
-      A1,
-    ];
+    const d4Empty: Position[] = [E5, F6, G7, H8, E3, F2, G1, C5, B6, A7, C3, B2, A1];
 
     test("bishop on center D4 with an empty board has 13 moves along 4 diagonals", () => {
       const c = moveCtx(() => {}, WHITE);
@@ -323,25 +284,10 @@ describe("Bishop", () => {
     });
 
     test("a square occupied by an enemy piece is included as a capture and stops the slide", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, F6, Square.create({ type: PAWN, color: BLACK })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, F6, Square.create({ type: PAWN, color: BLACK })), WHITE);
       const moves = bishop.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        E5,
-        F6,
-        E3,
-        F2,
-        G1,
-        C5,
-        B6,
-        A7,
-        C3,
-        B2,
-        A1,
-      ]);
+      expect(dests(moves)).toEqual([E5, F6, E3, F2, G1, C5, B6, A7, C3, B2, A1]);
 
       const capture = moves.find((m) => m.to === F6);
       expect(capture).toBeDefined();
@@ -374,10 +320,7 @@ describe("Bishop", () => {
     });
 
     test("a square occupied by a friendly piece is excluded and stops the slide", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, F6, Square.create({ type: PAWN, color: WHITE })),
-        WHITE,
-      );
+      const c = moveCtx((b) => Board.place(b, F6, Square.create({ type: PAWN, color: WHITE })), WHITE);
       const moves = bishop.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual([E5, E3, F2, G1, C5, B6, A7, C3, B2, A1]);
@@ -402,19 +345,7 @@ describe("Bishop", () => {
 
       const moves = bishop.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        E5,
-        F6,
-        E3,
-        F2,
-        G1,
-        C5,
-        B6,
-        A7,
-        C3,
-        B2,
-        A1,
-      ]);
+      expect(dests(moves)).toEqual([E5, F6, E3, F2, G1, C5, B6, A7, C3, B2, A1]);
     });
 
     test("after capturing an enemy, a friendly piece behind it is unreachable", () => {
@@ -425,19 +356,7 @@ describe("Bishop", () => {
 
       const moves = bishop.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        E5,
-        F6,
-        E3,
-        F2,
-        G1,
-        C5,
-        B6,
-        A7,
-        C3,
-        B2,
-        A1,
-      ]);
+      expect(dests(moves)).toEqual([E5, F6, E3, F2, G1, C5, B6, A7, C3, B2, A1]);
     });
 
     test("a mix of friendly and enemy on all four diagonals yields only the captures", () => {
@@ -465,25 +384,10 @@ describe("Bishop", () => {
     });
 
     test("a black bishop treats white pieces as enemies (captures) and black as own", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, F6, Square.create({ type: PAWN, color: WHITE })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, F6, Square.create({ type: PAWN, color: WHITE })), BLACK);
       const moves = bishop.pseudoLegalMoves([], D4, c);
 
-      expect(dests(moves)).toEqual([
-        E5,
-        F6,
-        E3,
-        F2,
-        G1,
-        C5,
-        B6,
-        A7,
-        C3,
-        B2,
-        A1,
-      ]);
+      expect(dests(moves)).toEqual([E5, F6, E3, F2, G1, C5, B6, A7, C3, B2, A1]);
 
       const capture = moves.find((m) => m.to === F6);
       expect(capture).toBeDefined();
@@ -491,10 +395,7 @@ describe("Bishop", () => {
     });
 
     test("a black bishop treats black pieces as own (excluded)", () => {
-      const c = moveCtx(
-        (b) => Board.place(b, F6, Square.create({ type: PAWN, color: BLACK })),
-        BLACK,
-      );
+      const c = moveCtx((b) => Board.place(b, F6, Square.create({ type: PAWN, color: BLACK })), BLACK);
       const moves = bishop.pseudoLegalMoves([], D4, c);
 
       expect(dests(moves)).toEqual([E5, E3, F2, G1, C5, B6, A7, C3, B2, A1]);

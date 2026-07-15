@@ -11,6 +11,7 @@ const onMessageNoop = (_type: string, _handler: unknown) => () => {}
 
 const serverState: SocketState = {
   status: "connecting",
+  prevStatus: null,
   attempt: 0,
   disconnectedAt: null,
 }
@@ -45,6 +46,7 @@ export function SocketProvider({
   const socket = useMemo<Socket>(
     () => ({
       status: state.status,
+      prevStatus: state.prevStatus,
       attempt: state.attempt,
       send: client?.send ?? noop,
       reconnect: client?.reconnect ?? noop,
@@ -52,7 +54,7 @@ export function SocketProvider({
       onAnyMessage: client?.onAnyMessage ?? cbNoop,
       onAnySend: client?.onAnySend ?? cbNoop,
     }),
-    [state.status, state.attempt, client]
+    [state.status, state.prevStatus, state.attempt, client]
   )
 
   return (

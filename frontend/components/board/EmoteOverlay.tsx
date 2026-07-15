@@ -33,7 +33,7 @@ export function EmoteOverlay({ emote }: EmoteOverlayProps) {
         }
       `}</style>
       <span
-        className="inline-block text-5xl drop-shadow-lg select-none pointer-events-none"
+        className="pointer-events-none inline-block text-5xl drop-shadow-lg select-none"
         style={{
           animation: fading
             ? "emote-out 0.4s ease-in forwards"

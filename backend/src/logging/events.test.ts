@@ -1,13 +1,15 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { Hub, DEFERRED } from "../server/bus/bus";
-import type { Subscriber } from "../server/bus/bus";
-import { CONNECTION_OPENED, ROOM_JOINED } from "../server/protocol/events";
+
+import type { Subscriber } from "../server/events/hub";
+import { Hub } from "../server/events/hub";
 import type { Event } from "../server/protocol/events";
-import { WHITE } from "../server/types";
+import { CONNECTION_OPENED, ROOM_JOINED } from "../server/protocol/events";
 import type { GameSnapshot } from "../server/types";
+import { WHITE } from "../server/types";
+import { DEFERRED } from "../server/types/priority";
+import { DEBUG, JSON_FORMAT, type LogConfig, PRETTY_FORMAT } from "./config";
 import { EventLog } from "./events";
-import type { LogSink, LogEntry } from "./sink";
-import type { LogConfig } from "./config";
+import type { LogEntry, LogSink } from "./sink";
 
 const joined: Event = {
   type: ROOM_JOINED,
@@ -26,8 +28,8 @@ const opened: Event = {
 function makeConfig(overrides: Partial<LogConfig> = {}): LogConfig {
   return {
     enabled: true,
-    level: "debug",
-    format: "pretty",
+    level: DEBUG,
+    format: PRETTY_FORMAT,
     exclude: new Set(),
     sampleRates: new Map(),
     filePath: null,
@@ -102,9 +104,7 @@ describe("EventLog event handling (via a real Hub)", () => {
     await flush();
 
     expect(write).toHaveBeenCalledTimes(1);
-    expect(write).toHaveBeenCalledWith(
-      expect.objectContaining({ roomId: null, type: CONNECTION_OPENED }),
-    );
+    expect(write).toHaveBeenCalledWith(expect.objectContaining({ roomId: null, type: CONNECTION_OPENED }));
   });
 
   it("drops event types listed in config.exclude", async () => {
@@ -236,7 +236,7 @@ describe("EventLog default sink selection", () => {
     const log = spyOn(console, "log").mockImplementation(() => {});
     try {
       const hub = new Hub();
-      new EventLog(makeConfig({ format: "pretty" })).start(hub);
+      new EventLog(makeConfig({ format: PRETTY_FORMAT })).start(hub);
 
       hub.emit(joined);
       await flush();
@@ -251,7 +251,7 @@ describe("EventLog default sink selection", () => {
     const write = spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
       const hub = new Hub();
-      new EventLog(makeConfig({ format: "json" })).start(hub);
+      new EventLog(makeConfig({ format: JSON_FORMAT })).start(hub);
 
       hub.emit(joined);
       await flush();

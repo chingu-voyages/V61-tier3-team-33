@@ -8,7 +8,9 @@ beforeEach(() => {
 
 describe("AudioClient", () => {
   function makeClient() {
-    return new AudioClient({ audioCtor: FakeAudioContext as unknown as typeof AudioContext })
+    return new AudioClient({
+      audioCtor: FakeAudioContext as unknown as typeof AudioContext,
+    })
   }
 
   test("snapshot returns initial state", () => {

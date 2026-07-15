@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
+import { BLACK, WHITE } from "../types";
 import { Grace } from "./grace";
-import { WHITE, BLACK } from "../types";
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));

@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useReducer, useCallback, useEffect, useRef } from "react"
+import { use, useReducer, useCallback, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { TimeControl as TimeControlPicker } from "./TimeControl"
 import { RoomInvite } from "./RoomInvite"
@@ -9,34 +9,52 @@ import { View } from "@/components/board/View"
 import { playReducer, createInitialPhase } from "./play-reducer"
 import type { PlayMode, TimeControl } from "./types"
 import { useGameActions } from "@/socket/use-action"
-import { useSocketEvent } from "@/socket/use-event"
-import { GAME_STARTED, ROOM_JOINED } from "@/socket/events"
-import { SESSION_ERROR } from "@/socket/errors"
-import { ClockFormat, HUMAN_VS_HUMAN, ACTIVE } from "@/socket/types"
 import { SessionContext } from "@/context/session/session-context"
 import { useRoom } from "@/context/room/context"
 import { gooeyToast } from "@/components/ui/goey-toaster"
 import { KnightPulse } from "./KnightPulse"
+import { useAutoJoin } from "./use-auto-join"
+import { useRoomSync } from "./use-room-sync"
+import { HUMAN_VS_HUMAN, ClockFormat, ACTIVE } from "@/socket/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 interface PlayScreenProps {
   mode: PlayMode
   roomId?: string
+  modeExplicit?: boolean
 }
 
-export function PlayScreen({ mode, roomId }: PlayScreenProps) {
+export function PlayScreen({
+  mode,
+  roomId,
+  modeExplicit = false,
+}: PlayScreenProps) {
   const router = useRouter()
-  const [phase, dispatch] = useReducer(playReducer, { mode, roomId }, createInitialPhase)
+  const [phase, dispatch] = useReducer(
+    playReducer,
+    { mode, roomId },
+    createInitialPhase
+  )
   const actions = useGameActions()
   const session = use(SessionContext)
-  const joinSentRef = useRef(false)
-  const connectionGenRef = useRef(0)
   const room = useRoom()
+  const pendingCreateRef = useRef(false)
+  const [pendingSwitch, setPendingSwitch] = useState<
+    | { kind: "friend"; tc: TimeControl }
+    | { kind: "online"; tc: TimeControl }
+    | null
+  >(null)
 
-  useEffect(() => {
-    if (room.state.roomId && room.state.status !== null && room.state.status >= ACTIVE && phase.phase !== "play") {
-      dispatch({ type: "OPPONENT_JOINED" })
-    }
-  }, [room.state.roomId, room.state.status, phase.phase])
+  useAutoJoin(phase, session, actions, dispatch)
+  useRoomSync(room, phase, dispatch, modeExplicit, pendingCreateRef)
 
   const goHome = useCallback(() => {
     if (phase.phase !== "pick-time") {
@@ -45,24 +63,46 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
     router.push("/")
   }, [router, actions, phase])
 
+  const inOtherActiveGame = room.state.status === ACTIVE
+
+  const runCreateRoom = useCallback(
+    (tc: TimeControl) => {
+      pendingCreateRef.current = true
+      dispatch({ type: "CREATE_ROOM", timeControl: tc })
+      // Explicit create intent — backend always assigns its own canonical
+      // id, returned in room:joined. No client-generated roomId involved.
+      actions.joinRoom({
+        mode: HUMAN_VS_HUMAN,
+        create: true,
+        clock: ClockFormat(tc.id),
+      })
+    },
+    [actions]
+  )
+
+  const runStartSearch = useCallback(
+    (tc: TimeControl) => {
+      dispatch({ type: "START_SEARCH", timeControl: tc })
+      actions.joinRoom({ mode: HUMAN_VS_HUMAN, clock: ClockFormat(tc.id) })
+    },
+    [actions]
+  )
+
   const createRoom = useCallback(
     (tc: TimeControl) => {
-      // Guard against clicking before handshake — prevents stranded invite phase.
       if (!session) {
         gooeyToast.error("Still connecting\u2026", {
           description: "Hang tight, try again in a moment.",
         })
         return
       }
-      const id = crypto.randomUUID().slice(0, 8)
-      dispatch({
-        type: "CREATE_ROOM",
-        roomId: id,
-        timeControl: tc,
-      })
-      actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: id, clock: ClockFormat(tc.id) })
+      if (inOtherActiveGame) {
+        setPendingSwitch({ kind: "friend", tc })
+        return
+      }
+      runCreateRoom(tc)
     },
-    [actions, session]
+    [session, inOtherActiveGame, runCreateRoom]
   )
 
   const startSearch = useCallback(
@@ -73,56 +113,69 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
         })
         return
       }
-      dispatch({ type: "START_SEARCH", timeControl: tc })
-      actions.joinRoom({ mode: HUMAN_VS_HUMAN, clock: ClockFormat(tc.id) })
+      if (inOtherActiveGame) {
+        setPendingSwitch({ kind: "online", tc })
+        return
+      }
+      runStartSearch(tc)
     },
-    [actions, session]
+    [session, inOtherActiveGame, runStartSearch]
   )
 
-  // Auto-join via invite link. Re-fires on reconnect when session flips to non-null.
-  useEffect(() => {
-    if (session && phase.phase === "joining" && !joinSentRef.current) {
-      joinSentRef.current = true
-      connectionGenRef.current++
-      actions.joinRoom({ mode: HUMAN_VS_HUMAN, roomId: phase.roomId })
-    }
-  }, [session, phase, actions])
+  const confirmSwitch = useCallback(() => {
+    if (!pendingSwitch) return
+    const { kind, tc } = pendingSwitch
+    setPendingSwitch(null)
+    if (kind === "friend") runCreateRoom(tc)
+    else runStartSearch(tc)
+  }, [pendingSwitch, runCreateRoom, runStartSearch])
 
-  useSocketEvent(SESSION_ERROR, (msg) => {
-    if (phase.phase !== "joining") return
-    joinSentRef.current = false
-    gooeyToast.error("Couldn't join game", { description: msg.message })
-    dispatch({ type: "JOIN_FAILED", mode: "friend" })
-  })
-
-  useSocketEvent(GAME_STARTED, () => {
-    dispatch({ type: "OPPONENT_JOINED" })
-  })
-
-  useSocketEvent(ROOM_JOINED, (msg) => {
-    if (msg.state.status >= ACTIVE) {
-      dispatch({ type: "OPPONENT_JOINED" })
-    }
-  })
-
-  if (phase.phase === "joining") {
+  if (phase.phase === "joining" || phase.phase === "creating") {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
         <KnightPulse />
-        <p className="text-sm text-muted-foreground">Joining game…</p>
+        <p className="text-sm text-muted-foreground">
+          {phase.phase === "creating"
+            ? "Creating room\u2026"
+            : "Joining game\u2026"}
+        </p>
       </div>
     )
   }
 
   if (phase.phase === "pick-time") {
     return (
-      <TimeControlPicker
-        mode={phase.mode}
-        open
-        connecting={!session}
-        onPick={phase.mode === "friend" ? createRoom : startSearch}
-        onCancel={goHome}
-      />
+      <>
+        <TimeControlPicker
+          mode={phase.mode}
+          open
+          connecting={!session}
+          onPick={phase.mode === "friend" ? createRoom : startSearch}
+          onCancel={goHome}
+        />
+        <Dialog
+          open={pendingSwitch !== null}
+          onOpenChange={(next) => {
+            if (!next) setPendingSwitch(null)
+          }}
+        >
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Leave your current game?</DialogTitle>
+              <DialogDescription>
+                You&apos;re still in an active game. Starting a new one will end
+                that game as a loss for you — your opponent will be notified.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPendingSwitch(null)}>
+                Stay in my game
+              </Button>
+              <Button onClick={confirmSwitch}>Leave &amp; continue</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     )
   }
 
@@ -137,12 +190,7 @@ export function PlayScreen({ mode, roomId }: PlayScreenProps) {
   }
 
   if (phase.phase === "search") {
-    return (
-      <MatchSearch
-        timeControl={phase.timeControl}
-        onCancel={goHome}
-      />
-    )
+    return <MatchSearch timeControl={phase.timeControl} onCancel={goHome} />
   }
 
   return <View onLeave={goHome} />

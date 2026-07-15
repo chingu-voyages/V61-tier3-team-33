@@ -1,10 +1,5 @@
-import {
-  INVALID_BASE_DELAY,
-  INVALID_MAX_ATTEMPTS,
-  INVALID_MAX_DELAY,
-  type RetryConfigErrorCode,
-} from "../types";
-import { logger as rootLogger } from "../../logging/log";
+import { logger as rootLogger } from "../../logging/logger";
+import { INVALID_BASE_DELAY, INVALID_MAX_ATTEMPTS, INVALID_MAX_DELAY, type RetryConfigErrorCode } from "../types";
 
 const log = rootLogger.child({ module: "Retry" });
 
@@ -39,22 +34,13 @@ export class Retry {
     private maxDelayMs = DEFAULT_MAX_DELAY_MS,
   ) {
     if (maxAttempts < 1) {
-      throw new RetryConfigError(
-        INVALID_MAX_ATTEMPTS,
-        "maxAttempts must be at least 1",
-      );
+      throw new RetryConfigError(INVALID_MAX_ATTEMPTS, "maxAttempts must be at least 1");
     }
     if (baseDelayMs < 0) {
-      throw new RetryConfigError(
-        INVALID_BASE_DELAY,
-        "baseDelayMs must not be negative",
-      );
+      throw new RetryConfigError(INVALID_BASE_DELAY, "baseDelayMs must not be negative");
     }
     if (maxDelayMs < baseDelayMs) {
-      throw new RetryConfigError(
-        INVALID_MAX_DELAY,
-        "maxDelayMs must not be less than baseDelayMs",
-      );
+      throw new RetryConfigError(INVALID_MAX_DELAY, "maxDelayMs must not be less than baseDelayMs");
     }
   }
 
@@ -67,22 +53,22 @@ export class Retry {
         return await fn();
       } catch (e) {
         lastError = e;
-        const isLastAttempt = attempt === this.maxAttempts - 1;
-        if (!isLastAttempt) {
-          const delay = this.backoffDelay(attempt);
-          log.warn("attempt failed, retrying", {
-            attempt: attempt + 1,
-            maxAttempts: this.maxAttempts,
-            delayMs: Math.round(delay),
-            error: e instanceof Error ? e.message : String(e),
-          });
-          await Bun.sleep(delay);
-        } else {
+        if (attempt === this.maxAttempts - 1) {
           log.error("all attempts exhausted", {
             attempts: this.maxAttempts,
             error: e instanceof Error ? e.message : String(e),
           });
+          continue;
         }
+
+        const delay = this.backoffDelay(attempt);
+        log.warn("attempt failed, retrying", {
+          attempt: attempt + 1,
+          maxAttempts: this.maxAttempts,
+          delayMs: Math.round(delay),
+          error: e instanceof Error ? e.message : String(e),
+        });
+        await Bun.sleep(delay);
       }
     }
 

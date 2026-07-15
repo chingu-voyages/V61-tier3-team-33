@@ -1,8 +1,7 @@
 import type { Brand } from "./brand";
 import type { Piece, PieceType } from "./piece";
-
 import { PAWN, WHITE } from "./piece";
-import { Position, Rank, FILE_A, FILE_D, FILE_F, FILE_H } from "./position";
+import { FILE_A, FILE_D, FILE_F, FILE_H, Position, Rank } from "./position";
 
 /** Discriminates between the four kinds of chess moves. */
 export type MoveType = Brand<number, "MoveType">;
@@ -100,19 +99,11 @@ export const Move = {
 
   /** Returns `true` when both moves represent the same board action. */
   isEqual(a: Move, b: Move): boolean {
-    if (
-      a.from !== b.from ||
-      a.to !== b.to ||
-      a.type !== b.type ||
-      a.piece.type !== b.piece.type
-    ) {
+    if (a.from !== b.from || a.to !== b.to || a.type !== b.type || a.piece.type !== b.piece.type) {
       return false;
     }
     if (a.promoteTo !== b.promoteTo) return false;
-    return (
-      a.captured?.type === b.captured?.type &&
-      a.captured?.color === b.captured?.color
-    );
+    return a.captured?.type === b.captured?.type && a.captured?.color === b.captured?.color;
   },
 
   /**

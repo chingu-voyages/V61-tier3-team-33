@@ -1,10 +1,9 @@
-import type { Move } from "../core/move";
-import type { TurnContext } from "../core/state";
-
 import { Board, Square } from "../core/board";
-import { KING, PAWN, BLACK } from "../core/piece";
-import { Move as MoveHelper, NORMAL, PROMOTION, CASTLING, EN_PASSANT } from "../core/move";
 import { Snapshot } from "../core/history";
+import type { Move } from "../core/move";
+import { CASTLING, EN_PASSANT, Move as MoveHelper, NORMAL, PROMOTION } from "../core/move";
+import { BLACK, KING, PAWN } from "../core/piece";
+import type { TurnContext } from "../core/state";
 import { MoveContext, SideState } from "../core/state";
 
 export function applyImpl(ctx: TurnContext, move: Move): Snapshot {

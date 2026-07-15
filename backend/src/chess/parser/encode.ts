@@ -1,8 +1,7 @@
-import type { TurnContext } from "../core/state";
-
 import { Board, Square } from "../core/board";
-import { Piece, WHITE, BLACK } from "../core/piece";
-import { Position, File, Rank, NO_POSITION } from "../core/position";
+import { BLACK, Piece, WHITE } from "../core/piece";
+import { File, NO_POSITION, Position, Rank } from "../core/position";
+import type { TurnContext } from "../core/state";
 import { MoveContext } from "../core/state";
 
 /**

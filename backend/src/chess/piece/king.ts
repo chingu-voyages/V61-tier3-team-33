@@ -1,22 +1,21 @@
-import type { IPiece } from "./piece";
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-import type { PieceColor, Piece } from "../core/piece";
-
 import { Board, Square } from "../core/board";
-import { KING } from "../core/piece";
-import { Position, File, Rank } from "../core/position";
+import type { Move } from "../core/move";
 import { NORMAL } from "../core/move";
+import type { Piece, PieceColor } from "../core/piece";
+import { KING } from "../core/piece";
+import { File, Position, Rank } from "../core/position";
+import type { BoardContext, MoveContext } from "../core/state";
+import type { IPiece } from "./piece";
 
 // King moves one square in any direction: straight (rook) + diagonal (bishop).
 export const KingDirections: [number, number][] = [
-  [0, 1],  // up
+  [0, 1], // up
   [0, -1], // down
   [-1, 0], // left
-  [1, 0],  // right
-  [1, 1],   // up-right
-  [1, -1],  // down-right
-  [-1, 1],  // up-left
+  [1, 0], // right
+  [1, 1], // up-right
+  [1, -1], // down-right
+  [-1, 1], // up-left
   [-1, -1], // down-left
 ];
 

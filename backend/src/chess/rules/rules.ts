@@ -1,7 +1,7 @@
+import type { GameResult } from "../core/game";
 import type { TurnContext } from "../core/state";
 import type { IEngine } from "../engine/engine";
 import type { ITracker } from "../tracker/tracker";
-import type { GameResult } from "../core/game";
 
 /**
  * Evaluates chess game-ending conditions and produces a GameResult after each move.
@@ -89,10 +89,5 @@ export interface IRules {
    * `hasAnyLegalMoves` is called at most once regardless of how many
    * conditions are checked.
    */
-  getGameResult(
-    ctx: TurnContext,
-    engine: IEngine,
-    tracker: ITracker,
-    hash: bigint,
-  ): GameResult;
+  getGameResult(ctx: TurnContext, engine: IEngine, tracker: ITracker, hash: bigint): GameResult;
 }

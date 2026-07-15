@@ -1,11 +1,10 @@
 import type { Move } from "../core/move";
-import type { TurnContext } from "../core/state";
-import type { IEngine } from "../engine/engine";
-
+import { CASTLING, EN_PASSANT, PROMOTION } from "../core/move";
 import { PAWN } from "../core/piece";
-import { CASTLING, PROMOTION, EN_PASSANT } from "../core/move";
-import { Position, File, Rank } from "../core/position";
+import { File, Position, Rank } from "../core/position";
+import type { TurnContext } from "../core/state";
 import { getDefaultEngine } from "../engine/default";
+import type { IEngine } from "../engine/engine";
 
 const PIECE_LETTERS = ["", "N", "B", "R", "Q", "K"] as const;
 
@@ -47,12 +46,7 @@ export interface ISan {
    * @param isCheckmate - True if the move is checkmate.
    * @returns The SAN string.
    */
-  encode(
-    move: Move,
-    ctx: TurnContext,
-    isCheck: boolean,
-    isCheckmate: boolean,
-  ): string;
+  encode(move: Move, ctx: TurnContext, isCheck: boolean, isCheckmate: boolean): string;
 }
 
 /**
@@ -64,18 +58,12 @@ export interface ISan {
 export class San implements ISan {
   constructor(private readonly engine: IEngine = getDefaultEngine()) {}
 
-  encode(
-    move: Move,
-    ctx: TurnContext,
-    isCheck: boolean,
-    isCheckmate: boolean,
-  ): string {
+  encode(move: Move, ctx: TurnContext, isCheck: boolean, isCheckmate: boolean): string {
     // Castling has its own notation and skips everything below (piece
     // letter, disambiguation, capture/destination, promotion).
     if (move.type === CASTLING) {
       // King moves toward the h-file for kingside, a-file for queenside.
-      const base =
-        Position.file(move.to) > Position.file(move.from) ? "O-O" : "O-O-O";
+      const base = Position.file(move.to) > Position.file(move.from) ? "O-O" : "O-O-O";
       return base + suffix(isCheck, isCheckmate);
     }
 
@@ -126,12 +114,8 @@ export class San implements ISan {
     const ambiguous = this.findAmbiguousPieces(move, ctx);
     if (ambiguous.length === 0) return "";
 
-    const sameFile = ambiguous.some(
-      (p) => Position.file(p) === Position.file(move.from),
-    );
-    const sameRank = ambiguous.some(
-      (p) => Position.rank(p) === Position.rank(move.from),
-    );
+    const sameFile = ambiguous.some((p) => Position.file(p) === Position.file(move.from));
+    const sameRank = ambiguous.some((p) => Position.rank(p) === Position.rank(move.from));
 
     if (!sameFile) {
       // No other ambiguous piece shares our file — file letter alone disambiguates.
@@ -164,9 +148,7 @@ export class San implements ISan {
       buffer.length = 0;
       const legal = this.engine.getLegalMoves(buffer, from, ctx);
 
-      const sameTypeAndTarget = legal.some(
-        (m) => m.piece.type === move.piece.type && m.to === move.to,
-      );
+      const sameTypeAndTarget = legal.some((m) => m.piece.type === move.piece.type && m.to === move.to);
       if (sameTypeAndTarget) ambiguous.push(from);
     }
 

@@ -1,19 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { getDefaultRules } from "./default";
-import { getDefaultEngine } from "../engine/default";
-import { getDefaultParser } from "../parser/default";
-import { getDefaultTracker } from "../tracker/default";
+
 import {
-  IN_PROGRESS,
   CHECKMATE,
   DRAW,
+  FIFTY_MOVE_RULE,
+  IN_PROGRESS,
+  INSUFFICIENT_MATERIAL,
   STALEMATE,
   THREEFOLD_REPETITION,
-  FIFTY_MOVE_RULE,
-  INSUFFICIENT_MATERIAL,
 } from "../core/game";
 import { BLACK } from "../core/piece";
 import type { TurnContext } from "../core/state";
+import { getDefaultEngine } from "../engine/default";
+import { getDefaultParser } from "../parser/default";
+import { getDefaultTracker } from "../tracker/default";
+import { getDefaultRules } from "./default";
 
 describe("Rules", () => {
   const rules = getDefaultRules();
@@ -28,30 +29,22 @@ describe("Rules", () => {
 
   describe("isFiftyMoveRule", () => {
     test("halfmove clock below 100 returns false", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(rules.isFiftyMoveRule(ctx)).toBe(false);
     });
 
     test("halfmove clock at 99 returns false", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 99 50",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 99 50");
       expect(rules.isFiftyMoveRule(ctx)).toBe(false);
     });
 
     test("halfmove clock at 100 returns true", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 100 50",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 100 50");
       expect(rules.isFiftyMoveRule(ctx)).toBe(true);
     });
 
     test("halfmove clock above 100 returns true", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 150 75",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 150 75");
       expect(rules.isFiftyMoveRule(ctx)).toBe(true);
     });
   });
@@ -132,25 +125,19 @@ describe("Rules", () => {
     });
 
     test("starting position returns false", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(rules.isInsufficientMaterial(ctx)).toBe(false);
     });
   });
 
   describe("isCheckMate", () => {
     test("fool's mate position returns true", () => {
-      const ctx = decode(
-        "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
-      );
+      const ctx = decode("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");
       expect(rules.isCheckMate(ctx, engine)).toBe(true);
     });
 
     test("starting position returns false", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(rules.isCheckMate(ctx, engine)).toBe(false);
     });
 
@@ -167,25 +154,19 @@ describe("Rules", () => {
     });
 
     test("starting position returns false", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       expect(rules.isStaleMate(ctx, engine)).toBe(false);
     });
 
     test("a checkmated position returns false (in check)", () => {
-      const ctx = decode(
-        "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
-      );
+      const ctx = decode("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");
       expect(rules.isStaleMate(ctx, engine)).toBe(false);
     });
   });
 
   describe("getGameResult", () => {
     test("starting position returns IN_PROGRESS", () => {
-      const ctx = decode(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      );
+      const ctx = decode("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       const tracker = getDefaultTracker();
       const result = rules.getGameResult(ctx, engine, tracker, 0n);
       expect(result.status).toBe(IN_PROGRESS);
@@ -219,9 +200,7 @@ describe("Rules", () => {
     });
 
     test("checkmate returns CHECKMATE with the winner set", () => {
-      const ctx = decode(
-        "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
-      );
+      const ctx = decode("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");
       const tracker = getDefaultTracker();
       const result = rules.getGameResult(ctx, engine, tracker, 0n);
       expect(result.status).toBe(CHECKMATE);
@@ -238,9 +217,7 @@ describe("Rules", () => {
     });
 
     test("fifty-move rule takes priority over checkmate", () => {
-      const ctx = decode(
-        "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 100 50",
-      );
+      const ctx = decode("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 100 50");
       const tracker = getDefaultTracker();
       const result = rules.getGameResult(ctx, engine, tracker, 0n);
       expect(result.drawReason).toBe(FIFTY_MOVE_RULE);

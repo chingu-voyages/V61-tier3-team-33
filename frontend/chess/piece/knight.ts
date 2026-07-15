@@ -1,12 +1,12 @@
-import type { IPiece } from "./piece";
-import type { Move } from "../core/move";
-import type { BoardContext, MoveContext } from "../core/state";
-import type { PieceColor, Piece } from "../core/piece";
+import type { IPiece } from "./piece"
+import type { Move } from "../core/move"
+import type { BoardContext, MoveContext } from "../core/state"
+import type { PieceColor, Piece } from "../core/piece"
 
-import { Board, Square } from "../core/board";
-import { KNIGHT } from "../core/piece";
-import { Position, File, Rank } from "../core/position";
-import { NORMAL } from "../core/move";
+import { Board, Square } from "../core/board"
+import { KNIGHT } from "../core/piece"
+import { Position, File, Rank } from "../core/position"
+import { NORMAL } from "../core/move"
 
 export const KnightDirections: [number, number][] = [
   [1, 2],
@@ -17,63 +17,57 @@ export const KnightDirections: [number, number][] = [
   [2, -1],
   [-2, 1],
   [-2, -1],
-];
+]
 
 export class Knight implements IPiece {
   isAttacking(color: PieceColor, target: Position, ctx: BoardContext): boolean {
     for (const [fileDelta, rankDelta] of KnightDirections) {
-      const [nextFile, isFileValid] = File.add(
-        Position.file(target),
-        fileDelta,
-      );
-      const [nextRank, isRankValid] = Rank.add(
-        Position.rank(target),
-        rankDelta,
-      );
+      const [nextFile, isFileValid] = File.add(Position.file(target), fileDelta)
+      const [nextRank, isRankValid] = Rank.add(Position.rank(target), rankDelta)
 
       if (!isFileValid || !isRankValid) {
-        continue;
+        continue
       }
 
-      const position = Position.create(nextFile, nextRank);
-      const square = Board.at(ctx.board, position);
+      const position = Position.create(nextFile, nextRank)
+      const square = Board.at(ctx.board, position)
       if (Square.isOccupiedByAny(square, color, KNIGHT)) {
-        return true;
+        return true
       }
     }
 
-    return false;
+    return false
   }
 
   attacks(attacks: Position[], from: Position, _ctx: BoardContext): Position[] {
     for (const [fileDelta, rankDelta] of KnightDirections) {
-      const [file, isFileValid] = File.add(Position.file(from), fileDelta);
-      const [rank, isRankValid] = Rank.add(Position.rank(from), rankDelta);
+      const [file, isFileValid] = File.add(Position.file(from), fileDelta)
+      const [rank, isRankValid] = Rank.add(Position.rank(from), rankDelta)
 
       if (isFileValid && isRankValid) {
-        attacks.push(Position.create(file, rank));
+        attacks.push(Position.create(file, rank))
       }
     }
 
-    return attacks;
+    return attacks
   }
 
   pseudoLegalMoves(moves: Move[], from: Position, ctx: MoveContext): Move[] {
-    const piece: Piece = { type: KNIGHT, color: ctx.sideToMove };
+    const piece: Piece = { type: KNIGHT, color: ctx.sideToMove }
 
     for (const [fileDelta, rankDelta] of KnightDirections) {
-      const [file, isFileValid] = File.add(Position.file(from), fileDelta);
-      const [rank, isRankValid] = Rank.add(Position.rank(from), rankDelta);
+      const [file, isFileValid] = File.add(Position.file(from), fileDelta)
+      const [rank, isRankValid] = Rank.add(Position.rank(from), rankDelta)
 
       if (!isFileValid || !isRankValid) {
-        continue;
+        continue
       }
 
-      const to = Position.create(file, rank);
-      const square = Board.at(ctx.board, to);
+      const to = Position.create(file, rank)
+      const square = Board.at(ctx.board, to)
 
       if (Square.isOccupiedBy(square, ctx.sideToMove)) {
-        continue;
+        continue
       }
 
       const move: Move = {
@@ -83,18 +77,18 @@ export class Knight implements IPiece {
         type: NORMAL,
         promoteTo: null,
         captured: null,
-      };
+      }
 
       if (Square.isOccupied(square)) {
         move.captured = {
           type: Square.pieceType(square),
           color: Square.pieceColor(square),
-        };
+        }
       }
 
-      moves.push(move);
+      moves.push(move)
     }
 
-    return moves;
+    return moves
   }
 }

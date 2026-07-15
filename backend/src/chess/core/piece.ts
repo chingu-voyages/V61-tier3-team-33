@@ -1,6 +1,5 @@
 import type { Brand } from "./brand";
 import type { Rank } from "./position";
-
 import { RANK_1, RANK_8 } from "./position";
 
 /** One of the 6 chess piece types (0–5). */
@@ -18,20 +17,17 @@ export const KING: PieceType = PieceType(5);
 /** Side to move or piece ownership (0 = white, 1 = black). */
 export type PieceColor = Brand<number, "PieceColor">;
 
-export const PieceColor = Object.assign(
-  (value: number): PieceColor => value as PieceColor,
-  {
-    /** Returns the opponent's color. */
-    opponent(color: PieceColor): PieceColor {
-      return color === WHITE ? BLACK : WHITE;
-    },
-
-    /** Returns the back rank index for the given color (white → 0, black → 7). */
-    kingStartRank(color: PieceColor): Rank {
-      return color === WHITE ? RANK_1 : RANK_8;
-    },
+export const PieceColor = Object.assign((value: number): PieceColor => value as PieceColor, {
+  /** Returns the opponent's color. */
+  opponent(color: PieceColor): PieceColor {
+    return color === WHITE ? BLACK : WHITE;
   },
-);
+
+  /** Returns the back rank index for the given color (white → 0, black → 7). */
+  kingStartRank(color: PieceColor): Rank {
+    return color === WHITE ? RANK_1 : RANK_8;
+  },
+});
 
 export const WHITE: PieceColor = PieceColor(0);
 export const BLACK: PieceColor = PieceColor(1);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { Mutex } from "./mutex";
 
 describe("Mutex", () => {

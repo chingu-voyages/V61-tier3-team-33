@@ -1,43 +1,56 @@
-import type { Codec } from "./codec";
+import { logger as rootLogger } from "../../logging/logger";
 import type { Command } from "../protocol/commands";
-import type { Notification } from "../protocol/events";
-import { logger as rootLogger } from "../../logging/log";
+import type { Codec } from "./codec";
 
 const log = rootLogger.child({ module: "JsonCodec" });
 import {
-  SESSION_HANDSHAKE,
-  SESSION_PONG,
+  EMOTE_SEND,
+  GAME_RESIGN,
+  MOVE_MAKE,
+  POSITION_SELECT,
   ROOM_JOIN,
   ROOM_LEAVE,
-  MOVE_MAKE,
-  UNDO_REQUEST,
-  UNDO_ACCEPT,
-  UNDO_DECLINE,
-  GAME_RESIGN,
+  SESSION_HANDSHAKE,
+  SESSION_PONG,
   STATE_SYNC,
-  POSITION_SELECT,
-  EMOTE_SEND,
+  UNDO_ACCEPT,
+  UNDO_CANCEL,
+  UNDO_DECLINE,
+  UNDO_REQUEST,
 } from "../protocol/commands";
 import {
-  DEFAULT,
-  BULLET,
+  AI_VS_AI,
+  BISHOP,
+  BLACK,
   BLITZ,
-  SWIFT,
-  STEADY,
-  PATIENT,
+  BULLET,
   CASUAL,
   type ClockFormat,
+  DEFAULT,
+  EASY,
+  HARD,
+  HUMAN_VS_AI,
+  HUMAN_VS_HUMAN,
+  KNIGHT,
+  MEDIUM,
+  PATIENT,
+  QUEEN,
+  ROOK,
+  STEADY,
+  SWIFT,
+  WHITE,
 } from "../types";
 
-const CLOCK_FORMATS: ReadonlySet<string> = new Set([
-  DEFAULT,
-  BULLET,
-  BLITZ,
-  SWIFT,
-  STEADY,
-  PATIENT,
-  CASUAL,
-]);
+const POSITION_MIN = 0;
+const POSITION_MAX = 63;
+
+const isValidPosition = (v: unknown): v is number => typeof v === "number" && v >= POSITION_MIN && v <= POSITION_MAX;
+const GAME_MODES: ReadonlySet<number> = new Set([HUMAN_VS_HUMAN, HUMAN_VS_AI, AI_VS_AI]);
+const PIECE_COLORS: ReadonlySet<number> = new Set([WHITE, BLACK]);
+const DIFFICULTIES: ReadonlySet<number> = new Set([EASY, MEDIUM, HARD]);
+const PROMOTION_PIECES: ReadonlySet<number> = new Set([KNIGHT, BISHOP, ROOK, QUEEN]);
+
+const CLOCK_FORMATS: ReadonlySet<string> = new Set([DEFAULT, BULLET, BLITZ, SWIFT, STEADY, PATIENT, CASUAL]);
 
 const optionalClockFormat = (v: unknown): ClockFormat | undefined => {
   if (v === undefined) return undefined;
@@ -54,14 +67,16 @@ function isPlainObject(value: unknown): value is Raw {
 }
 
 const optionalString = (v: unknown): string | undefined =>
-  v === undefined || typeof v === "string"
-    ? (v as string | undefined)
-    : undefined;
+  v === undefined || typeof v === "string" ? (v as string | undefined) : undefined;
 
 const optionalNumber = (v: unknown): number | undefined =>
-  v === undefined || typeof v === "number"
-    ? (v as number | undefined)
-    : undefined;
+  v === undefined || typeof v === "number" ? (v as number | undefined) : undefined;
+
+const optionalEnumNumber = (v: unknown, valid: ReadonlySet<number>): number | undefined => {
+  if (v === undefined) return undefined;
+  if (typeof v !== "number" || !valid.has(v)) return undefined;
+  return v as number;
+};
 
 type Decoder = (raw: Raw) => Command | null;
 
@@ -74,24 +89,20 @@ const decoders: Record<Command["type"], Decoder> = {
   [SESSION_PONG]: () => ({ type: SESSION_PONG }),
 
   [ROOM_JOIN]: (raw) => {
-    if (typeof raw.mode !== "number") return null;
+    if (typeof raw.mode !== "number" || !GAME_MODES.has(raw.mode)) return null;
     if (raw.roomId !== undefined && typeof raw.roomId !== "string") return null;
-    if (raw.color !== undefined && typeof raw.color !== "number") return null;
-    if (raw.difficulty !== undefined && typeof raw.difficulty !== "number")
+    if (raw.color !== undefined && (typeof raw.color !== "number" || !PIECE_COLORS.has(raw.color))) return null;
+    if (raw.difficulty !== undefined && (typeof raw.difficulty !== "number" || !DIFFICULTIES.has(raw.difficulty)))
       return null;
     // clock is only honored when creating a new room (no roomId); joining an
     // existing room always uses that room's format, decided server-side.
-    if (
-      raw.clock !== undefined &&
-      (typeof raw.clock !== "string" || !CLOCK_FORMATS.has(raw.clock))
-    )
-      return null;
+    if (raw.clock !== undefined && (typeof raw.clock !== "string" || !CLOCK_FORMATS.has(raw.clock))) return null;
     return {
       type: ROOM_JOIN,
       mode: raw.mode,
       roomId: optionalString(raw.roomId),
       color: optionalNumber(raw.color),
-      difficulty: optionalNumber(raw.difficulty),
+      difficulty: optionalEnumNumber(raw.difficulty, DIFFICULTIES),
       clock: optionalClockFormat(raw.clock),
     } as Command;
   },
@@ -99,26 +110,27 @@ const decoders: Record<Command["type"], Decoder> = {
   [ROOM_LEAVE]: () => ({ type: ROOM_LEAVE }),
 
   [MOVE_MAKE]: (raw) => {
-    if (typeof raw.from !== "number") return null;
-    if (typeof raw.to !== "number") return null;
-    if (raw.promoteTo !== undefined && typeof raw.promoteTo !== "number")
+    if (!isValidPosition(raw.from)) return null;
+    if (!isValidPosition(raw.to)) return null;
+    if (raw.promoteTo !== undefined && (typeof raw.promoteTo !== "number" || !PROMOTION_PIECES.has(raw.promoteTo)))
       return null;
     return {
       type: MOVE_MAKE,
       from: raw.from,
       to: raw.to,
-      promoteTo: optionalNumber(raw.promoteTo),
+      promoteTo: optionalEnumNumber(raw.promoteTo, PROMOTION_PIECES),
     } as Command;
   },
 
   [UNDO_REQUEST]: () => ({ type: UNDO_REQUEST }),
   [UNDO_ACCEPT]: () => ({ type: UNDO_ACCEPT }),
+  [UNDO_CANCEL]: () => ({ type: UNDO_CANCEL }),
   [UNDO_DECLINE]: () => ({ type: UNDO_DECLINE }),
   [GAME_RESIGN]: () => ({ type: GAME_RESIGN }),
   [STATE_SYNC]: () => ({ type: STATE_SYNC }),
 
   [POSITION_SELECT]: (raw) => {
-    if (typeof raw.position !== "number") return null;
+    if (!isValidPosition(raw.position)) return null;
     return { type: POSITION_SELECT, position: raw.position } as Command;
   },
 
@@ -130,29 +142,33 @@ const decoders: Record<Command["type"], Decoder> = {
 
 export class JsonCodec implements Codec {
   decode(raw: unknown): Command | null {
+    // validate raw input is a plain object with a type field
     if (!isPlainObject(raw)) {
-      log.warn("[CODEC-decode-not-object]", { raw: typeof raw === 'string' ? raw.slice(0, 200) : typeof raw });
+      log.warn("[JsonCodec.decode:not-object]", { raw: typeof raw === "string" ? raw.slice(0, 200) : typeof raw });
       return null;
     }
     if (typeof raw.type !== "string") {
-      log.warn("[CODEC-decode-no-type]", { raw: JSON.stringify(raw).slice(0, 200) });
+      log.warn("[JsonCodec.decode:no-type]", { raw: JSON.stringify(raw).slice(0, 200) });
       return null;
     }
 
+    // dispatch to type-specific decoder
     const decode = decoders[raw.type as Command["type"]];
     if (!decode) {
-      log.warn("[CODEC-decode-unknown-type]", { type: raw.type });
+      log.warn("[JsonCodec.decode:unknown-type]", { type: raw.type });
       return null;
     }
 
+    // run decoder and validate result
     const result = decode(raw);
     if (result === null) {
-      log.warn("[CODEC-decode-validation-fail]", { type: raw.type, raw: JSON.stringify(raw).slice(0, 200) });
+      log.warn("[JsonCodec.decode:validation-fail]", { type: raw.type, raw: JSON.stringify(raw).slice(0, 200) });
     }
     return result;
   }
 
-  encode(event: Notification): string {
-    return JSON.stringify(event);
+  encode(message: unknown): string {
+    // serialize message to JSON string
+    return JSON.stringify(message);
   }
 }

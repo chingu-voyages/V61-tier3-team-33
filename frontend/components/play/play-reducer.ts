@@ -1,13 +1,21 @@
 import type { Phase, PlayMode, TimeControl } from "./types"
 
 export type Action =
-  | { type: "CREATE_ROOM"; roomId: string; timeControl: TimeControl }
+  | { type: "CREATE_ROOM"; timeControl: TimeControl }
+  | { type: "ROOM_CREATED"; roomId: string }
+  | { type: "CREATE_FAILED" }
   | { type: "JOIN_ROOM"; roomId: string; timeControl: TimeControl }
   | { type: "JOIN_FAILED"; mode: PlayMode }
   | { type: "START_SEARCH"; timeControl: TimeControl }
   | { type: "OPPONENT_JOINED" }
 
-export function createInitialPhase({ mode, roomId }: { mode: PlayMode; roomId?: string }): Phase {
+export function createInitialPhase({
+  mode,
+  roomId,
+}: {
+  mode: PlayMode
+  roomId?: string
+}): Phase {
   if (roomId) {
     return { phase: "joining", roomId }
   }
@@ -17,9 +25,23 @@ export function createInitialPhase({ mode, roomId }: { mode: PlayMode; roomId?: 
 export function playReducer(state: Phase, action: Action): Phase {
   switch (action.type) {
     case "CREATE_ROOM":
-      return { phase: "invite", roomId: action.roomId, timeControl: action.timeControl }
+      return { phase: "creating", timeControl: action.timeControl }
+    case "ROOM_CREATED":
+      if (state.phase !== "creating") return state
+      return {
+        phase: "invite",
+        roomId: action.roomId,
+        timeControl: state.timeControl,
+      }
+    case "CREATE_FAILED":
+      if (state.phase !== "creating") return state
+      return { phase: "pick-time", mode: "friend" }
     case "JOIN_ROOM":
-      return { phase: "invite", roomId: action.roomId, timeControl: action.timeControl }
+      return {
+        phase: "invite",
+        roomId: action.roomId,
+        timeControl: action.timeControl,
+      }
     case "JOIN_FAILED":
       return { phase: "pick-time", mode: action.mode }
     case "START_SEARCH":

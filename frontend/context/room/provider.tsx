@@ -1,10 +1,18 @@
 "use client"
 
-import { useReducer, useMemo, useEffect, useRef } from "react"
+import { useReducer, useMemo } from "react"
 import { gooeyToast } from "@/components/ui/goey-toaster"
 import { roomReducer, type RoomState } from "./reducer"
 import { RoomContext } from "./context"
 import { useSocketEvent } from "@/socket/use-event"
+import { useSocketStatus } from "@/socket/use-status"
+import {
+  CONNECTING,
+  OPEN,
+  RECONNECTING,
+  FAILED,
+  CLOSED,
+} from "@/socket/reducer"
 import { useGameActions } from "@/socket/use-action"
 import {
   ROOM_JOINED,
@@ -14,6 +22,9 @@ import {
   GAME_ENDED,
   UNDO_REQUESTED,
   UNDO_DECLINED,
+  UNDO_CANCELLED,
+  UNDO_EXPIRED,
+  UNDO_INVALIDATED,
   ROOM_LEFT,
   GRACE_STARTED,
   GRACE_CANCELLED,
@@ -22,8 +33,13 @@ import {
 } from "@/socket/events"
 import { WHITE } from "@/core/piece"
 import { useSocketContext } from "@/socket/context"
-
-const TOAST_ID_CONN = "connection-status"
+import {
+  SESSION_ERROR,
+  ROOM_RESET_CODES,
+  UNDO_ERROR_MESSAGES,
+  ERROR_MESSAGES,
+} from "@/socket/errors"
+import { SESSION_HANDSHAKE } from "@/socket/commands"
 
 const initialState: RoomState = {
   roomId: null,
@@ -31,128 +47,121 @@ const initialState: RoomState = {
   status: null,
   result: null,
   pendingUndo: null,
+  initialized: false,
 }
 
 const CONNECTED_DISMISS_MS = 2_000
 
-function useConnectionToast() {
-  const { status, reconnect } = useSocketContext()
-  const toastAlive = useRef(false)
-  const hasEverOpened = useRef(false)
-  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    const clearDismissTimer = () => {
-      if (!dismissTimer.current) return
-      clearTimeout(dismissTimer.current)
-      dismissTimer.current = null
-    }
-
-    // Title-only toast; no lingering description/action from previous state.
-    const show = (
-      type: "info" | "warning" | "success" | "error",
-      title: string,
-      extra?: {
-        description?: string
-        action?: { label: string; onClick: () => void }
-      },
-    ) => {
-      const opts = { description: undefined, action: undefined, ...extra }
-
-      if (toastAlive.current) {
-        gooeyToast[type](title, {
-          id: TOAST_ID_CONN,
-          duration: Infinity,
-          showProgress: false,
-          onDismiss: () => {
-            toastAlive.current = false
-          },
-          ...opts,
-        })
-        return
-      }
-
-      gooeyToast[type](title, {
-        id: TOAST_ID_CONN,
-        duration: Infinity,
-        showProgress: false,
-        onDismiss: () => {
-          toastAlive.current = false
-        },
-        ...opts,
-      })
-      toastAlive.current = true
-    }
-
-    clearDismissTimer()
-
-    switch (status) {
-      case "connecting":
-        show("info", hasEverOpened.current ? "Reconnecting" : "Connecting")
-        break
-
-      case "reconnecting":
-        show("warning", "Reconnecting")
-        break
-
-      case "failed":
-        // Description/retry persist until user dismisses.
-        show("error", "Connection failed", {
-          description: "Unable to connect. Please refresh or try again.",
-          action: { label: "Retry", onClick: () => reconnect() },
-        })
-        break
-
-      case "open":
-        hasEverOpened.current = true
-        show("success", "Connected")
-        dismissTimer.current = setTimeout(() => {
-          gooeyToast.dismiss(TOAST_ID_CONN)
-          toastAlive.current = false
-          dismissTimer.current = null
-        }, CONNECTED_DISMISS_MS)
-        break
-
-      case "closed":
-        gooeyToast.dismiss(TOAST_ID_CONN)
-        toastAlive.current = false
-        break
-    }
-
-    return clearDismissTimer
-  }, [status, reconnect])
+function toastId(status: string): string {
+  return `connection-${status}`
 }
 
 export function RoomProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(roomReducer, initialState)
   const actions = useGameActions()
-  useConnectionToast()
+  const { reconnect } = useSocketContext()
 
-  useSocketEvent(GAME_STARTED, () => {
-    dispatch({ type: "GAME_STARTED" })
+  useSocketStatus(OPEN, (prev) => {
+    if (prev) gooeyToast.dismiss(toastId(prev))
+    gooeyToast.dismiss(toastId(FAILED))
+    gooeyToast.success("Connected", {
+      id: toastId(OPEN),
+      timing: { displayDuration: CONNECTED_DISMISS_MS },
+    })
+  })
+
+  useSocketStatus(CONNECTING, (prev) => {
+    if (prev !== FAILED) {
+      gooeyToast.info("Connecting", {
+        id: toastId(CONNECTING),
+        timing: { displayDuration: 3_600_000 },
+      })
+    }
+  })
+
+  useSocketStatus(RECONNECTING, (prev) => {
+    if (prev) gooeyToast.dismiss(toastId(prev))
+    gooeyToast.warning("Reconnecting", {
+      id: toastId(RECONNECTING),
+      timing: { displayDuration: 3_600_000 },
+    })
+  })
+
+  useSocketStatus(FAILED, (prev) => {
+    if (prev) gooeyToast.dismiss(toastId(prev))
+    gooeyToast.error("Connection failed", {
+      id: toastId(FAILED),
+      timing: { displayDuration: 3_600_000 },
+      description: "Unable to connect. Please refresh or try again.",
+      action: {
+        label: "Retry",
+        onClick: () => {
+          gooeyToast.dismiss(toastId(FAILED))
+          reconnect()
+        },
+      },
+    })
+  })
+
+  useSocketStatus(CLOSED, (prev) => {
+    if (prev) gooeyToast.dismiss(toastId(prev))
+  })
+
+  useSocketEvent(SESSION_HANDSHAKE, (msg) => {
+    dispatch({ type: "HANDSHAKE", roomId: msg.roomId })
+  })
+
+  useSocketEvent(GAME_STARTED, (msg) => {
+    dispatch({ type: "GAME_STARTED", roomId: msg.roomId })
   })
 
   useSocketEvent(MOVE_MADE, (msg) => {
     if (msg.isGameOver && msg.result) {
-      dispatch({ type: "GAME_ENDED", result: msg.result })
+      dispatch({ type: "GAME_ENDED", roomId: msg.roomId, result: msg.result })
     }
   })
 
   useSocketEvent(UNDO_REQUESTED, (msg) => {
-    dispatch({ type: "UNDO_REQUESTED", by: msg.by, expiresAt: msg.expiresAt })
+    dispatch({
+      type: "UNDO_REQUESTED",
+      roomId: msg.roomId,
+      by: msg.by,
+      expiresAt: msg.expiresAt,
+    })
   })
 
-  useSocketEvent(UNDO_DECLINED, () => {
-    dispatch({ type: "UNDO_RESOLVED" })
+  useSocketEvent(UNDO_DECLINED, (msg) => {
+    if (msg.by !== state.color) {
+      gooeyToast.info("You declined the undo request")
+    } else {
+      gooeyToast.info("Opponent declined the undo request")
+    }
+    dispatch({ type: "UNDO_RESOLVED", roomId: msg.roomId })
   })
 
+  useSocketEvent(UNDO_CANCELLED, (msg) => {
+    dispatch({ type: "UNDO_CANCELLED", roomId: msg.roomId })
+  })
+
+  useSocketEvent(UNDO_EXPIRED, (msg) => {
+    gooeyToast.info("Undo request expired")
+    dispatch({ type: "UNDO_EXPIRED", roomId: msg.roomId })
+  })
+
+  useSocketEvent(UNDO_INVALIDATED, (msg) => {
+    dispatch({ type: "UNDO_INVALIDATED", roomId: msg.roomId })
+  })
 
   useSocketEvent(UNDO_APPLIED, (msg) => {
-    dispatch({ type: "UNDO_APPLIED", status: msg.state.status })
+    dispatch({
+      type: "UNDO_APPLIED",
+      roomId: msg.roomId,
+      status: msg.state.status,
+    })
   })
 
   useSocketEvent(GAME_ENDED, (msg) => {
-    dispatch({ type: "GAME_ENDED", result: msg.result })
+    dispatch({ type: "GAME_ENDED", roomId: msg.roomId, result: msg.result })
   })
 
   useSocketEvent(ROOM_JOINED, (msg) => {
@@ -166,24 +175,43 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   })
 
   useSocketEvent(ROOM_LEFT, (msg) => {
+    // stale room:left from a room we've since switched away from — ignore
+    if (msg.roomId !== state.roomId) return
     if (msg.color !== state.color) {
       const who = msg.color === WHITE ? "White" : "Black"
       gooeyToast.info(`${who} left the game`)
     }
-    dispatch({ type: "ROOM_LEFT", color: msg.color })
+    dispatch({ type: "ROOM_LEFT", roomId: msg.roomId, color: msg.color })
+  })
+
+  useSocketEvent(SESSION_ERROR, (msg) => {
+    if (ROOM_RESET_CODES.has(msg.code)) {
+      dispatch({ type: "ROOM_RESET" })
+    }
+
+    const undoDescription = UNDO_ERROR_MESSAGES[msg.code]
+    if (undoDescription) {
+      gooeyToast.error(undoDescription)
+      return
+    }
+
+    const description = ERROR_MESSAGES[msg.code]
+    if (description) {
+      gooeyToast.error(description)
+    }
   })
 
   useSocketEvent(GRACE_STARTED, (msg) => {
-    const you = msg.color === WHITE ? "Black" : "White"
-    gooeyToast.warning(`${you} disconnected`, {
+    const who = msg.color === WHITE ? "White" : "Black"
+    gooeyToast.warning(`${who} disconnected`, {
       description: "Waiting for reconnection...",
       duration: 10_000,
     })
   })
 
   useSocketEvent(GRACE_CANCELLED, (msg) => {
-    const you = msg.color === WHITE ? "Black" : "White"
-    gooeyToast.success(`${you} reconnected`)
+    const who = msg.color === WHITE ? "White" : "Black"
+    gooeyToast.success(`${who} reconnected`)
   })
 
   useSocketEvent(GRACE_EXPIRED, () => {

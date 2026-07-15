@@ -1,6 +1,6 @@
 export interface ChessTheme {
-  id: string;
-  label: string;
+  id: string
+  label: string
 }
 
 export const CHESS_THEMES: ChessTheme[] = [
@@ -10,6 +10,6 @@ export const CHESS_THEMES: ChessTheme[] = [
   { id: "rose", label: "Rose" },
   { id: "slate", label: "Slate" },
   { id: "midnight", label: "Midnight" },
-];
+]
 
-export const DEFAULT_CHESS_THEME = "walnut";
+export const DEFAULT_CHESS_THEME = "walnut"
