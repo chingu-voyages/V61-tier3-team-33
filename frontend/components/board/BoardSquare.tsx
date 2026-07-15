@@ -46,6 +46,8 @@ interface BoardSquareProps {
   state?: Exclude<SquareVariant["state"], undefined>
   movingPieceColor?: PieceColor
   onSquareClick: (pos: Position) => void
+  onPieceDrop?: (source: Position, target: Position) => void
+  onDragStart?: (pos: Position) => void
 }
 
 function arePropsEqual(prev: BoardSquareProps, next: BoardSquareProps) {
@@ -54,6 +56,8 @@ function arePropsEqual(prev: BoardSquareProps, next: BoardSquareProps) {
   if (prev.state !== next.state) return false
   if (prev.movingPieceColor !== next.movingPieceColor) return false
   if (prev.onSquareClick !== next.onSquareClick) return false
+  if (prev.onPieceDrop !== next.onPieceDrop) return false
+  if (prev.onDragStart !== next.onDragStart) return false
 
   const p = prev.piece
   const n = next.piece
@@ -69,16 +73,53 @@ const BoardSquare = memo(function BoardSquare({
   state = "none",
   movingPieceColor,
   onSquareClick,
+  onPieceDrop,
+  onDragStart,
 }: BoardSquareProps) {
   const tone = isDark ? "dark" : "light"
   const dotFillClass =
     movingPieceColor === WHITE ? "bg-chess-w-fill" : "bg-chess-b-fill"
+
+  function handleDragStart(e: React.DragEvent) {
+    e.dataTransfer.setData("text/plain", String(position))
+    e.dataTransfer.effectAllowed = "move"
+    onDragStart?.(position)
+
+    const ghost = e.currentTarget.cloneNode(true) as HTMLElement
+    ghost.style.position = "fixed"
+    ghost.style.top = "0"
+    ghost.style.left = "0"
+    ghost.style.width = "64px"
+    ghost.style.height = "64px"
+    ghost.style.pointerEvents = "none"
+    ghost.style.zIndex = "-1"
+    document.body.appendChild(ghost)
+    e.dataTransfer.setDragImage(ghost, 32, 32)
+    requestAnimationFrame(() => ghost.remove())
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    const raw = e.dataTransfer.getData("text/plain")
+    if (!raw) return
+    const source = Number(raw) as Position
+    if (onPieceDrop) {
+      onPieceDrop(source, position)
+    }
+  }
 
   return (
     <div
       data-slot="board-square"
       className={cn(squareVariants({ tone, state }))}
       onClick={() => onSquareClick(position)}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       <AnimatePresence>
         {piece && (
@@ -98,12 +139,18 @@ const BoardSquare = memo(function BoardSquare({
               mass: 0.6,
             }}
           >
-            {getPieceIcon(piece, { className: "w-full h-full" })}
+            <div
+              draggable
+              onDragStart={handleDragStart}
+              className="cursor-grab active:cursor-grabbing"
+            >
+              {getPieceIcon(piece, { className: "w-full h-full" })}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
       {state === "legalMove" && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className={cn("h-1/3 w-1/3 rounded-full", dotFillClass)} />
         </div>
       )}

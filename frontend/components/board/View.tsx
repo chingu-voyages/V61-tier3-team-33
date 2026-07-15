@@ -82,6 +82,17 @@ export function View({ onLeave }: ViewProps) {
     select(pos)
   })
 
+  const onPieceDragStart = useEventCallback((pos: Position) => {
+    if (state.status === FINISHED) return
+    select(pos)
+  })
+
+  const onPieceDrop = useEventCallback((source: Position, target: Position) => {
+    if (state.status === FINISHED) return
+    if (chessState.pendingPromotion) return
+    makeMove(source, target)
+  })
+
   const confirmResign = useCallback(() => {
     dispatch({ type: "HIDE_RESIGN" })
     actions.resign()
@@ -179,16 +190,18 @@ export function View({ onLeave }: ViewProps) {
           </div>
 
           <div className="relative my-auto aspect-square w-full min-w-72">
-            <Board
-              board={chessState.board}
-              view={{
-                selected: chessState.selected,
-                legalMoves: chessState.legalMoves,
-                lastMove: chessState.lastMove,
-                flipped: boardFlipped,
-              }}
-              onSquareClick={onSquareClick}
-            />
+              <Board
+                board={chessState.board}
+                view={{
+                  selected: chessState.selected,
+                  legalMoves: chessState.legalMoves,
+                  lastMove: chessState.lastMove,
+                  flipped: boardFlipped,
+                }}
+                onSquareClick={onSquareClick}
+                onPieceDrop={onPieceDrop}
+                onDragStart={onPieceDragStart}
+              />
             {chessState.pendingPromotion && (
               <PromotionOverlay
                 pendingPromotion={chessState.pendingPromotion}
