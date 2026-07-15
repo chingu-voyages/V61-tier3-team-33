@@ -7,19 +7,27 @@ import {
   IconShare,
   IconCheck,
   IconUsers,
+  IconColorPicker,
 } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
-import type { TimeControl } from "./types"
+import type { TimeControl, ColorChoice } from "./types"
 import { KnightPulse } from "./KnightPulse"
 import { formatTimeControlLabel } from "./helpers"
+import { WHITE, BLACK } from "@/chess/core/piece"
 
 interface RoomInviteProps {
   roomId: string
   timeControl: TimeControl
+  color?: ColorChoice
   onCancel: () => void
 }
 
-export function RoomInvite({ roomId, timeControl, onCancel }: RoomInviteProps) {
+const COLOR_LABEL: Record<string, string> = {
+  [WHITE]: "White",
+  [BLACK]: "Black",
+}
+
+export function RoomInvite({ roomId, timeControl, color, onCancel }: RoomInviteProps) {
   const [copied, setCopied] = useState(false)
   const canShare = typeof navigator !== "undefined" && "share" in navigator
   const url =
@@ -65,6 +73,15 @@ export function RoomInvite({ roomId, timeControl, onCancel }: RoomInviteProps) {
         <p className="text-xs text-muted-foreground/60">
           {timeControl.name} &middot; {tcLabel}
         </p>
+        {color !== undefined && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
+            <IconColorPicker className="size-3" />
+            <span>
+              You will play{" "}
+              {color != null ? COLOR_LABEL[color] : "Random"}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-border/50 bg-muted/30 p-6">
