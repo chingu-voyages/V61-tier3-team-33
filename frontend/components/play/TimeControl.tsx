@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { IconUsers, IconWorld } from "@tabler/icons-react"
+import { IconUsers, IconWorld, IconColorPicker } from "@tabler/icons-react"
 
 import {
   Dialog,
@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { TimeControl, PlayMode } from "./types"
+import type { TimeControl, PlayMode, ColorChoice } from "./types"
 import { DEFAULT_TIME_CONTROLS } from "./time-controls"
+import { WHITE, BLACK } from "@/chess/core/piece"
 
 const MODE = {
   friend: {
@@ -31,11 +32,17 @@ const MODE = {
   },
 } as const
 
+const COLOR_OPTIONS: { value: ColorChoice; label: string; icon: string }[] = [
+  { value: null, label: "Random", icon: "\u2694\uFE0F" },
+  { value: WHITE, label: "White", icon: "\u2654" },
+  { value: BLACK, label: "Black", icon: "\u265A" },
+]
+
 interface Props {
   mode: PlayMode
   open: boolean
   connecting?: boolean
-  onPick: (control: TimeControl) => void
+  onPick: (control: TimeControl, color?: ColorChoice) => void
   onCancel: () => void
 }
 
@@ -47,6 +54,7 @@ export function TimeControl({
   onCancel,
 }: Props) {
   const [selected, setSelected] = useState(DEFAULT_TIME_CONTROLS[0]!.id)
+  const [colorPref, setColorPref] = useState<ColorChoice>(null)
   const cfg = MODE[mode]
 
   return (
@@ -104,6 +112,33 @@ export function TimeControl({
           ))}
         </div>
 
+        {mode === "friend" && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <IconColorPicker className="size-3.5" />
+              <span>Your color</span>
+            </div>
+            <div className="flex gap-2">
+              {COLOR_OPTIONS.map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setColorPref(opt.value)}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm transition-all",
+                    colorPref === opt.value
+                      ? "border-foreground/20 bg-accent/30 ring-1 ring-foreground/10"
+                      : "border-border/50 hover:border-border hover:bg-accent/50"
+                  )}
+                >
+                  <span className="text-base">{opt.icon}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
             Cancel
@@ -114,7 +149,7 @@ export function TimeControl({
               const picked = DEFAULT_TIME_CONTROLS.find(
                 (tc) => tc.id === selected
               )
-              if (picked) onPick(picked)
+              if (picked) onPick(picked, colorPref)
             }}
           >
             {connecting ? "Connecting\u2026" : cfg.action}

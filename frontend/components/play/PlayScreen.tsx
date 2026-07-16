@@ -7,7 +7,7 @@ import { RoomInvite } from "./RoomInvite"
 import { MatchSearch } from "./MatchSearch"
 import { View } from "@/components/board/View"
 import { playReducer, createInitialPhase } from "./play-reducer"
-import type { PlayMode, TimeControl } from "./types"
+import type { PlayMode, TimeControl, ColorChoice } from "./types"
 import { useGameActions } from "@/socket/use-action"
 import { SessionContext } from "@/context/session/session-context"
 import { useRoom } from "@/context/room/context"
@@ -66,15 +66,17 @@ export function PlayScreen({
   const inOtherActiveGame = room.state.status === ACTIVE
 
   const runCreateRoom = useCallback(
-    (tc: TimeControl) => {
+    (tc: TimeControl, color?: ColorChoice) => {
       pendingCreateRef.current = true
-      dispatch({ type: "CREATE_ROOM", timeControl: tc })
+      const selectedColor = color != null ? color : undefined
+      dispatch({ type: "CREATE_ROOM", timeControl: tc, color: selectedColor })
       // Explicit create intent — backend always assigns its own canonical
       // id, returned in room:joined. No client-generated roomId involved.
       actions.joinRoom({
         mode: HUMAN_VS_HUMAN,
         create: true,
         clock: ClockFormat(tc.id),
+        color: selectedColor,
       })
     },
     [actions]
@@ -89,7 +91,7 @@ export function PlayScreen({
   )
 
   const createRoom = useCallback(
-    (tc: TimeControl) => {
+    (tc: TimeControl, color?: ColorChoice) => {
       if (!session) {
         gooeyToast.error("Still connecting\u2026", {
           description: "Hang tight, try again in a moment.",
@@ -100,7 +102,7 @@ export function PlayScreen({
         setPendingSwitch({ kind: "friend", tc })
         return
       }
-      runCreateRoom(tc)
+      runCreateRoom(tc, color)
     },
     [session, inOtherActiveGame, runCreateRoom]
   )
@@ -184,6 +186,7 @@ export function PlayScreen({
       <RoomInvite
         roomId={phase.roomId}
         timeControl={phase.timeControl}
+        color={phase.color}
         onCancel={goHome}
       />
     )
