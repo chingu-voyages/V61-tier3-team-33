@@ -10,9 +10,11 @@ interface BoardProps {
   board: TBoard
   view: BoardView
   onSquareClick: (pos: Position) => void
+  onPieceDrop?: (source: Position, target: Position) => void
+  onDragStart?: (pos: Position) => void
 }
 
-export function Board({ board, view, onSquareClick }: BoardProps) {
+export function Board({ board, view, onSquareClick, onPieceDrop, onDragStart }: BoardProps) {
   const movingPieceColor =
     view.selected !== null
       ? Square.decode(TBoard.at(board, view.selected))?.color
@@ -30,6 +32,8 @@ export function Board({ board, view, onSquareClick }: BoardProps) {
         state={state}
         movingPieceColor={movingPieceColor}
         onSquareClick={onSquareClick}
+        onPieceDrop={onPieceDrop}
+        onDragStart={onDragStart}
       />
     )
   }
