@@ -1,9 +1,18 @@
-import type { Credentials } from "../players/credential/credentials";
-import type { OAuthIdentities } from "../players/credential/Oauth/oauth-identities";
-import { createPlayer } from "../players/player";
-import type { Players } from "../players/players";
-import { AuthError } from "./auth-error";
-import type { AuthTokens } from "./auth-token";
+import type { CredentialStore } from "../store/credential/credential-store";
+import type { OAuthStore } from "../store/oauth/oauth-store";
+import { GOOGLE, PASSWORD, Player } from "../store/player/player";
+import type { PlayerStore } from "../store/player/player-store";
+import type { TokenStore } from "../store/token/token-store";
+import type { AuthError, Result } from "../types/result";
+import { err, ok } from "../types/result";
+import {
+  EMAIL_TAKEN,
+  INTERNAL_ERROR,
+  INVALID_CREDENTIALS,
+  INVALID_GOOGLE_TOKEN,
+  INVALID_PAYLOAD,
+  USERNAME_TAKEN,
+} from "../types/result";
 import type { GoogleTokenVerifier } from "./google-token-verifier";
 
 export interface RestAuthenticator {
@@ -11,19 +20,22 @@ export interface RestAuthenticator {
     username: string;
     email: string;
     password: string;
-  }): Promise<{ playerId: string; authToken: string }>;
+  }): Promise<Result<{ playerId: string; authToken: string }, AuthError>>;
 
-  login(input: { email: string; password: string }): Promise<{ playerId: string; authToken: string }>;
+  login(input: {
+    email: string;
+    password: string;
+  }): Promise<Result<{ playerId: string; authToken: string }, AuthError>>;
 
-  loginWithGoogle(idToken: string): Promise<{ playerId: string; authToken: string }>;
+  loginWithGoogle(idToken: string): Promise<Result<{ playerId: string; authToken: string }, AuthError>>;
 }
 
 export class DefaultRestAuthenticator implements RestAuthenticator {
   constructor(
-    private players: Players,
-    private credentials: Credentials,
-    private identities: OAuthIdentities,
-    private authTokens: AuthTokens,
+    private players: PlayerStore,
+    private credentials: CredentialStore,
+    private identities: OAuthStore,
+    private authTokens: TokenStore,
     private verifier: GoogleTokenVerifier,
   ) {}
 
@@ -31,134 +43,152 @@ export class DefaultRestAuthenticator implements RestAuthenticator {
     username: string;
     email: string;
     password: string;
-  }): Promise<{ playerId: string; authToken: string }> {
+  }): Promise<Result<{ playerId: string; authToken: string }, AuthError>> {
     const trimmedUsername = input.username?.trim() ?? "";
     const email = input.email?.trim() ?? "";
     const password = input.password ?? "";
 
-    // C15: Validate input payload
     const isUsernameValid = trimmedUsername.length >= 3 && trimmedUsername.length <= 20;
     const isPasswordValid = password.length >= 8;
     const isEmailValid = email.includes("@") && email.indexOf(".", email.indexOf("@")) > -1;
 
     if (!isUsernameValid || !isPasswordValid || !isEmailValid) {
-      throw new AuthError("INVALID_PAYLOAD", "Invalid username, email, or password format.");
+      return err(INVALID_PAYLOAD);
     }
 
-    // C9 & C16: Case-insensitive email check
     const normalizedEmail = email.toLowerCase();
     const existingCreds = await this.credentials.findByEmail(normalizedEmail);
-    if (existingCreds) {
-      throw new AuthError("EMAIL_TAKEN", "Email is already registered.");
+    if (existingCreds.ok) {
+      return err(EMAIL_TAKEN);
     }
 
-    // C17: Username uniqueness check
     const existingPlayer = await this.players.findByUsername(trimmedUsername);
-    if (existingPlayer) {
-      throw new AuthError("USERNAME_TAKEN", "Username is already taken.");
+    if (existingPlayer.ok) {
+      return err(USERNAME_TAKEN);
     }
 
-    // C18 & C19: Hash password using Bun's built-in argon2id matching contracts
     const passwordHash = await Bun.password.hash(password, {
       algorithm: "argon2id",
     });
 
-    // Create and save Player identity
-    const player = createPlayer(trimmedUsername, "password");
-    await this.players.save(player);
+    const player = Player.create(trimmedUsername, PASSWORD);
+    const saveResult = await this.players.save(player);
+    if (!saveResult.ok) {
+      return err(INTERNAL_ERROR);
+    }
 
-    // Save credentials bound to the player
-    await this.credentials.save({
-      playerId: player.id,
+    const credResult = await this.credentials.save({
+      playerId: player.pid,
       email: normalizedEmail,
       passwordHash,
       createdAt: Date.now(),
     });
+    if (!credResult.ok) {
+      return err(INTERNAL_ERROR);
+    }
 
-    // Issue the 30-day authToken
-    const authTokenRecord = await this.authTokens.issue(player.id);
+    const authTokenResult = await this.authTokens.issue(player.pid);
+    if (!authTokenResult.ok) {
+      return err(INTERNAL_ERROR);
+    }
 
-    return {
-      playerId: player.id,
-      authToken: authTokenRecord.token,
-    };
+    return ok({
+      playerId: player.pid,
+      authToken: authTokenResult.value.token,
+    });
   }
 
-  async login(input: { email: string; password: string }): Promise<{ playerId: string; authToken: string }> {
-    // To be implemented next
+  async login(input: {
+    email: string;
+    password: string;
+  }): Promise<Result<{ playerId: string; authToken: string }, AuthError>> {
     const normalizedEmail = input.email.trim().toLowerCase();
-    const verifiedEmail = await this.credentials.findByEmail(normalizedEmail);
+    const verifiedEmailResult = await this.credentials.findByEmail(normalizedEmail);
 
-    if (!verifiedEmail) {
-      throw new AuthError("INVALID_CREDENTIALS", "Email doesn't exists");
+    if (!verifiedEmailResult.ok) {
+      return err(INVALID_CREDENTIALS);
     }
+    const verifiedEmail = verifiedEmailResult.value;
     const verifiedPassword = await Bun.password.verify(input.password, verifiedEmail.passwordHash);
     if (!verifiedPassword) {
-      throw new AuthError("INVALID_CREDENTIALS");
+      return err(INVALID_CREDENTIALS);
     }
-    const player = await this.players.findById(verifiedEmail.playerId);
-    if (!player) {
-      console.warn("Credential exists but player is missing");
-      throw new AuthError("INTERNAL_ERROR");
+    const playerResult = await this.players.findById(verifiedEmail.playerId);
+    if (!playerResult.ok) {
+      return err(INTERNAL_ERROR);
+    }
+    const player = playerResult.value;
+
+    const authTokenResult = await this.authTokens.issue(player.pid);
+    if (!authTokenResult.ok) {
+      return err(INTERNAL_ERROR);
     }
 
-    const authToken = await this.authTokens.issue(player.id);
-
-    return {
-      playerId: player.id,
-      authToken: authToken.token,
-    };
+    return ok({
+      playerId: player.pid,
+      authToken: authTokenResult.value.token,
+    });
   }
 
-  async loginWithGoogle(idToken: string): Promise<{ playerId: string; authToken: string }> {
+  async loginWithGoogle(idToken: string): Promise<Result<{ playerId: string; authToken: string }, AuthError>> {
     const profile = await this.verifier.verify(idToken);
 
     if (!profile || !profile.emailVerified) {
-      throw new AuthError("INVALID_GOOGLE_TOKEN");
+      return err(INVALID_GOOGLE_TOKEN);
     }
 
-    const identity = await this.identities.findBySubject("google", profile.sub);
+    const identityResult = await this.identities.findBySubject("google", profile.sub);
 
-    if (identity) {
-      const authToken = await this.authTokens.issue(identity.playerId);
+    if (identityResult.ok) {
+      const identity = identityResult.value;
+      const authTokenResult = await this.authTokens.issue(identity.playerId);
+      if (!authTokenResult.ok) {
+        return err(INTERNAL_ERROR);
+      }
 
-      return {
+      return ok({
         playerId: identity.playerId,
-        authToken: authToken.token,
-      };
+        authToken: authTokenResult.value.token,
+      });
     }
 
     if (!profile.email) {
-      throw new AuthError("INVALID_GOOGLE_TOKEN");
+      return err(INVALID_GOOGLE_TOKEN);
     }
 
-    // Fix TS error by ensuring baseUsername is guaranteed to be a string
     const baseUsername = profile.email.split("@")[0] || "google-user";
     let username = baseUsername;
 
-    // C27: Loop and auto-append a short suffix if the username collides
-    while (await this.players.findByUsername(username)) {
-      // Bun ships with crypto built-in
+    while ((await this.players.findByUsername(username)).ok) {
       const suffix = crypto.randomUUID().slice(0, 4);
       username = `${baseUsername}-${suffix}`;
     }
 
-    const player = createPlayer(username, "google");
-    await this.players.save(player);
+    const player = Player.create(username, GOOGLE);
+    const saveResult = await this.players.save(player);
+    if (!saveResult.ok) {
+      return err(INTERNAL_ERROR);
+    }
 
-    await this.identities.save({
-      playerId: player.id,
+    const identitySaveResult = await this.identities.save({
+      playerId: player.pid,
       provider: "google",
       providerSub: profile.sub,
       email: profile.email,
       createdAt: Date.now(),
     });
+    if (!identitySaveResult.ok) {
+      return err(INTERNAL_ERROR);
+    }
 
-    const authToken = await this.authTokens.issue(player.id);
+    const authTokenResult = await this.authTokens.issue(player.pid);
+    if (!authTokenResult.ok) {
+      return err(INTERNAL_ERROR);
+    }
 
-    return {
-      playerId: player.id,
-      authToken: authToken.token,
-    };
+    return ok({
+      playerId: player.pid,
+      authToken: authTokenResult.value.token,
+    });
   }
 }

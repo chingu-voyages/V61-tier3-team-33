@@ -1,18 +1,18 @@
 import { Elysia } from "elysia";
 
 import { HttpGoogleTokenVerifier } from "../auth/google-token-verifier";
-import { InMemoryAuthToken } from "../auth/in-memory-auth-token";
 import { DefaultRestAuthenticator } from "../auth/rest-authenticator";
 import { authRoutes } from "../http/auth-routes";
-import { InMemoryCredentials } from "../players/credential/in-memory-credentials";
-import { InMemoryOAuthIdentities } from "../players/credential/Oauth/in-memory-oauth-identities";
-import { InMemoryPlayers } from "../players/inMemortPlayers.class";
+import { MemoryCredentials } from "../store/credential/memory";
+import { MemoryOAuth } from "../store/oauth/memory";
+import { MemoryPlayers } from "../store/player/memory";
+import { MemoryTokens } from "../store/token/memory";
 
 // Infrastructure
-const players = new InMemoryPlayers();
-const credentials = new InMemoryCredentials();
-const identities = new InMemoryOAuthIdentities();
-const authTokens = new InMemoryAuthToken();
+const players = new MemoryPlayers();
+const credentials = new MemoryCredentials(players);
+const identities = new MemoryOAuth(players);
+const authTokens = new MemoryTokens(players);
 
 // External services
 const verifier = new HttpGoogleTokenVerifier(Bun.env.GOOGLE_CLIENT_ID ?? "");

@@ -91,6 +91,65 @@ export const NOT_IMPLEMENTED = "not-implemented" as const;
 export const NOT_AUTHENTICATED = "not-authenticated" as const;
 export const INTERNAL_ERROR = "internal-error" as const;
 
+// PlayerError — player store operations
+
+const PlayerError = brandedTag<"PlayerError">();
+
+export const USERNAME_TAKEN = PlayerError("username-taken");
+export const PLAYER_NOT_FOUND = PlayerError("player-not-found");
+
+export type PlayerError = typeof USERNAME_TAKEN | typeof PLAYER_NOT_FOUND;
+
+// CredentialError — credential store operations
+
+const CredentialError = brandedTag<"CredentialError">();
+
+export const CREDENTIAL_NOT_FOUND = CredentialError("credential-not-found");
+export const PLAYER_ID_TAKEN = CredentialError("player-id-taken");
+export const EMAIL_TAKEN = CredentialError("email-taken");
+export const PLAYER_MISSING = CredentialError("player-missing");
+
+export type CredentialError =
+  typeof CREDENTIAL_NOT_FOUND | typeof PLAYER_ID_TAKEN | typeof EMAIL_TAKEN | typeof PLAYER_MISSING;
+
+// OAuthError — OAuth identity store operations
+
+const OAuthError = brandedTag<"OAuthError">();
+
+export const OAUTH_NOT_FOUND = OAuthError("oauth-not-found");
+export const OAUTH_PLAYER_ID_TAKEN = OAuthError("oauth-player-id-taken");
+export const OAUTH_SUBJECT_TAKEN = OAuthError("oauth-subject-taken");
+export const OAUTH_PLAYER_MISSING = OAuthError("oauth-player-missing");
+
+export type OAuthError =
+  typeof OAUTH_NOT_FOUND | typeof OAUTH_PLAYER_ID_TAKEN | typeof OAUTH_SUBJECT_TAKEN | typeof OAUTH_PLAYER_MISSING;
+
+// TokenError — auth token store operations
+
+const TokenError = brandedTag<"TokenError">();
+
+export const TOKEN_NOT_FOUND = TokenError("token-not-found");
+export const TOKEN_PLAYER_MISSING = TokenError("token-player-missing");
+
+export type TokenError = typeof TOKEN_NOT_FOUND | typeof TOKEN_PLAYER_MISSING;
+
+// AuthError — REST auth flow (register / login / google)
+// Reuses USERNAME_TAKEN, EMAIL_TAKEN, INVALID_PAYLOAD, INTERNAL_ERROR from above
+// instead of duplicating them with an AUTH_ prefix.
+
+const AuthError = brandedTag<"AuthError">();
+
+export const INVALID_CREDENTIALS = AuthError("invalid-credentials");
+export const INVALID_GOOGLE_TOKEN = AuthError("invalid-google-token");
+
+export type AuthError =
+  | typeof INVALID_PAYLOAD
+  | typeof INVALID_CREDENTIALS
+  | typeof INVALID_GOOGLE_TOKEN
+  | typeof USERNAME_TAKEN
+  | typeof EMAIL_TAKEN
+  | typeof INTERNAL_ERROR;
+
 export type ErrorCode =
   | typeof SESSION_ERROR
   | typeof INVALID_PAYLOAD
@@ -110,7 +169,6 @@ export const ErrorMessages: Record<string, string> = {
   [NOT_IN_GAME]: "You are not in a game.",
   [GAME_OVER]: "The game is already over.",
   [GAME_NOT_FOUND]: "That game no longer exists.",
-  [NO_HISTORY]: "There's no move to undo.",
   [NOT_YOUR_TURN]: "It's not your turn.",
   [ILLEGAL_MOVE]: "That move is not legal.",
   [SQUARE_EMPTY]: "That square is empty.",
@@ -118,7 +176,7 @@ export const ErrorMessages: Record<string, string> = {
   [NO_HISTORY]: "There are no moves to undo.",
   [NOT_ALLOWED]: "Cannot request undo again without a move in between.",
   [UNDO_INACTIVE]: "You cannot undo — the game is not active.",
-  [NOT_SEATED]: "You cannot resign — you are not seated in this game.",
+  [NOT_SEATED]: "You cannot resign you are not seated in this game.",
   [PENDING_CONFLICT]: "There's already a pending undo request.",
   [RATE_LIMITED]: "Please wait a moment before requesting an undo again.",
   [INTERNAL_ERROR]: "An unexpected error occurred.",

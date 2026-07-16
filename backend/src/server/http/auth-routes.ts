@@ -1,135 +1,128 @@
 import { Elysia, t } from "elysia";
 
-import { AuthError } from "../auth/auth-error";
-import type { AuthTokens } from "../auth/auth-token";
 import type { RestAuthenticator } from "../auth/rest-authenticator";
+import type { TokenStore } from "../store/token/token-store";
+import type { AuthError } from "../types/result";
+import {
+  EMAIL_TAKEN,
+  INVALID_CREDENTIALS,
+  INVALID_GOOGLE_TOKEN,
+  INVALID_PAYLOAD,
+  USERNAME_TAKEN,
+} from "../types/result";
 
-// Q2: 30 days in seconds (30 * 24 * 60 * 60)
 const AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
-export const authRoutes = (restAuthenticator: RestAuthenticator, authTokens: AuthTokens) => {
-  return (
-    new Elysia({ prefix: "/auth" })
-      // Map AuthError codes directly to HTTP Status Codes (C45)
-      .error({
-        AUTH_ERROR: AuthError,
-      })
-      .onError(({ code, error, set }) => {
-        if (code === "AUTH_ERROR") {
-          const authError = error as AuthError;
 
-          const statusMap: Record<string, number> = {
-            INVALID_PAYLOAD: 400,
-            INVALID_CREDENTIALS: 401,
-            INVALID_GOOGLE_TOKEN: 401,
-            EMAIL_TAKEN: 409,
-            USERNAME_TAKEN: 409,
-            INTERNAL_ERROR: 500,
-          };
+function authStatusMap(error: AuthError): number {
+  if (error === INVALID_PAYLOAD) return 400;
+  if (error === INVALID_CREDENTIALS || error === INVALID_GOOGLE_TOKEN) return 401;
+  if (error === EMAIL_TAKEN || error === USERNAME_TAKEN) return 409;
+  return 500;
+}
 
-          set.status = statusMap[authError.code] ?? 500;
-          return { error: authError.code };
+export const authRoutes = (restAuthenticator: RestAuthenticator, authTokens: TokenStore) => {
+  return new Elysia({ prefix: "/auth" })
+
+    .post(
+      "/register",
+      async ({ body, cookie: { authToken }, set }) => {
+        const result = await restAuthenticator.register(body);
+        if (!result.ok) {
+          set.status = authStatusMap(result.error);
+          return { error: result.error };
         }
-      })
-
-      // POST /auth/register
-      .post(
-        "/register",
-        async ({ body, cookie: { authToken } }) => {
-          const result = await restAuthenticator.register(body);
-          if (!authToken) {
-            throw new Error("authToken cookie is unavailable");
-          }
-          // C46: Set HttpOnly, Secure, SameSite=Lax cookie
-          authToken.set({
-            value: result.authToken,
-            httpOnly: true,
-            secure: true,
-            sameSite: "lax",
-            maxAge: AUTH_TOKEN_TTL_SECONDS,
-            path: "/",
-          });
-
-          return { playerId: result.playerId };
-        },
-        {
-          body: t.Object({
-            username: t.String(),
-            email: t.String(),
-            password: t.String(),
-          }),
-        },
-      )
-
-      // POST /auth/login
-      .post(
-        "/login",
-        async ({ body, cookie: { authToken } }) => {
-          const result = await restAuthenticator.login(body);
-          if (!authToken) {
-            throw new Error("authToken cookie is unavailable");
-          }
-          authToken.set({
-            value: result.authToken,
-            httpOnly: true,
-            secure: true,
-            sameSite: "lax",
-            maxAge: AUTH_TOKEN_TTL_SECONDS,
-            path: "/",
-          });
-
-          return { playerId: result.playerId };
-        },
-        {
-          body: t.Object({
-            email: t.String(),
-            password: t.String(),
-          }),
-        },
-      )
-
-      // POST /auth/google
-      .post(
-        "/google",
-        async ({ body, cookie: { authToken } }) => {
-          const result = await restAuthenticator.loginWithGoogle(body.idToken);
-          if (!authToken) {
-            throw new Error("authToken cookie is unavailable");
-          }
-          authToken.set({
-            value: result.authToken,
-            httpOnly: true,
-            secure: true,
-            sameSite: "lax",
-            maxAge: AUTH_TOKEN_TTL_SECONDS,
-            path: "/",
-          });
-
-          return { playerId: result.playerId };
-        },
-        {
-          body: t.Object({
-            idToken: t.String(),
-          }),
-        },
-      )
-
-      // POST /auth/logout (C29, C30)
-      // POST /auth/logout (C29, C30)
-      .post("/logout", async ({ cookie, set }) => {
-        // Safely access the cookie from the dictionary object
-        const tokenCookie = cookie?.authToken;
-
-        // Ensure it is a valid string value before calling revoke (C29)
-        if (tokenCookie && typeof tokenCookie.value === "string" && tokenCookie.value) {
-          // Revoke the token back-end registry record asynchronously
-          await authTokens.revoke(tokenCookie.value);
+        if (!authToken) {
+          throw new Error("authToken cookie is unavailable");
         }
+        authToken.set({
+          value: result.value.authToken,
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          maxAge: AUTH_TOKEN_TTL_SECONDS,
+          path: "/",
+        });
 
-        // Clear cookie immediately via Max-Age=0 expiration if it exists
-        tokenCookie?.remove();
+        return { playerId: result.value.playerId };
+      },
+      {
+        body: t.Object({
+          username: t.String(),
+          email: t.String(),
+          password: t.String(),
+        }),
+      },
+    )
 
-        set.status = 204;
-        return; // 204 No Content should return no body
-      })
-  );
+    .post(
+      "/login",
+      async ({ body, cookie: { authToken }, set }) => {
+        const result = await restAuthenticator.login(body);
+        if (!result.ok) {
+          set.status = authStatusMap(result.error);
+          return { error: result.error };
+        }
+        if (!authToken) {
+          throw new Error("authToken cookie is unavailable");
+        }
+        authToken.set({
+          value: result.value.authToken,
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          maxAge: AUTH_TOKEN_TTL_SECONDS,
+          path: "/",
+        });
+
+        return { playerId: result.value.playerId };
+      },
+      {
+        body: t.Object({
+          email: t.String(),
+          password: t.String(),
+        }),
+      },
+    )
+
+    .post(
+      "/google",
+      async ({ body, cookie: { authToken }, set }) => {
+        const result = await restAuthenticator.loginWithGoogle(body.idToken);
+        if (!result.ok) {
+          set.status = authStatusMap(result.error);
+          return { error: result.error };
+        }
+        if (!authToken) {
+          throw new Error("authToken cookie is unavailable");
+        }
+        authToken.set({
+          value: result.value.authToken,
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          maxAge: AUTH_TOKEN_TTL_SECONDS,
+          path: "/",
+        });
+
+        return { playerId: result.value.playerId };
+      },
+      {
+        body: t.Object({
+          idToken: t.String(),
+        }),
+      },
+    )
+
+    .post("/logout", async ({ cookie, set }) => {
+      const tokenCookie = cookie?.authToken;
+
+      if (tokenCookie && typeof tokenCookie.value === "string" && tokenCookie.value) {
+        await authTokens.revoke(tokenCookie.value);
+      }
+
+      tokenCookie?.remove();
+
+      set.status = 204;
+      return;
+    });
 };
