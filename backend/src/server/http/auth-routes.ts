@@ -10,6 +10,7 @@ import {
   INVALID_PAYLOAD,
   USERNAME_TAKEN,
 } from "../types/result";
+import type { PlayerStore } from "../store/player/player-store";
 
 const AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 
@@ -20,7 +21,7 @@ function authStatusMap(error: AuthError): number {
   return 500;
 }
 
-export const authRoutes = (restAuthenticator: RestAuthenticator, authTokens: TokenStore) => {
+export const authRoutes = (restAuthenticator: RestAuthenticator, authTokens: TokenStore,players:PlayerStore) => {
   return new Elysia({ prefix: "/auth" })
 
     .post(
@@ -112,6 +113,52 @@ export const authRoutes = (restAuthenticator: RestAuthenticator, authTokens: Tok
         }),
       },
     )
+    .get("/me", async ({ cookie: { authToken }, set }) => {
+      if (!authToken?.value) {
+        set.status = 401;
+        return {
+          error: "Unauthorized",
+        };
+      }
+      const token = authToken.value;
+
+      if (typeof token !== "string") {
+        set.status = 401;
+        return {
+          error: "Unauthorized",
+        };
+      }
+      
+      const tokenResult = await authTokens.findByToken(token);
+
+      if (!tokenResult.ok) {
+        set.status = 401;
+      
+        return {
+          error: "Unauthorized",
+        };
+      }
+      
+      const playerResult = await players.findById(
+        tokenResult.value.playerId
+      );
+      
+      if (!playerResult.ok) {
+        set.status = 401;
+      
+        return {
+          error: "Unauthorized",
+        };
+      }
+      
+      const player = playerResult.value;
+      
+      return {
+        playerId: player.pid,
+        username: player.username,
+        provider: player.provider,
+      };
+    })
 
     .post("/logout", async ({ cookie, set }) => {
       const tokenCookie = cookie?.authToken;

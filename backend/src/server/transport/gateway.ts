@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-
+import { cors } from "@elysiajs/cors";
 import { logger as rootLogger } from "../../logging/logger";
 import { getCodec } from "../codec/codec";
 import { Mediator } from "../events/mediator";
@@ -11,12 +11,18 @@ import { type WebSocket } from "../types";
 const log = rootLogger.child({ module: "Gateway" });
 
 export class Gateway {
-  private app: Elysia;
+  public app: Elysia;
   private mediator: Mediator;
 
   constructor() {
     this.mediator = new Mediator();
-    this.app = new Elysia();
+    this.app = new Elysia()
+    .use(
+      cors({
+        origin: "http://localhost:4000",
+        credentials: true,
+      })
+    );
     this.setup();
   }
 
