@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { GoogleButton } from "./GoogleButton";
 import { LoginForm } from "./LoginForm";
 
@@ -27,6 +29,16 @@ export function LoginCard() {
       </div>
 
       <LoginForm />
+
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        Don't have an account?{" "}
+        <Link
+          href="/register"
+          className="font-medium text-blue-600 hover:underline"
+        >
+          Register
+        </Link>
+      </p>
     </div>
   );
 }
