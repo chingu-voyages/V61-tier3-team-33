@@ -6,6 +6,7 @@ import { MemoryOAuth } from "../../store/oauth/memory";
 import { MemoryPlayers } from "../../store/player/memory";
 import type { Store } from "../../store/store";
 import { MemoryTokens } from "../../store/token/memory";
+import { INTERNAL_ERROR } from "../../types/result";
 import { AuthRoutes } from "./routes";
 
 process.env.GOOGLE_CLIENT_ID = "test-client-id";
@@ -240,7 +241,7 @@ describe("POST /auth/logout", () => {
 
 describe("INTERNAL_ERROR handling", () => {
   it("returns 500 when register encounters INTERNAL_ERROR", async () => {
-    authService.register = async () => ({ ok: false, error: "internal-error" as const });
+    authService.register = async () => ({ ok: false, error: INTERNAL_ERROR });
     const res = await post("/auth/register", validRegister);
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error: string };
@@ -248,7 +249,7 @@ describe("INTERNAL_ERROR handling", () => {
   });
 
   it("returns 500 when login encounters INTERNAL_ERROR", async () => {
-    authService.login = async () => ({ ok: false, error: "internal-error" as const });
+    authService.login = async () => ({ ok: false, error: INTERNAL_ERROR });
     const res = await post("/auth/login", {
       login: "alice@example.com",
       password: "some-password",
@@ -257,7 +258,7 @@ describe("INTERNAL_ERROR handling", () => {
   });
 
   it("returns 500 when google signin encounters INTERNAL_ERROR", async () => {
-    authService.verify = async () => ({ ok: false, error: "internal-error" as const });
+    authService.verify = async () => ({ ok: false, error: INTERNAL_ERROR });
     mockFetchResponse = {
       aud: "test-client-id",
       sub: "google-sub-1",
@@ -269,7 +270,7 @@ describe("INTERNAL_ERROR handling", () => {
   });
 
   it("returns 500 when me encounters INTERNAL_ERROR", async () => {
-    authService.identify = async () => ({ ok: false, error: "internal-error" as const });
+    authService.identify = async () => ({ ok: false, error: INTERNAL_ERROR });
     const res = await app.handle(
       new Request("http://localhost/auth/me", {
         headers: { Cookie: "token=some-token" },

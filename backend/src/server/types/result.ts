@@ -1,7 +1,5 @@
 import { brandedTag } from "./chess";
 
-// Result type (ok / err)
-
 export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 export function ok<T = void>(value?: T): Result<T, never> {
@@ -11,6 +9,16 @@ export function ok<T = void>(value?: T): Result<T, never> {
 export function err<E>(error: E): Result<never, E> {
   return { ok: false, error };
 }
+
+// General error codes (no domain tag)
+
+export const SESSION_ERROR = "session:error" as const;
+export const INVALID_PAYLOAD = "invalid-payload" as const;
+export const NOT_IMPLEMENTED = "not-implemented" as const;
+export const NOT_AUTHENTICATED = "not-authenticated" as const;
+
+const InternalError = brandedTag<"InternalError">();
+export const INTERNAL_ERROR = InternalError("internal-error");
 
 // RoomError — room-level issues (joining, leaving, not-in-room)
 
@@ -82,63 +90,62 @@ export const INVALID_MAX_DELAY = RetryConfigErrorCode("invalid-max-delay");
 
 export type RetryConfigErrorCode = typeof INVALID_MAX_ATTEMPTS | typeof INVALID_BASE_DELAY | typeof INVALID_MAX_DELAY;
 
-// Protocol-level error codes (serialised to clients)
-// Reuses branded constants above; only protocol-only codes here.
-
-export const SESSION_ERROR = "session:error" as const;
-export const INVALID_PAYLOAD = "invalid-payload" as const;
-export const NOT_IMPLEMENTED = "not-implemented" as const;
-export const NOT_AUTHENTICATED = "not-authenticated" as const;
-export const INTERNAL_ERROR = "internal-error" as const;
-
 // PlayerError — player store operations
 
-const PlayerError = brandedTag<"PlayerError">();
+const PlayerErrorTag = brandedTag<"PlayerError">();
 
-export const USERNAME_TAKEN = PlayerError("username-taken");
-export const PLAYER_NOT_FOUND = PlayerError("player-not-found");
+export const USERNAME_TAKEN = PlayerErrorTag("username-taken");
+export const PLAYER_NOT_FOUND = PlayerErrorTag("player-not-found");
 
-export type PlayerError = typeof USERNAME_TAKEN | typeof PLAYER_NOT_FOUND;
+export type PlayerError = typeof USERNAME_TAKEN | typeof PLAYER_NOT_FOUND | typeof INTERNAL_ERROR;
 
 // CredentialError — credential store operations
 
-const CredentialError = brandedTag<"CredentialError">();
+const CredentialErrorTag = brandedTag<"CredentialError">();
 
-export const CREDENTIAL_NOT_FOUND = CredentialError("credential-not-found");
-export const PLAYER_ID_TAKEN = CredentialError("player-id-taken");
-export const EMAIL_TAKEN = CredentialError("email-taken");
-export const PLAYER_MISSING = CredentialError("player-missing");
+export const CREDENTIAL_NOT_FOUND = CredentialErrorTag("credential-not-found");
+export const PLAYER_ID_TAKEN = CredentialErrorTag("player-id-taken");
+export const EMAIL_TAKEN = CredentialErrorTag("email-taken");
+export const PLAYER_MISSING = CredentialErrorTag("player-missing");
 
 export type CredentialError =
-  typeof CREDENTIAL_NOT_FOUND | typeof PLAYER_ID_TAKEN | typeof EMAIL_TAKEN | typeof PLAYER_MISSING;
+  | typeof CREDENTIAL_NOT_FOUND
+  | typeof PLAYER_ID_TAKEN
+  | typeof EMAIL_TAKEN
+  | typeof PLAYER_MISSING
+  | typeof INTERNAL_ERROR;
 
 // OAuthError — OAuth identity store operations
 
-const OAuthError = brandedTag<"OAuthError">();
+const OAuthErrorTag = brandedTag<"OAuthError">();
 
-export const OAUTH_NOT_FOUND = OAuthError("oauth-not-found");
-export const OAUTH_PLAYER_ID_TAKEN = OAuthError("oauth-player-id-taken");
-export const OAUTH_SUBJECT_TAKEN = OAuthError("oauth-subject-taken");
-export const OAUTH_PLAYER_MISSING = OAuthError("oauth-player-missing");
+export const OAUTH_NOT_FOUND = OAuthErrorTag("oauth-not-found");
+export const OAUTH_PLAYER_ID_TAKEN = OAuthErrorTag("oauth-player-id-taken");
+export const OAUTH_SUBJECT_TAKEN = OAuthErrorTag("oauth-subject-taken");
+export const OAUTH_PLAYER_MISSING = OAuthErrorTag("oauth-player-missing");
 
 export type OAuthError =
-  typeof OAUTH_NOT_FOUND | typeof OAUTH_PLAYER_ID_TAKEN | typeof OAUTH_SUBJECT_TAKEN | typeof OAUTH_PLAYER_MISSING;
+  | typeof OAUTH_NOT_FOUND
+  | typeof OAUTH_PLAYER_ID_TAKEN
+  | typeof OAUTH_SUBJECT_TAKEN
+  | typeof OAUTH_PLAYER_MISSING
+  | typeof INTERNAL_ERROR;
 
 // TokenError — auth token store operations
 
-const TokenError = brandedTag<"TokenError">();
+const TokenErrorTag = brandedTag<"TokenError">();
 
-export const TOKEN_NOT_FOUND = TokenError("token-not-found");
-export const TOKEN_PLAYER_MISSING = TokenError("token-player-missing");
+export const TOKEN_NOT_FOUND = TokenErrorTag("token-not-found");
+export const TOKEN_PLAYER_MISSING = TokenErrorTag("token-player-missing");
 
-export type TokenError = typeof TOKEN_NOT_FOUND | typeof TOKEN_PLAYER_MISSING;
+export type TokenError = typeof TOKEN_NOT_FOUND | typeof TOKEN_PLAYER_MISSING | typeof INTERNAL_ERROR;
 
 // AuthError — REST auth flow (register / login / google / session lookup)
 
-const AuthError = brandedTag<"AuthError">();
+const AuthErrorTag = brandedTag<"AuthError">();
 
-export const INVALID_CREDENTIALS = AuthError("invalid-credentials");
-export const INVALID_GOOGLE_TOKEN = AuthError("invalid-google-token");
+export const INVALID_CREDENTIALS = AuthErrorTag("invalid-credentials");
+export const INVALID_GOOGLE_TOKEN = AuthErrorTag("invalid-google-token");
 
 export type AuthError =
   | typeof INVALID_PAYLOAD
@@ -148,6 +155,26 @@ export type AuthError =
   | typeof EMAIL_TAKEN
   | typeof INTERNAL_ERROR
   | typeof NOT_AUTHENTICATED;
+
+// FriendError — friend store / service operations
+
+const FriendErrorTag = brandedTag<"FriendError">();
+
+export const FRIEND_NOT_FOUND = FriendErrorTag("friend-not-found");
+export const ALREADY_EXISTS = FriendErrorTag("already-exists");
+export const REQUEST_PENDING = FriendErrorTag("request-pending");
+export const BLOCKED = FriendErrorTag("blocked");
+export const CANNOT_FRIEND_SELF = FriendErrorTag("cannot-friend-self");
+
+export type FriendError =
+  | typeof FRIEND_NOT_FOUND
+  | typeof ALREADY_EXISTS
+  | typeof REQUEST_PENDING
+  | typeof BLOCKED
+  | typeof CANNOT_FRIEND_SELF
+  | typeof INTERNAL_ERROR;
+
+// ErrorCode — aggregate for WebSocket command dispatch
 
 export type ErrorCode =
   | typeof SESSION_ERROR
@@ -180,18 +207,3 @@ export const ErrorMessages: Record<string, string> = {
   [RATE_LIMITED]: "Please wait a moment before requesting an undo again.",
   [INTERNAL_ERROR]: "An unexpected error occurred.",
 };
-const FriendError = brandedTag<"FriendError">();
-
-export const FRIEND_NOT_FOUND = FriendError("friend-not-found");
-export const ALREADY_EXISTS = FriendError("already-exists");
-export const REQUEST_PENDING = FriendError("request-pending");
-export const BLOCKED = FriendError("blocked");
-export const CANNOT_FRIEND_SELF = FriendError("cannot-friend-self");
-
-export type FriendError =
-  | typeof FRIEND_NOT_FOUND
-  | typeof ALREADY_EXISTS
-  | typeof REQUEST_PENDING
-  | typeof BLOCKED
-  | typeof CANNOT_FRIEND_SELF
-  | typeof INTERNAL_ERROR;
