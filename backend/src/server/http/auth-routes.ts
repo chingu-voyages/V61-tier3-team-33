@@ -27,6 +27,7 @@ export const authRoutes = (restAuthenticator: RestAuthenticator, authTokens: Tok
     .post(
       "/register",
       async ({ body, cookie: { authToken }, set }) => {
+        console.log("Incoming body:", body);
         const result = await restAuthenticator.register(body);
         if (!result.ok) {
           set.status = authStatusMap(result.error);

@@ -55,14 +55,16 @@ export class DefaultRestAuthenticator implements RestAuthenticator {
     if (!isUsernameValid || !isPasswordValid || !isEmailValid) {
       return err(INVALID_PAYLOAD);
     }
-
+    console.log("1");
     const normalizedEmail = email.toLowerCase();
     const existingCreds = await this.credentials.findByEmail(normalizedEmail);
+    console.log("2");
     if (existingCreds.ok) {
       return err(EMAIL_TAKEN);
     }
 
     const existingPlayer = await this.players.findByUsername(trimmedUsername);
+    console.log("3");
     if (existingPlayer.ok) {
       return err(USERNAME_TAKEN);
     }
@@ -72,7 +74,7 @@ export class DefaultRestAuthenticator implements RestAuthenticator {
     });
 
     const player = Player.create(trimmedUsername, PASSWORD);
-    const saveResult = await this.players.save(player);
+    const saveResult = await this.players.save(player);console.log("4")
     if (!saveResult.ok) {
       return err(INTERNAL_ERROR);
     }
@@ -82,12 +84,12 @@ export class DefaultRestAuthenticator implements RestAuthenticator {
       email: normalizedEmail,
       passwordHash,
       createdAt: Date.now(),
-    });
+    });console.log("5");
     if (!credResult.ok) {
       return err(INTERNAL_ERROR);
     }
 
-    const authTokenResult = await this.authTokens.issue(player.pid);
+    const authTokenResult = await this.authTokens.issue(player.pid);console.log("6");
     if (!authTokenResult.ok) {
       return err(INTERNAL_ERROR);
     }

@@ -39,7 +39,7 @@ export function RegisterCard() {
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
       <Link
-          href="/register"
+          href="/login"
           className="font-medium text-blue-600 hover:underline"
         >
           Login

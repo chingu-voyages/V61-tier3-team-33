@@ -22,7 +22,7 @@ const config = {
   // Postgres connection
   pgHost: Bun.env.PG_HOST ?? "localhost",
   pgPort: Number(Bun.env.PG_PORT ?? 5432),
-  pgDatabase: env("PG_DATABASE"),
+  pgDatabase: env("testDB"),
   pgUser: Bun.env.PG_USER ?? "postgres",
   pgPassword: Bun.env.PG_PASSWORD,
   pgPoolMax: Number(Bun.env.PG_POOL_MAX ?? 10),
