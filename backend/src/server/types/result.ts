@@ -133,9 +133,7 @@ export const TOKEN_PLAYER_MISSING = TokenError("token-player-missing");
 
 export type TokenError = typeof TOKEN_NOT_FOUND | typeof TOKEN_PLAYER_MISSING;
 
-// AuthError — REST auth flow (register / login / google)
-// Reuses USERNAME_TAKEN, EMAIL_TAKEN, INVALID_PAYLOAD, INTERNAL_ERROR from above
-// instead of duplicating them with an AUTH_ prefix.
+// AuthError — REST auth flow (register / login / google / session lookup)
 
 const AuthError = brandedTag<"AuthError">();
 
@@ -148,7 +146,8 @@ export type AuthError =
   | typeof INVALID_GOOGLE_TOKEN
   | typeof USERNAME_TAKEN
   | typeof EMAIL_TAKEN
-  | typeof INTERNAL_ERROR;
+  | typeof INTERNAL_ERROR
+  | typeof NOT_AUTHENTICATED;
 
 export type ErrorCode =
   | typeof SESSION_ERROR

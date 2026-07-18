@@ -1,11 +1,17 @@
+import { Elysia } from "elysia";
+
 import config from "./config/config";
-import { authPlugin } from "./server/http/bootstrap";
+import { App } from "./server/api/app";
+import { Hub } from "./server/events/hub";
+import { createStore } from "./server/store/store";
 import { Gateway } from "./server/transport/gateway";
-import { friendPlugin } from "./server/http/bootstrap";
-const gateway = new Gateway();
+import { MEMORY, POSTGRES } from "./server/types/store";
 
-gateway.app
-.use(authPlugin)
-.use(friendPlugin);;
+const hub = new Hub();
+const storeKind = config.storeKind === "postgres" ? POSTGRES : MEMORY;
+const store = createStore(storeKind, hub);
 
-gateway.start(config.port);
+const app = new App(store);
+const gateway = new Gateway(store, hub);
+
+new Elysia().use(app.plugin).use(gateway.plugin).listen(config.port);

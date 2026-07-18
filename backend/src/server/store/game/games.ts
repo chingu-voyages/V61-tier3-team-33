@@ -27,7 +27,9 @@ export class Games implements GameStore {
     private publisher: Publisher,
     private resultTtlMs = RESULTS_TTL_MS,
     private emptyTtlMs = EMPTY_TTL_MS,
-  ) {}
+  ) {
+    this.startSweeping();
+  }
 
   /** Look up a game by id. Returns null if not found. */
   get(id: string): Game | null {

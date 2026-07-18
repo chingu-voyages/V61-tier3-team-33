@@ -8,6 +8,8 @@ const env = (key: string): string | undefined => {
 
 const config = {
   port: Number(Bun.env.PORT ?? 3000),
+  storeKind: (Bun.env.STORE_KIND ?? "memory") as "memory" | "postgres",
+
   clientUrl: Bun.env.CLIENT_URL ?? "http://localhost:4000",
   nodeEnv: Bun.env.NODE_ENV ?? "development",
   logEnabled: (Bun.env.LOG_ENABLED ?? "true") !== "false",
@@ -30,6 +32,8 @@ const config = {
   pgConnectTimeout: Number(Bun.env.PG_CONNECT_TIMEOUT ?? 10),
   pgTls: (Bun.env.PG_TLS ?? "false") === "true",
   pgMaxLifetime: Number(Bun.env.PG_MAX_LIFETIME ?? 1800),
+
+  googleClientId: Bun.env.GOOGLE_CLIENT_ID,
 } as const;
 
 if (config.nodeEnv === "production" && missingVars.length > 0) {

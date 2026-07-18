@@ -29,36 +29,36 @@ import {
 } from "../protocol/events";
 import { Reply } from "../protocol/replies";
 import { ServiceRegistry } from "../services/registry";
-import { Games } from "../store/game/games";
 import { Session } from "../store/session/session";
-import { Sessions } from "../store/session/sessions";
+import type { Store } from "../store/store";
 import type { ActivePlayerContext, JoinInput, MoveInput, PlayerContext, Position, WebSocket } from "../types";
 import { Context, HUMAN_VS_HUMAN, NOT_IMPLEMENTED, NOT_IN_GAME, PieceColor } from "../types";
 import { FAST, type Priority } from "../types/priority";
 import type { Switcher } from "../util/switcher";
 import { RoomSwitcher } from "../util/switcher";
-import { type Handler, Hub, type Unsubscribe } from "./hub";
+import type { Hub } from "./hub";
+import { type Handler, type Unsubscribe } from "./hub";
 
 const log = rootLogger.child({ module: "Mediator" });
 
 export class Mediator {
-  private hub = new Hub();
-  private sessions = new Sessions();
-  private games = new Games(this.hub);
+  private hub: Hub;
+  private store: Store;
   private subscriptions = new Map<string, Unsubscribe>();
-  private services = new ServiceRegistry(this.sessions, this.hub, this.games);
+  private services: ServiceRegistry;
   private auth: Auth;
   private switcher: Switcher;
   private eventLog: EventLog;
   private joiningSockets = new Set<string>();
 
-  constructor() {
+  constructor(hub: Hub, store: Store) {
+    this.hub = hub;
+    this.store = store;
+    this.services = new ServiceRegistry(this.sessions, this.hub, this.games);
     this.switcher = new RoomSwitcher(this.games, this.sessions);
     this.auth = new Auth(this.sessions);
     this.eventLog = new EventLog();
     this.eventLog.start(this.hub);
-    this.sessions.startPruning();
-    this.games.startSweeping();
     this.setup();
   }
 
@@ -424,6 +424,14 @@ export class Mediator {
 
   private get connection() {
     return this.services.connection;
+  }
+
+  private get sessions() {
+    return this.store.sessions;
+  }
+
+  private get games() {
+    return this.store.games;
   }
 
   private reconnect(ws: WebSocket, ctx: ActivePlayerContext): boolean {
