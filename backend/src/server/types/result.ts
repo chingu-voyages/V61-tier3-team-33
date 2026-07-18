@@ -181,3 +181,18 @@ export const ErrorMessages: Record<string, string> = {
   [RATE_LIMITED]: "Please wait a moment before requesting an undo again.",
   [INTERNAL_ERROR]: "An unexpected error occurred.",
 };
+const FriendError = brandedTag<"FriendError">();
+
+export const FRIEND_NOT_FOUND = FriendError("friend-not-found");
+export const ALREADY_EXISTS = FriendError("already-exists");
+export const REQUEST_PENDING = FriendError("request-pending");
+export const BLOCKED = FriendError("blocked");
+export const CANNOT_FRIEND_SELF = FriendError("cannot-friend-self");
+
+export type FriendError =
+  | typeof FRIEND_NOT_FOUND
+  | typeof ALREADY_EXISTS
+  | typeof REQUEST_PENDING
+  | typeof BLOCKED
+  | typeof CANNOT_FRIEND_SELF
+  | typeof INTERNAL_ERROR;
