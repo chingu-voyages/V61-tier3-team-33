@@ -29,7 +29,11 @@ export class GoogleAuth {
     }
 
     try {
-      const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+      const response = await fetch("https://oauth2.googleapis.com/tokeninfo", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ id_token: idToken }).toString(),
+      });
 
       if (!response.ok) {
         return err(INVALID_GOOGLE_TOKEN);

@@ -58,4 +58,18 @@ export class MemoryPlayers implements PlayerStore {
     log.info("[MemoryPlayers.save:saved]", { pid: player.pid, username: player.username });
     return ok();
   }
+
+  async delete(pid: string): Promise<Result<void, PlayerError>> {
+    const player = this.byId.get(pid);
+    if (!player) {
+      log.warn("[MemoryPlayers.delete:not-found]", { pid });
+      return err(PLAYER_NOT_FOUND);
+    }
+    const lower = player.username.toLowerCase();
+    this.byId.delete(pid);
+    this.byUsername.delete(lower);
+    this.usernameById.delete(pid);
+    log.info("[MemoryPlayers.delete:deleted]", { pid, username: player.username });
+    return ok();
+  }
 }

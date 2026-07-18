@@ -13,25 +13,21 @@ export class PasswordAuth {
 
   async register(input: RegisterInput): Promise<Result<AuthSession, AuthError>> {
     const normalizedEmail = input.email.trim().toLowerCase();
-    const existingCreds = await this.store.credentials.findByEmail(normalizedEmail);
-    if (existingCreds.ok) {
-      log.warn("[PasswordAuth.register:email-taken]", { email: normalizedEmail });
-      return err(EMAIL_TAKEN);
-    }
 
-    const existingPlayer = await this.store.players.findByUsername(input.username);
-    if (existingPlayer.ok) {
-      log.warn("[PasswordAuth.register:username-taken]", { username: input.username });
-      return err(USERNAME_TAKEN);
+    let passwordHash: string;
+    try {
+      passwordHash = await Bun.password.hash(input.password, {
+        algorithm: "argon2id",
+      });
+    } catch (e) {
+      log.error("[PasswordAuth.register:hash-failed]", { error: String(e) });
+      return err(INTERNAL_ERROR);
     }
-
-    const passwordHash = await Bun.password.hash(input.password, {
-      algorithm: "argon2id",
-    });
 
     const player = Player.create(input.username, PASSWORD);
     const saveResult = await this.store.players.save(player);
     if (!saveResult.ok) {
+      if (saveResult.error === USERNAME_TAKEN) return err(USERNAME_TAKEN);
       log.error("[PasswordAuth.register:player-save-failed]", { username: input.username });
       return err(INTERNAL_ERROR);
     }
@@ -43,6 +39,16 @@ export class PasswordAuth {
       createdAt: Date.now(),
     });
     if (!credResult.ok) {
+      // Cleanup: remove the orphaned player if credential save fails
+      const cleanup = await this.store.players.delete(player.pid);
+      if (!cleanup.ok) {
+        log.error("[PasswordAuth.register:cleanup-failed]", { playerId: player.pid });
+      }
+
+      if (credResult.error === EMAIL_TAKEN) {
+        log.warn("[PasswordAuth.register:email-taken]", { email: normalizedEmail });
+        return err(EMAIL_TAKEN);
+      }
       log.error("[PasswordAuth.register:cred-save-failed]", { playerId: player.pid });
       return err(INTERNAL_ERROR);
     }
@@ -94,7 +100,15 @@ export class PasswordAuth {
       passwordHash = credResult.value.passwordHash;
     }
 
-    if (!(await Bun.password.verify(input.password, passwordHash))) {
+    let passwordVerified: boolean;
+    try {
+      passwordVerified = await Bun.password.verify(input.password, passwordHash);
+    } catch (e) {
+      log.error("[PasswordAuth.login:verify-failed]", { error: String(e) });
+      return err(INTERNAL_ERROR);
+    }
+
+    if (!passwordVerified) {
       log.warn("[PasswordAuth.login:wrong-password]", { login: input.login });
       return err(INVALID_CREDENTIALS);
     }

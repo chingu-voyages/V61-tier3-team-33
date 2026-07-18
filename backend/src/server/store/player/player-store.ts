@@ -13,6 +13,7 @@ export interface PlayerReader {
 
 export interface PlayerWriter {
   save(player: Player): Promise<Result<void, PlayerError>>;
+  delete(pid: string): Promise<Result<void, PlayerError>>;
 }
 
 export type PlayerStore = PlayerReader & PlayerWriter;

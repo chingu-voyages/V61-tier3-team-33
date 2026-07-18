@@ -18,6 +18,7 @@ function buildStore() {
     credentials,
     identities: {} as Store["identities"],
     tokens,
+    friends: {} as Store["friends"],
     games: {} as Store["games"],
     sessions: {} as Store["sessions"],
   } satisfies Store;

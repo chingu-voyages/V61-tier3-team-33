@@ -21,6 +21,7 @@ let players: MemoryPlayers;
 let credentials: MemoryCredentials;
 let identities: MemoryOAuth;
 let tokens: MemoryTokens;
+let authService: AuthService;
 let app: ReturnType<AuthRoutes["plugin"]>;
 let mockFetchResponse: GoogleTokenResponse | null = null;
 
@@ -35,10 +36,11 @@ beforeEach(() => {
     credentials,
     identities,
     tokens,
+    friends: {} as Store["friends"],
     games: {} as Store["games"],
     sessions: {} as Store["sessions"],
   };
-  const authService = new AuthService(store);
+  authService = new AuthService(store);
   app = new AuthRoutes(authService).plugin();
 
   mockFetchResponse = null;
@@ -233,5 +235,46 @@ describe("POST /auth/logout", () => {
   it("returns 204 even with no auth cookie present", async () => {
     const res = await post("/auth/logout", {});
     expect(res.status).toBe(204);
+  });
+});
+
+describe("INTERNAL_ERROR handling", () => {
+  it("returns 500 when register encounters INTERNAL_ERROR", async () => {
+    authService.register = async () => ({ ok: false, error: "internal-error" as const });
+    const res = await post("/auth/register", validRegister);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("internal-error");
+  });
+
+  it("returns 500 when login encounters INTERNAL_ERROR", async () => {
+    authService.login = async () => ({ ok: false, error: "internal-error" as const });
+    const res = await post("/auth/login", {
+      login: "alice@example.com",
+      password: "some-password",
+    });
+    expect(res.status).toBe(500);
+  });
+
+  it("returns 500 when google signin encounters INTERNAL_ERROR", async () => {
+    authService.verify = async () => ({ ok: false, error: "internal-error" as const });
+    mockFetchResponse = {
+      aud: "test-client-id",
+      sub: "google-sub-1",
+      email: "bob@example.com",
+      email_verified: "true",
+    };
+    const res = await post("/auth/google", { idToken: "good-token" });
+    expect(res.status).toBe(500);
+  });
+
+  it("returns 500 when me encounters INTERNAL_ERROR", async () => {
+    authService.identify = async () => ({ ok: false, error: "internal-error" as const });
+    const res = await app.handle(
+      new Request("http://localhost/auth/me", {
+        headers: { Cookie: "token=some-token" },
+      }),
+    );
+    expect(res.status).toBe(500);
   });
 });
