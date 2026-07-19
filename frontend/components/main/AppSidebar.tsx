@@ -39,12 +39,12 @@ const navItems = [
       { title: "Play", url: "/play", icon: IconChess },
     ],
   },
-  {
-    group: "Social",
-    items: [
-      { title: "Friends", url: "/friends", icon: FriendsIcon },
-    ],
-  },
+  // {
+  //   group: "Social",
+  //   items: [
+  //     { title: "Friends", url: "/friends", icon: FriendsIcon },
+  //   ],
+  // },
 ];
 
 export function AppSidebar() {
