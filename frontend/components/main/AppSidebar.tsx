@@ -8,6 +8,7 @@ import {
   IconSettings,
   IconLogout,
 } from "@tabler/icons-react";
+import { FriendsIcon } from "../icons/google";
 
 import { SettingsDialog } from "@/components/settings";
 import {
@@ -36,6 +37,12 @@ const navItems = [
     group: "Play",
     items: [
       { title: "Play", url: "/play", icon: IconChess },
+    ],
+  },
+  {
+    group: "Social",
+    items: [
+      { title: "Friends", url: "/friends", icon: FriendsIcon },
     ],
   },
 ];
