@@ -1,6 +1,6 @@
 "use client"
 
-import { useClock } from "@/hooks/use-clock"
+import { useClock } from "@/components/board/use-clock"
 import type { PieceColor } from "@/core/piece"
 import type { ClockState } from "@/socket/types"
 import { WHITE, KNIGHT } from "@/core/piece"

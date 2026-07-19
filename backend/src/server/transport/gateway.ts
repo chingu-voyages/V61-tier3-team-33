@@ -1,28 +1,24 @@
-import { Elysia } from "elysia";
+import { type AnyElysia, Elysia } from "elysia";
 
 import { logger as rootLogger } from "../../logging/logger";
 import { getCodec } from "../codec/codec";
+import { type Hub } from "../events/hub";
 import { Mediator } from "../events/mediator";
 import { Command } from "../protocol/commands";
 import { Reply } from "../protocol/replies";
+import type { Store } from "../store/store";
 import { INVALID_PAYLOAD } from "../types";
 import { type WebSocket } from "../types";
 
 const log = rootLogger.child({ module: "Gateway" });
 
 export class Gateway {
-  private app: Elysia;
+  readonly plugin: AnyElysia;
   private mediator: Mediator;
 
-  constructor() {
-    this.mediator = new Mediator();
-    this.app = new Elysia();
-    this.setup();
-  }
-
-  private setup(): void {
-    this.app.get("/health", () => ({ status: "ok" }));
-    this.app.ws("/ws", {
+  constructor(store: Store, hub: Hub) {
+    this.mediator = new Mediator(hub, store);
+    this.plugin = new Elysia().ws("/ws", {
       open: this.handleOpen,
       message: this.handleMessage,
       close: this.handleClose,
@@ -53,10 +49,4 @@ export class Gateway {
     log.info("[Gateway.handleMessage:handled]", { wsId: ws.id, cmdType: cmd.type });
     this.mediator.handle(ws, cmd);
   };
-
-  start(port: number = 3001): void {
-    this.app.listen(port, () => {
-      log.info("chess server running", { port });
-    });
-  }
 }

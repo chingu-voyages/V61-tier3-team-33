@@ -2,9 +2,12 @@ import { describe, expect, it, mock } from "bun:test";
 
 import { setCodec } from "../codec/codec";
 import { JsonCodec } from "../codec/json";
+import { Hub } from "../events/hub";
 import type { Command } from "../protocol/commands";
+import { createStore } from "../store/store";
 import { HUMAN_VS_HUMAN, type WebSocket, WHITE, WS_OPEN } from "../types";
 import { INVALID_PAYLOAD, NOT_IMPLEMENTED, ROOM_NOT_FOUND } from "../types";
+import { MEMORY } from "../types/store";
 import { Gateway } from "./gateway";
 
 type GatewayPrivate = { handleMessage(ws: WebSocket, data: unknown): void; handleClose(ws: WebSocket): void };
@@ -32,12 +35,16 @@ function lastSent(ws: WebSocket): RawMessage {
 
 function gatewayWithMocks(codec: JsonCodec) {
   setCodec(codec);
-  return new Gateway();
+  const hub = new Hub();
+  const store = createStore(MEMORY, hub);
+  return new Gateway(store, hub);
 }
 
 function realGateway() {
   setCodec(new JsonCodec());
-  return { gw: new Gateway() };
+  const hub = new Hub();
+  const store = createStore(MEMORY, hub);
+  return { gw: new Gateway(store, hub) };
 }
 
 function handshake(gw: Gateway, ws: WebSocket): string {
@@ -133,7 +140,9 @@ describe("Gateway handleMessage", () => {
         encode: (msg: unknown) => JSON.stringify(msg),
       } as JsonCodec;
       setCodec(codec);
-      const gw = new Gateway();
+      const hub = new Hub();
+      const store = createStore(MEMORY, hub);
+      const gw = new Gateway(store, hub);
       const ws = makeSocket();
 
       handshake(gw, ws);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useSyncExternalStore } from "react"
+import { useEffect, useMemo, useSyncExternalStore } from "react"
 import { ChessContext } from "./context"
 import { Chess } from "./index"
 import { useSocketContext } from "@/socket/context"
@@ -30,6 +30,15 @@ export function ChessProvider({ children }: { children: React.ReactNode }) {
     store.snapshot
   )
 
+  // Play move/capture sounds the instant a move is applied locally
+  useEffect(() => {
+    store.setOnLocalMove((move) => {
+      if (move.captured) sound.playCapture()
+      else sound.playMove()
+    })
+    return () => store.setOnLocalMove(null)
+  }, [store, sound])
+
   useSocketEvent(ROOM_JOINED, (msg) => {
     store.loadFen(msg.state.fen)
     store.setClock(
@@ -44,17 +53,22 @@ export function ChessProvider({ children }: { children: React.ReactNode }) {
   })
 
   useSocketEvent(MOVE_MADE, (msg) => {
-    if (
-      store.snapshot().pendingMove &&
+    const isOwnMove =
+      store.snapshot().pendingMove !== null &&
       store.snapshot().pendingMove!.from === msg.move.from &&
       store.snapshot().pendingMove!.to === msg.move.to
-    ) {
+
+    if (isOwnMove) {
+      // Already applied + sounded optimistically when the move was made —
+      // this is just the server confirming it, so don't re-play the sound.
       store.confirmMove()
     } else {
+      // Opponent's move (or a move we didn't already apply locally): this
+      // is the first we're hearing of it, so play the sound now.
       store.applyMove(msg.move)
+      if (msg.move.captured) sound.playCapture()
+      else sound.playMove()
     }
-    if (msg.move.captured) sound.playCapture()
-    else sound.playMove()
     store.setClock(msg.clock, msg.clock !== null ? performance.now() : null)
   })
 

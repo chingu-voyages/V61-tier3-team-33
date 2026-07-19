@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { Command } from "../protocol/commands";
+import { createStore } from "../store/store";
 import {
   BLITZ,
   HUMAN_VS_HUMAN,
@@ -14,6 +15,8 @@ import {
   type WebSocket,
   WS_OPEN,
 } from "../types";
+import { MEMORY } from "../types/store";
+import { Hub } from "./hub";
 import { Mediator } from "./mediator";
 
 type RawMessage = Record<string, unknown>;
@@ -112,8 +115,11 @@ const E4 = pos(35);
 describe("Mediator integration", () => {
   let mediator: Mediator;
 
+  let hub: Hub;
+
   beforeEach(() => {
-    mediator = new Mediator();
+    hub = new Hub();
+    mediator = new Mediator(hub, createStore(MEMORY, hub));
   });
 
   afterEach(() => {
@@ -910,9 +916,11 @@ describe("Mediator integration", () => {
 // ────────────────────────────────────────────────────────────────────────
 describe("Mediator bug reproductions (expect red until fixed)", () => {
   let mediator: Mediator;
+  let hub: Hub;
 
   beforeEach(() => {
-    mediator = new Mediator();
+    hub = new Hub();
+    mediator = new Mediator(hub, createStore(MEMORY, hub));
   });
 
   afterEach(() => {

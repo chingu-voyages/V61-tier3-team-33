@@ -20,7 +20,6 @@ import {
   IconFlipHorizontal,
   IconArrowBackUp,
   IconFlag,
-  IconX,
   IconDotsVertical,
 } from "@tabler/icons-react"
 import {
@@ -198,6 +197,7 @@ export function View({ onLeave }: ViewProps) {
                   lastMove: chessState.lastMove,
                   flipped: boardFlipped,
                 }}
+                myColor={myColor}
                 onSquareClick={onSquareClick}
                 onPieceDrop={onPieceDrop}
                 onDragStart={onPieceDragStart}
@@ -230,7 +230,13 @@ export function View({ onLeave }: ViewProps) {
                     className="w-3/5 object-contain"
                   />
                 ) : (
-                  <IconX className="size-12 text-muted-foreground" />
+                  <Image
+                    src="/defeat/Draw.png"
+                    alt="Draw"
+                    width={400}
+                    height={400}
+                    className="w-3/5 object-contain"
+                  />
                 )}
                 <p className="text-xl font-bold text-white">{resultText}</p>
                 <Button variant="secondary" size="sm" onClick={onLeave}>

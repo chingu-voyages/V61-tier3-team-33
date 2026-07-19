@@ -19,7 +19,9 @@ export class Sessions implements SessionStore {
   private byPlayerIdMap: Map<string, Session> = new Map();
   private pruner: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private disconnectedTtlMs = DISCONNECTED_TTL_MS) {}
+  constructor(private disconnectedTtlMs = DISCONNECTED_TTL_MS) {
+    this.startPruning();
+  }
 
   /** Look up a session by its WebSocket id. Returns null if not found. */
   bySocket(ws: WebSocket): Session | null {

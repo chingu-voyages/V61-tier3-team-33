@@ -41,6 +41,7 @@ export interface ChessStore {
   confirmMove(): void
   confirmPromotion(promoteTo: PieceType): void
   cancelPromotion(): void
+  setOnLocalMove(cb: ((move: Move) => void) | null): void
   applyMove(move: Move): void
   rejectMove(reason: string, from: Position, to: Position): void
   selectAccepted(position: Position, legalMoves: Position[]): void
@@ -67,6 +68,7 @@ export class Chess implements ChessStore {
   private pendingSnap: { from: Position; to: Position; snap: Snapshot } | null =
     null
   private send: (cmd: object) => void
+  private onLocalMove: ((move: Move) => void) | null = null
 
   constructor(send: (cmd: object) => void, fen?: string) {
     this.send = send
@@ -117,6 +119,15 @@ export class Chess implements ChessStore {
 
   cancelPromotion = (): void => {
     this.setState({ pendingPromotion: null })
+  }
+
+  /**
+   * Register a callback fired synchronously whenever a move is applied
+   * locally (optimistically), before any server round-trip. Used to play
+   * move/capture sounds instantly instead of waiting for MOVE_MADE.
+   */
+  setOnLocalMove = (cb: ((move: Move) => void) | null): void => {
+    this.onLocalMove = cb
   }
 
   // Server sync
@@ -295,6 +306,7 @@ export class Chess implements ChessStore {
       moveRejection: null,
       pendingPromotion: null,
     })
+    this.onLocalMove?.(move)
     const cmd: Record<string, unknown> = { type: "move:make", from, to }
     if (move.promoteTo !== null) {
       cmd.promoteTo = move.promoteTo

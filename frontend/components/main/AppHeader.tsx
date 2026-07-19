@@ -1,19 +1,29 @@
-import Link from "next/link"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { IconBell } from "@tabler/icons-react"
+import Link from "next/link";
+
+import {
+  IconBell,
+} from "@tabler/icons-react";
+
+import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const headerItems = [
-  { title: "Notifications", url: "/notifications", icon: IconBell },
-]
+  {
+    title: "Notifications",
+    url: "/notifications",
+    icon: IconBell,
+  },
+];
 
 export function AppHeader() {
   return (
-    <header className="flex items-center gap-1 border-b px-2 py-1.5">
+    <header className="flex items-center gap-2 border-b px-4 py-2">
       <SidebarTrigger size="icon" />
-      <div className="ml-auto flex items-center gap-1">
+
+      <div className="ml-auto flex items-center gap-2">
         {headerItems.map((item) => (
           <Button
             key={item.title}
@@ -25,8 +35,9 @@ export function AppHeader() {
             <item.icon />
           </Button>
         ))}
+
         <ThemeToggle />
       </div>
     </header>
-  )
+  );
 }
