@@ -23,7 +23,7 @@ function getGuestCookie(): boolean {
 
 function setGuestCookie(): void {
   document.cookie =
-    "guest=true; path=/; sameSite=lax; maxAge=86400"
+    "guest=true; path=/; sameSite=lax; max-age=86400"
 }
 
 function clearGuestCookie(): void {
