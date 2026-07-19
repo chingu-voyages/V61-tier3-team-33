@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useReducer } from "react"
-import Image from "next/image"
 import { useRoom } from "@/context/room/context"
 import { useChess } from "@/chess/context"
 import { Board } from "@/components/board/Board"
@@ -198,6 +197,7 @@ export function View({ onLeave }: ViewProps) {
                   lastMove: chessState.lastMove,
                   flipped: boardFlipped,
                 }}
+                myColor={myColor}
                 onSquareClick={onSquareClick}
                 onPieceDrop={onPieceDrop}
                 onDragStart={onPieceDragStart}
@@ -214,7 +214,7 @@ export function View({ onLeave }: ViewProps) {
             {isFinished && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/60 backdrop-blur-sm">
                 {state.result!.hasWinner ? (
-                  <Image
+                  <img
                     src={
                       state.color === WHITE
                         ? state.result!.winner === WHITE
@@ -230,7 +230,13 @@ export function View({ onLeave }: ViewProps) {
                     className="w-3/5 object-contain"
                   />
                 ) : (
-                  <IconX className="size-12 text-muted-foreground" />
+                  <img
+                    src="/defeat/Draw.png"
+                    alt="Draw"
+                    width={400}
+                    height={400}
+                    className="w-3/5 object-contain"
+                  />
                 )}
                 <p className="text-xl font-bold text-white">{resultText}</p>
                 <Button variant="secondary" size="sm" onClick={onLeave}>

@@ -45,9 +45,24 @@ interface BoardSquareProps {
   isDark: boolean
   state?: Exclude<SquareVariant["state"], undefined>
   movingPieceColor?: PieceColor
+  /** The local player's color — pieces of any other color can't be picked up. */
+  myColor?: PieceColor
+  /** True for the square a piece is currently being dragged out of. */
+  isDragSource?: boolean
+  /** True for the square currently under the pointer during a drag. */
+  isDragHover?: boolean
+  /** True for the square a dragged piece just landed on — skips the
+   * mount-in animation since the floating drag piece already "carried" it
+   * there visually. */
+  justArrived?: boolean
   onSquareClick: (pos: Position) => void
-  onPieceDrop?: (source: Position, target: Position) => void
-  onDragStart?: (pos: Position) => void
+  onPiecePointerDown?: (
+    e: React.PointerEvent,
+    position: Position,
+    piece: Piece
+  ) => void
+  onPieceDragMove?: (e: React.PointerEvent) => void
+  onPieceDragEnd?: (e: React.PointerEvent) => void
 }
 
 function arePropsEqual(prev: BoardSquareProps, next: BoardSquareProps) {
@@ -55,9 +70,14 @@ function arePropsEqual(prev: BoardSquareProps, next: BoardSquareProps) {
   if (prev.isDark !== next.isDark) return false
   if (prev.state !== next.state) return false
   if (prev.movingPieceColor !== next.movingPieceColor) return false
+  if (prev.myColor !== next.myColor) return false
+  if (prev.isDragSource !== next.isDragSource) return false
+  if (prev.isDragHover !== next.isDragHover) return false
+  if (prev.justArrived !== next.justArrived) return false
   if (prev.onSquareClick !== next.onSquareClick) return false
-  if (prev.onPieceDrop !== next.onPieceDrop) return false
-  if (prev.onDragStart !== next.onDragStart) return false
+  if (prev.onPiecePointerDown !== next.onPiecePointerDown) return false
+  if (prev.onPieceDragMove !== next.onPieceDragMove) return false
+  if (prev.onPieceDragEnd !== next.onPieceDragEnd) return false
 
   const p = prev.piece
   const n = next.piece
@@ -72,45 +92,26 @@ const BoardSquare = memo(function BoardSquare({
   isDark,
   state = "none",
   movingPieceColor,
+  myColor,
+  isDragSource = false,
+  isDragHover = false,
+  justArrived = false,
   onSquareClick,
-  onPieceDrop,
-  onDragStart,
+  onPiecePointerDown,
+  onPieceDragMove,
+  onPieceDragEnd,
 }: BoardSquareProps) {
   const tone = isDark ? "dark" : "light"
   const dotFillClass =
     movingPieceColor === WHITE ? "bg-chess-w-fill" : "bg-chess-b-fill"
 
-  function handleDragStart(e: React.DragEvent) {
-    e.dataTransfer.setData("text/plain", String(position))
-    e.dataTransfer.effectAllowed = "move"
-    onDragStart?.(position)
-
-    const ghost = e.currentTarget.cloneNode(true) as HTMLElement
-    ghost.style.position = "fixed"
-    ghost.style.top = "0"
-    ghost.style.left = "0"
-    ghost.style.width = "64px"
-    ghost.style.height = "64px"
-    ghost.style.pointerEvents = "none"
-    ghost.style.zIndex = "-1"
-    document.body.appendChild(ghost)
-    e.dataTransfer.setDragImage(ghost, 32, 32)
-    requestAnimationFrame(() => ghost.remove())
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    const raw = e.dataTransfer.getData("text/plain")
-    if (!raw) return
-    const source = Number(raw) as Position
-    if (onPieceDrop) {
-      onPieceDrop(source, position)
-    }
+  function handlePointerDown(e: React.PointerEvent) {
+    if (!piece) return
+    // Can't pick up the opponent's pieces — mirrors chess.com: only your
+    // own pieces lift off the board under the pointer.
+    if (myColor !== undefined && piece.color !== myColor) return
+    if (e.pointerType === "mouse" && e.button !== 0) return
+    onPiecePointerDown?.(e, position, piece)
   }
 
   return (
@@ -118,37 +119,50 @@ const BoardSquare = memo(function BoardSquare({
       data-slot="board-square"
       className={cn(squareVariants({ tone, state }))}
       onClick={() => onSquareClick(position)}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
     >
-      <AnimatePresence>
-        {piece && (
-          <motion.div
-            key={`${piece.color}-${piece.type}`}
-            initial={{ scale: 1.08, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{
-              scale: 0.9,
-              opacity: 0,
-              transition: { duration: 0.12, ease: "easeOut" },
-            }}
-            transition={{
-              type: "spring",
-              stiffness: 380,
-              damping: 32,
-              mass: 0.6,
-            }}
-          >
-            <div
-              draggable
-              onDragStart={handleDragStart}
-              className="cursor-grab active:cursor-grabbing"
+      {/* Opacity toggles independently of the motion.div's own animated
+          opacity below — the two compose by multiplication, so this cleanly
+          hides the static piece while it's being dragged without touching
+          (or fighting) the enter/exit animation. */}
+      <div
+        className="absolute inset-0"
+        style={isDragSource ? { opacity: 0 } : undefined}
+      >
+        <AnimatePresence>
+          {piece && (
+            <motion.div
+              key={`${piece.color}-${piece.type}`}
+              initial={justArrived ? false : { scale: 1.08, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{
+                scale: 0.9,
+                opacity: 0,
+                transition: { duration: 0.12, ease: "easeOut" },
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 380,
+                damping: 32,
+                mass: 0.6,
+              }}
+              className="h-full w-full"
             >
-              {getPieceIcon(piece, { className: "w-full h-full" })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div
+                onPointerDown={handlePointerDown}
+                onPointerMove={onPieceDragMove}
+                onPointerUp={onPieceDragEnd}
+                onPointerCancel={onPieceDragEnd}
+                className="h-full w-full touch-none cursor-grab select-none active:cursor-grabbing"
+              >
+                {getPieceIcon(piece, { className: "h-full w-full" })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {isDragHover && (
+        <div className="border-chess-selected-border-on-light dark:border-chess-selected-border-on-dark pointer-events-none absolute inset-0 border-2" />
+      )}
       {state === "legalMove" && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className={cn("h-1/3 w-1/3 rounded-full", dotFillClass)} />

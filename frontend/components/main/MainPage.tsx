@@ -1,9 +1,6 @@
 import Link from "next/link"
 import { IconWorld, IconUsers, IconDeviceGamepad2 } from "@tabler/icons-react"
 
-import { WHITE, BLACK, KNIGHT } from "@/core/piece"
-import { getPieceIcon } from "@/components/pieces"
-
 import {
   Card,
   CardHeader,
@@ -60,20 +57,13 @@ export function MainPage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
       <div className="flex flex-col items-center gap-2 text-center">
-        <div className="flex items-center gap-4">
-          <div className="[&_svg]:-scale-x-100">
-            {getPieceIcon(
-              { type: KNIGHT, color: WHITE },
-              { className: "size-32" }
-            )}
-          </div>
-          <div>
-            {getPieceIcon(
-              { type: KNIGHT, color: BLACK },
-              { className: "size-32" }
-            )}
-          </div>
-        </div>
+        <img
+          src="/Logo.png"
+          alt="Chingu Chess"
+          width={200}
+          height={200}
+          className="w-80 mb-8 object-contain"
+        />
         <h1 className="text-3xl font-bold tracking-tight">
           Welcome to Chingu Chess
         </h1>
