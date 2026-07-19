@@ -67,7 +67,7 @@ export function useAuth() {
   });
 
   function setSessionCookie() {
-    document.cookie = "session=true; path=/; sameSite=lax; maxAge=86400";
+    document.cookie = "session=true; path=/; sameSite=lax; max-age=86400";
   }
 
   function clearSessionCookie() {

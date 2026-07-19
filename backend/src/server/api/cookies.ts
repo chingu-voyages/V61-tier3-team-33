@@ -15,11 +15,12 @@ export const Cookie = {
       if (!cookie) {
         throw new Error("token cookie is unavailable");
       }
+      const isProduction = config.nodeEnv === "production";
       cookie.set({
         value,
         httpOnly: true,
-        secure: config.nodeEnv === "production",
-        sameSite: "lax",
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
         maxAge: AUTH_TOKEN_TTL_SECONDS,
         path: "/",
       });
