@@ -1,11 +1,3 @@
-const missingVars: string[] = [];
-
-const env = (key: string): string | undefined => {
-  const val = Bun.env[key];
-  if (!val) missingVars.push(key);
-  return val;
-};
-
 const config = {
   port: Number(Bun.env.PORT ?? 3000),
   storeKind: (Bun.env.STORE_KIND ?? "memory") as "memory" | "postgres",
@@ -24,7 +16,8 @@ const config = {
   // Postgres connection
   pgHost: Bun.env.PG_HOST ?? "localhost",
   pgPort: Number(Bun.env.PG_PORT ?? 5432),
-  pgDatabase: env("testDB"),
+  pgDatabase: Bun.env.PG_DATABASE,
+  pgTestDatabase: Bun.env.TEST_DATABASE,
   pgUser: Bun.env.PG_USER ?? "postgres",
   pgPassword: Bun.env.PG_PASSWORD,
   pgPoolMax: Number(Bun.env.PG_POOL_MAX ?? 10),
@@ -35,9 +28,5 @@ const config = {
 
   googleClientId: Bun.env.GOOGLE_CLIENT_ID,
 } as const;
-
-if (config.nodeEnv === "production" && missingVars.length > 0) {
-  throw new Error(`Missing required environment variables in production: ${missingVars.join(", ")}`);
-}
 
 export default config;

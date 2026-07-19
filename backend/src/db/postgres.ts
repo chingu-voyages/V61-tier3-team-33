@@ -5,29 +5,31 @@ import { logger as rootLogger } from "../logging/logger";
 
 const log = rootLogger.child({ module: "Postgres" });
 
+const isTest = Bun.env.NODE_ENV === "test";
+// Bun's test runner sets NODE_ENV=test automatically (bun test), so this
+// correctly targets the test database whenever tests are running, without
+// requiring a separate env var that nothing actually sets.
+const database = isTest ? (config.pgTestDatabase ?? config.pgDatabase) : config.pgDatabase;
+
 export const sql = new SQL({
-  // Connection
   hostname: config.pgHost,
   port: config.pgPort,
-  database: config.pgDatabase,
+  database,
   username: config.pgUser,
   password: config.pgPassword,
 
-  // Pool
   max: config.pgPoolMax,
   idleTimeout: config.pgIdleTimeout,
   maxLifetime: config.pgMaxLifetime,
   connectionTimeout: config.pgConnectTimeout,
 
-  // TLS
   tls: config.pgTls,
 
-  // Lifecycle
   onconnect: () => {
-    log.info("[Postgres.connected:open]", { host: config.pgHost, port: config.pgPort, database: config.pgDatabase });
+    log.info("[Postgres.connected:open]", { host: config.pgHost, port: config.pgPort, database });
   },
   onclose: () => {
-    log.info("[Postgres.connected:closed]", { host: config.pgHost, port: config.pgPort, database: config.pgDatabase });
+    log.info("[Postgres.connected:closed]", { host: config.pgHost, port: config.pgPort, database });
   },
 });
 
