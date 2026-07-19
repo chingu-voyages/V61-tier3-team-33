@@ -1,0 +1,93 @@
+name: Deploy Frontend to Vercel
+
+on:
+  push:
+    branches:
+      - main
+      - development
+  pull_request:
+    branches:
+      - main
+      - development
+
+jobs:
+  deploy-production:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    name: Deploy Frontend (Production)
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Vercel Hobby plan only allows deployments where the commit author
+      # matches the personal account owner. This step rewrites the author
+      # so Vercel's check passes when deploying from a GitHub org repo.
+      - name: Override commit author for Vercel Hobby plan
+        run: |
+          git config user.email "${{ secrets.VERCEL_OWNER_EMAIL }}"
+          git config user.name "${{ secrets.VERCEL_OWNER_NAME }}"
+          git commit --amend --reset-author --no-edit || true
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Pull Vercel environment
+        working-directory: frontend
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        working-directory: frontend
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        working-directory: frontend
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  deploy-development:
+    if: github.ref == 'refs/heads/development' && github.event_name == 'push'
+    name: Deploy Frontend (Development)
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_DEV_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Override commit author for Vercel Hobby plan
+        run: |
+          git config user.email "${{ secrets.VERCEL_OWNER_EMAIL }}"
+          git config user.name "${{ secrets.VERCEL_OWNER_NAME }}"
+          git commit --amend --reset-author --no-edit || true
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # Deployed as --prod against a SEPARATE Vercel project, so this is
+      # publicly viewable (not gated behind Vercel's preview-access controls).
+      - name: Pull Vercel environment
+        working-directory: frontend
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        working-directory: frontend
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        working-directory: frontend
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

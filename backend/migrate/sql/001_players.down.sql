@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS players;
+DROP TYPE IF EXISTS auth_provider;
+DROP TYPE IF EXISTS player_role;
