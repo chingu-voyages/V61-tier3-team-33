@@ -19,7 +19,7 @@ export function FriendsList() {
     if (!user) return;
 
     loadFriends(user.playerId);
-  }, [user]);
+  }, [user, loadFriends]);
 
   if (!user) return null;
 

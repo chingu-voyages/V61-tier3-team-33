@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { IconWorld, IconUsers, IconDeviceGamepad2 } from "@tabler/icons-react"
 
 import {
@@ -57,11 +58,12 @@ export function MainPage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
       <div className="flex flex-col items-center gap-2 text-center">
-        <img
+        <Image
           src="/Logo.png"
           alt="Chingu Chess"
           width={200}
           height={200}
+          loading="eager"
           className="w-80 mb-8 object-contain"
         />
         <h1 className="text-3xl font-bold tracking-tight">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import * as api from "@/lib/friend";
 import type { Friendship } from "@/types/friend";
 
@@ -9,7 +9,7 @@ export function useFriends() {
   const [pending, setPending] = useState<Friendship[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function loadFriends(pid: string) {
+  const loadFriends = useCallback(async (pid: string) => {
     setLoading(true);
 
     try {
@@ -18,16 +18,16 @@ export function useFriends() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function loadPending(pid: string) {
+  const loadPending = useCallback(async (pid: string) => {
     try {
       const requests = await api.getPending(pid);
       setPending(requests);
     } catch (err) {
       console.error(err);
     }
-  }
+  }, []);
 
   return {
     friends,

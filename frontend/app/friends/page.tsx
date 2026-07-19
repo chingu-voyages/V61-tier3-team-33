@@ -44,7 +44,7 @@ export default function FriendsPage() {
           <CardHeader>
             <CardTitle>Add a Friend</CardTitle>
             <CardDescription>
-              Search using a player's ID and send a friend request.
+              Search using a player&apos;s ID and send a friend request.
             </CardDescription>
           </CardHeader>
 
@@ -73,7 +73,7 @@ export default function FriendsPage() {
           <CardHeader>
             <CardTitle>Your Friends</CardTitle>
             <CardDescription>
-              Manage everyone you've connected with.
+              Manage everyone you&apos;ve connected with.
             </CardDescription>
           </CardHeader>
 

@@ -21,7 +21,7 @@ export function PendingRequests() {
     if (user) {
       loadPending(user.playerId);
     }
-  }, [user]);
+  }, [user, loadPending]);
 
   if (loading) {
     return <p>Loading...</p>;
