@@ -1,10 +1,8 @@
 import { Inter, Outfit } from "next/font/google";
-import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AppProvider } from "@/context/app/AppProvider";
-import { AuthProvider } from "@/context/auth/AuthProvider";
 
 const outfitHeading = Outfit({
   subsets: ["latin"],
@@ -33,14 +31,9 @@ export default function RootLayout({
       )}
     >
       <body>
-        <GoogleOAuthProvider
-          clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
-        >
           <AppProvider>
-            <AuthProvider>
-            {children}</AuthProvider>
+            {children}
           </AppProvider>
-        </GoogleOAuthProvider>
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 import type { Cookie as ElysiaCookie } from "elysia";
 
+import config from "../../config/config";
 import { TOKEN_TTL_MS } from "../store/token/token-store";
 
 const AUTH_TOKEN_TTL_SECONDS = TOKEN_TTL_MS / 1000;
@@ -17,7 +18,7 @@ export const Cookie = {
       cookie.set({
         value,
         httpOnly: true,
-        secure: true,
+        secure: config.nodeEnv === "production",
         sameSite: "lax",
         maxAge: AUTH_TOKEN_TTL_SECONDS,
         path: "/",
