@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { gooeyToast } from "@/components/ui/goey-toaster";
 import { useGuest } from "@/context/guest/GuestProvider";
 import { env } from "@/config/env";
@@ -57,7 +56,6 @@ async function getCurrentUser() {
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  const router = useRouter();
   const { clearGuest } = useGuest();
 
   const session = useQuery({
@@ -80,7 +78,8 @@ export function useAuth() {
       queryClient.setQueryData(["session"], data);
       setSessionCookie();
       clearGuest();
-      setTimeout(() => router.replace("/"), 0);
+      // Full nav avoids stale router cache — forces fresh cookie check.
+      window.location.href = "/";
     },
     onError: (err) => {
       gooeyToast.error(err.message);
@@ -93,7 +92,7 @@ export function useAuth() {
       queryClient.setQueryData(["session"], data);
       setSessionCookie();
       clearGuest();
-      setTimeout(() => router.replace("/"), 0);
+      window.location.href = "/";
     },
     onError: (err) => {
       gooeyToast.error(err.message);
@@ -105,7 +104,7 @@ export function useAuth() {
     onSuccess: () => {
       queryClient.setQueryData(["session"], null);
       clearSessionCookie();
-      setTimeout(() => router.replace("/login"), 0);
+      window.location.href = "/login";
     },
   });
 
